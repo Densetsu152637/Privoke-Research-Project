@@ -1,84 +1,91 @@
-//! The training-cycle scheduler (`fuzzer_requests.py`): the process that asks the Python fuzzer, over mutual TLS, to run
-//! a head training cycle and then a full-encoder cycle, and survives restarts, lost acknowledgements and rejections.
+//! The routine-training scheduler (stage V3-R6 of the routine-training plan): the process that asks the V3 fuzzer, over mutual TLS,
+//! for one HEADS fit and then one FULL_ENCODER fit of each of the three V3 tiers, round after round, and survives restarts, lost
+//! fits and refusals. It replaces the V1 scheduler (`fuzzer_requests.py`); no V1 `FuzzerService` call remains.
 //!
-//! Each cycle is journalled ([`crate::journal`]) before its first request with fixed request ids and a fixed seed, so a
-//! retry or a restart sends the same request and the fuzzer's own receipts answer it exactly once. The encoder stage
-//! asks for the head stage's published version as its base. A rejection that the fuzzer states definitively
-//! (`FAILED_PRECONDITION`, `INVALID_ARGUMENT`, `ALREADY_EXISTS`, or an unacceptable response) ends the stage; anything else
-//! is retried up to `max_attempts` and then left pending for the next interval.
+//! The scheduler is the **single allocator** of `(request_id, seed, expected_base, sampler, scope, source_commitment)`
+//! ([`crate::journal`]):
 //!
-//! The Python scheduler's bounded study controls (a fixed cycle count, stage observers and extra request metadata) are
-//! not ported: they exist for evaluation scripts, which keep calling the Python implementation.
+//! * `expected_base` is what the store authority serves for the model when the request is allocated;
+//! * the `source_commitment` is the *routine commitment* of the sampler, the seed and the frozen policy
+//!   ([`Commitments`]). The scheduler computes it from its own copy of the pinned sources and the policy, not from anything the
+//!   fuzzer says, because the commit happens **inside** the fuzzer's call, before any response exists, and the guard gate
+//!   ([`crate::v3_guard::GuardGate`]) must already find the allocation then. The fuzzer's own `routine_commitment` in its response
+//!   is compared with it afterwards;
+//! * the allocation is journalled durably before the fuzzer is called.
+//!
+//! Restart rule (G3): for an allocation still in flight the scheduler asks the store (`GetCommitStatus`) what became of the request
+//! before it asks the fuzzer again. A recorded receipt settles the allocation. Otherwise the same identity is re-sent (the fuzzer
+//! resumes a fit whose commit request it holds and answers `FAILED_PRECONDITION` when the fit was lost); a lost fit is replaced
+//! by a new allocation with a new request id and seed.
 
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use privoke_contracts::proto::v1::fuzzer_service_client::FuzzerServiceClient;
+use privoke_contracts::digest::sha256_hex;
+use privoke_contracts::proto::experimental_v3::v3_fuzzer_service_client::V3FuzzerServiceClient;
 use privoke_contracts::proto::v1::{FuzzerTrainingRequest, FuzzerTrainingResponse};
+use privoke_curriculum::v3::{
+    AU3_SAMPLER, AU3_SOURCE_FILES, BC01_SAMPLER, BC01_SOURCE_FILES, INPUTS, python_source_hashes, routine_commitment,
+};
+use privoke_curriculum::value;
 use privoke_transport::ClientTlsConfig;
 use privoke_transport::client::connect;
-use prost::Message;
 use tonic::Code;
 
 use crate::error::{Error, Result};
-use crate::journal::{Cycle, Journal, Stage, StageRecord};
+use crate::journal::{AllocationRow, Cycle, Journal, Stage, TIERS, model_of};
 use crate::pyfmt::py_int;
-use crate::util::{hex, log, unix_seconds_f64};
+use crate::util::{log, unix_seconds_f64};
+use crate::v3_store::{CheckpointStore, PinnedSources};
 use crate::validate::validate_text;
 
-/// What the scheduler is configured with (`FuzzerRequestConfig` in Python).
+/// What the scheduler is configured with.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FuzzerRequestConfig {
-    /// The fuzzer's `host:port` (`FUZZER_TARGET`).
+    /// The V3 fuzzer's `host:port` (`FUZZER_TARGET`).
     pub target: String,
     /// Prompts per request; zero disables the scheduler (`FUZZER_PROMPT_COUNT`).
     pub prompt_count: i64,
-    /// The model (`MODEL_ID`).
-    pub model_id: String,
     /// This service's source id in the fuzzer requests (`PARAM_UPDATE_SOURCE_ID`).
     pub source_id: String,
-    /// Deadline of one request in seconds (`FUZZER_REQUEST_TIMEOUT_SECONDS`).
+    /// Deadline of one request in seconds (`FUZZER_REQUEST_TIMEOUT_SECONDS`): a quality-tier FULL fit takes up to 25 minutes.
     pub timeout_seconds: f64,
-    /// Seconds between cycles; zero or less runs one cycle (`FUZZER_REQUEST_INTERVAL_SECONDS`).
+    /// Seconds between rounds; zero or less runs one round (`FUZZER_REQUEST_INTERVAL_SECONDS`).
     pub interval_seconds: f64,
-    /// Seconds before the first cycle (`FUZZER_REQUEST_INITIAL_DELAY_SECONDS`).
+    /// Seconds before the first round (`FUZZER_REQUEST_INITIAL_DELAY_SECONDS`).
     pub initial_delay_seconds: f64,
     /// Seconds between attempts (`FUZZER_REQUEST_RETRY_SECONDS`).
     pub retry_seconds: f64,
-    /// Attempts per stage (`FUZZER_REQUEST_MAX_ATTEMPTS`).
+    /// Attempts per stage per round (`FUZZER_REQUEST_MAX_ATTEMPTS`).
     pub max_attempts: i64,
-    /// The base seed (`FUZZER_REQUEST_SEED`).
+    /// The base seed of the rounds (`FUZZER_REQUEST_SEED`).
     pub seed: i64,
-    /// `deterministic_v1` or `seeded_family_v1` (`FUZZER_CURRICULUM_SAMPLER_POLICY`).
-    pub curriculum_sampler_policy: String,
-    /// The sampler seed (`FUZZER_CURRICULUM_SAMPLER_SEED`).
-    pub curriculum_sampler_seed: i64,
-    /// Whether the full-encoder stage runs after the head stage (`FUZZER_TRAIN_UNDERLYING`).
-    pub train_underlying: bool,
     /// The journal (`FUZZER_CYCLE_STATE_PATH`).
     pub state_path: PathBuf,
+    /// The tiers a round trains, in order (`V3_TIERS`, comma separated; default all three).
+    pub tiers: Vec<String>,
+    /// The frozen policy file of the fuzzer (`V3_POLICY_FILE`), whose digest the fuzzer requires in every routine request.
+    pub policy_file: PathBuf,
 }
 
 impl FuzzerRequestConfig {
-    /// A configuration with the Python defaults for everything but the model and source ids.
+    /// A configuration with the defaults.
     pub fn defaults() -> Self {
         Self {
-            target: "privoke-fuzzer:50053".to_string(),
+            target: "v3-fuzzer:50053".to_string(),
             prompt_count: 32,
-            model_id: "privoke-baseline".to_string(),
             source_id: "param-update-service".to_string(),
-            timeout_seconds: 30.0,
-            interval_seconds: 3600.0,
+            timeout_seconds: 3600.0,
+            interval_seconds: 10_800.0,
             initial_delay_seconds: 2.0,
-            retry_seconds: 2.0,
+            retry_seconds: 30.0,
             max_attempts: 3,
             seed: 1337,
-            curriculum_sampler_policy: "deterministic_v1".to_string(),
-            curriculum_sampler_seed: 0,
-            train_underlying: true,
             state_path: PathBuf::from("/data/training-cycles.sqlite3"),
+            tiers: TIERS.iter().map(|tier| (*tier).to_string()).collect(),
+            policy_file: PathBuf::from("/config/v3-policy.json"),
         }
     }
 
@@ -102,15 +109,9 @@ impl FuzzerRequestConfig {
                 Some(value) => value.trim().parse::<f64>().map_err(|_| Error(format!("{key} must be a number."))),
             }
         };
-        let underlying = match text("FUZZER_TRAIN_UNDERLYING", "true").to_ascii_lowercase().as_str() {
-            "true" => true,
-            "false" => false,
-            _ => return Err(Error("FUZZER_TRAIN_UNDERLYING must be true or false.".to_string())),
-        };
         let config = Self {
             target: text("FUZZER_TARGET", &defaults.target),
             prompt_count: integer("FUZZER_PROMPT_COUNT", defaults.prompt_count)?,
-            model_id: text("MODEL_ID", &defaults.model_id),
             source_id: text("PARAM_UPDATE_SOURCE_ID", &defaults.source_id),
             timeout_seconds: number("FUZZER_REQUEST_TIMEOUT_SECONDS", defaults.timeout_seconds)?,
             interval_seconds: number("FUZZER_REQUEST_INTERVAL_SECONDS", defaults.interval_seconds)?,
@@ -118,10 +119,9 @@ impl FuzzerRequestConfig {
             retry_seconds: number("FUZZER_REQUEST_RETRY_SECONDS", defaults.retry_seconds)?,
             max_attempts: integer("FUZZER_REQUEST_MAX_ATTEMPTS", defaults.max_attempts)?,
             seed: integer("FUZZER_REQUEST_SEED", defaults.seed)?,
-            curriculum_sampler_policy: text("FUZZER_CURRICULUM_SAMPLER_POLICY", &defaults.curriculum_sampler_policy),
-            curriculum_sampler_seed: integer("FUZZER_CURRICULUM_SAMPLER_SEED", defaults.curriculum_sampler_seed)?,
-            train_underlying: underlying,
             state_path: PathBuf::from(text("FUZZER_CYCLE_STATE_PATH", &defaults.state_path.to_string_lossy())),
+            policy_file: PathBuf::from(text("V3_POLICY_FILE", &defaults.policy_file.to_string_lossy())),
+            tiers: text("V3_TIERS", &defaults.tiers.join(",")).split(',').map(|tier| tier.trim().to_string()).collect(),
         };
         config.validate()?;
         Ok(config)
@@ -132,33 +132,26 @@ impl FuzzerRequestConfig {
         Self::from_lookup(|key| std::env::var(key).ok())
     }
 
-    /// The Python `validate`.
+    /// Bounds of the settings.
     pub fn validate(&self) -> Result<()> {
         if self.state_path.as_os_str().is_empty() {
-            return Err(Error("Automatic training requires a boolean stage selection and durable state path.".to_string()));
+            return Err(Error("Automatic training requires a durable state path.".to_string()));
         }
         let text =
             |value: &str, field: &str, limit: usize| validate_text(value, field, true, limit).map_err(|failure| Error(failure.to_string()));
         text(&self.target, "FUZZER_TARGET", 256)?;
-        text(&self.model_id, "MODEL_ID", 128)?;
         text(&self.source_id, "PARAM_UPDATE_SOURCE_ID", 128)?;
         if !(0..=i64::from(u32::MAX)).contains(&self.prompt_count) {
             return Err(Error("FUZZER_PROMPT_COUNT must not be negative.".to_string()));
+        }
+        if self.tiers.is_empty() || self.tiers.iter().any(|tier| !TIERS.contains(&tier.as_str())) {
+            return Err(Error("V3_TIERS must name tiers among efficient, balanced and quality.".to_string()));
         }
         if self.max_attempts <= 0 {
             return Err(Error("FUZZER_REQUEST_MAX_ATTEMPTS must be positive.".to_string()));
         }
         if !(0..=i64::from(u32::MAX)).contains(&self.seed) {
             return Err(Error("FUZZER_REQUEST_SEED must fit an unsigned 32-bit integer.".to_string()));
-        }
-        if self.curriculum_sampler_policy != "deterministic_v1" && self.curriculum_sampler_policy != "seeded_family_v1" {
-            return Err(Error("Unknown FUZZER_CURRICULUM_SAMPLER_POLICY.".to_string()));
-        }
-        if !(0..=i64::from(u32::MAX)).contains(&self.curriculum_sampler_seed) {
-            return Err(Error("FUZZER_CURRICULUM_SAMPLER_SEED must fit an unsigned 32-bit integer.".to_string()));
-        }
-        if self.curriculum_sampler_policy == "deterministic_v1" && self.curriculum_sampler_seed != 0 {
-            return Err(Error("deterministic_v1 requires FUZZER_CURRICULUM_SAMPLER_SEED=0.".to_string()));
         }
         for (name, value, allow_zero) in [
             ("FUZZER_REQUEST_TIMEOUT_SECONDS", self.timeout_seconds, false),
@@ -183,31 +176,89 @@ impl FuzzerRequestConfig {
     }
 }
 
-/// `build_training_request`.
-pub fn build_training_request(
-    config: &FuzzerRequestConfig,
-    request_id: &str,
-    expected_base_version: Option<&str>,
-) -> FuzzerTrainingRequest {
-    let mut metadata: BTreeMap<String, String> = BTreeMap::new();
-    metadata.insert("initiator".to_string(), "param-update-service".to_string());
-    if config.train_underlying {
-        metadata.insert("require_full_capability".to_string(), "true".to_string());
+/// What the store recorded of a request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommitStatus {
+    /// `applied` or `rejected`.
+    pub status: String,
+    /// The candidate of the request.
+    pub candidate: String,
+    /// The refusal's reason (empty for an applied request).
+    pub reason: String,
+}
+
+/// The store authority, as the scheduler reads it (in process: the scheduler runs beside the checkpoint store).
+pub trait StoreView: Send + Sync {
+    /// The manifest the model serves now.
+    fn resolve(&self, model_id: &str) -> Result<String>;
+    /// The recorded outcome of a request, or `None` when the store has no receipt for it.
+    fn commit_status(&self, request_id: &str) -> Result<Option<CommitStatus>>;
+}
+
+impl StoreView for CheckpointStore {
+    fn resolve(&self, model_id: &str) -> Result<String> {
+        CheckpointStore::resolve(self, model_id).map_err(|error| Error(format!("store authority: {error}")))
     }
-    if let Some(base) = expected_base_version.filter(|base| !base.is_empty()) {
-        metadata.insert("expected_base_version".to_string(), base.to_string());
+
+    fn commit_status(&self, request_id: &str) -> Result<Option<CommitStatus>> {
+        let receipt = self.status(request_id).map_err(|error| Error(format!("store authority: {error}")))?;
+        Ok(matches!(receipt.status.as_str(), "applied" | "rejected").then(|| CommitStatus {
+            status: receipt.status,
+            candidate: receipt.candidate,
+            reason: receipt.reason,
+        }))
     }
-    if config.curriculum_sampler_policy != "deterministic_v1" {
-        metadata.insert("curriculum_sampler_policy".to_string(), config.curriculum_sampler_policy.clone());
-        metadata.insert("curriculum_sampler_seed".to_string(), config.curriculum_sampler_seed.to_string());
+}
+
+/// The routine commitment of a sampler and a seed, and the digest of the frozen policy every request must name.
+pub trait Commitments: Send + Sync {
+    /// `policy_sha256` of the requests.
+    fn policy_sha256(&self) -> String;
+    /// The routine commitment of `sampler` at `seed`.
+    fn commitment(&self, sampler: &str, seed: u32) -> Result<String>;
+}
+
+/// The commitments over the pinned sources of this process: the BC01 inputs and the audience release the store validates
+/// against, the digests of the Python files the schedules pin (under the same checkout the fuzzer reads), and the policy file.
+#[derive(Debug, Clone)]
+pub struct PinnedCommitments {
+    policy_sha256: String,
+    parts: BTreeMap<String, (serde_json::Value, serde_json::Value)>,
+}
+
+fn json_of(document: &value::Value) -> Result<serde_json::Value> {
+    let bytes = value::canonical_bytes(document).map_err(|error| Error(error.to_string()))?;
+    serde_json::from_slice(&bytes).map_err(|error| Error(error.to_string()))
+}
+
+impl PinnedCommitments {
+    /// Pin the commitments: `policy` is the bytes of the frozen policy file, `source_root` the checkout the fuzzer hashes.
+    pub fn new(sources: &PinnedSources, source_root: &std::path::Path, policy: &[u8]) -> Result<Self> {
+        let failure = |error: &dyn std::fmt::Display| Error(format!("routine commitments: {error}"));
+        let release = sources.audience_release().map_err(|error| failure(&error))?;
+        let bc01_inputs = value::object(INPUTS.iter().map(|(key, _, sha)| (*key, value::string(sha))).collect());
+        let au3_inputs = value::object(vec![("audience_manifest", value::string(&release.sha256))]);
+        let bc01_hashes = python_source_hashes(source_root, &BC01_SOURCE_FILES).map_err(|error| failure(&error))?;
+        let au3_hashes = python_source_hashes(source_root, &AU3_SOURCE_FILES).map_err(|error| failure(&error))?;
+        let mut parts = BTreeMap::new();
+        parts.insert(BC01_SAMPLER.to_string(), (json_of(&bc01_inputs)?, json_of(&bc01_hashes)?));
+        parts.insert(AU3_SAMPLER.to_string(), (json_of(&au3_inputs)?, json_of(&au3_hashes)?));
+        Ok(Self { policy_sha256: sha256_hex(policy), parts })
     }
-    FuzzerTrainingRequest {
-        request_id: request_id.to_string(),
-        source_id: config.source_id.clone(),
-        model_id: config.model_id.clone(),
-        prompt_count: u32::try_from(config.prompt_count).unwrap_or_default(),
-        seed: u32::try_from(config.seed).unwrap_or_default(),
-        metadata,
+}
+
+impl Commitments for PinnedCommitments {
+    fn policy_sha256(&self) -> String {
+        self.policy_sha256.clone()
+    }
+
+    fn commitment(&self, sampler: &str, seed: u32) -> Result<String> {
+        let (inputs, hashes) = self.parts.get(sampler).ok_or_else(|| Error(format!("No frozen release is named {sampler}.")))?;
+        let parse = |document: &serde_json::Value| {
+            privoke_curriculum::value::parse_bytes(document.to_string().as_bytes()).map_err(|error| Error(error.to_string()))
+        };
+        routine_commitment(sampler, &parse(inputs)?, &parse(hashes)?, &self.policy_sha256, u64::from(seed))
+            .map_err(|error| Error(format!("routine commitment: {error}")))
     }
 }
 
@@ -221,9 +272,14 @@ pub struct CallError {
 }
 
 impl CallError {
-    /// A definite protocol rejection by the fuzzer, as opposed to an uncertain transport outcome.
-    pub fn terminal(&self) -> bool {
-        matches!(self.code, Some(Code::FailedPrecondition | Code::InvalidArgument | Code::AlreadyExists))
+    /// The fuzzer states that it does not know the outcome of this identity (its fit was lost).
+    pub fn outcome_unknown(&self) -> bool {
+        self.code == Some(Code::FailedPrecondition)
+    }
+
+    /// A definite protocol rejection other than a lost fit.
+    pub fn refused(&self) -> bool {
+        matches!(self.code, Some(Code::InvalidArgument | Code::AlreadyExists))
     }
 }
 
@@ -238,7 +294,7 @@ impl std::fmt::Display for CallError {
 
 /// The fuzzer, as the scheduler sees it.
 pub trait FuzzerCaller {
-    /// Send one training request for `stage` and wait at most `timeout`.
+    /// Send one routine request for `stage` and wait at most `timeout`.
     fn call(
         &self,
         stage: Stage,
@@ -247,7 +303,7 @@ pub trait FuzzerCaller {
     ) -> impl Future<Output = std::result::Result<FuzzerTrainingResponse, CallError>> + Send;
 }
 
-/// The mutual-TLS client of the Python fuzzer.
+/// The mutual-TLS client of the V3 fuzzer.
 #[derive(Debug, Clone)]
 pub struct GrpcFuzzer {
     target: String,
@@ -270,7 +326,7 @@ impl FuzzerCaller for GrpcFuzzer {
     ) -> std::result::Result<FuzzerTrainingResponse, CallError> {
         let exchange = async {
             let channel = connect(&self.target, &self.tls).await.map_err(|error| CallError { code: None, message: error.to_string() })?;
-            let mut client = FuzzerServiceClient::new(channel);
+            let mut client = V3FuzzerServiceClient::new(channel);
             let mut wrapped = tonic::Request::new(request);
             wrapped.set_timeout(timeout);
             let outcome = match stage {
@@ -316,10 +372,38 @@ fn pause(seconds: f64) -> tokio::time::Sleep {
     tokio::time::sleep(Duration::try_from_secs_f64(seconds.max(0.0)).unwrap_or(Duration::ZERO))
 }
 
-/// The training-cycle loop. Returns when `prompt_count` is zero, when a one-shot (`interval_seconds <= 0`) cycle has
-/// ended or a completed one-shot cycle with these settings already exists, and with an error when the journal fails or
-/// a pending cycle belongs to different settings. Otherwise it runs until its task is aborted.
-pub async fn run<C: FuzzerCaller>(config: &FuzzerRequestConfig, caller: &C) -> Result<()> {
+/// The seed of one allocation: derived from the round's seed, the model, the stage and the attempt, so that a replacement of a lost
+/// fit never reuses a seed.
+pub fn allocation_seed(cycle_seed: u32, model_id: &str, stage: Stage, attempt: i64) -> u32 {
+    let digest = sha256_hex(format!("{cycle_seed}|{model_id}|{}|{attempt}", stage.name()).as_bytes());
+    u32::from_str_radix(&digest[..8], 16).unwrap_or(1).max(1)
+}
+
+/// The request of an allocation: everything the fuzzer needs and nothing it chooses.
+pub fn build_request(config: &FuzzerRequestConfig, row: &AllocationRow, policy_sha256: &str) -> FuzzerTrainingRequest {
+    let metadata: BTreeMap<String, String> =
+        [("expected_base", row.expected_base.clone()), ("policy_sha256", policy_sha256.to_string()), ("sampler", row.sampler.clone())]
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value))
+            .collect();
+    FuzzerTrainingRequest {
+        request_id: row.request_id.clone(),
+        source_id: config.source_id.clone(),
+        model_id: row.model_id.clone(),
+        prompt_count: u32::try_from(config.prompt_count).unwrap_or_default(),
+        seed: row.seed,
+        metadata,
+    }
+}
+
+/// The routine-training loop. Returns when `prompt_count` is zero, when a one-shot (`interval_seconds <= 0`) round has ended, and
+/// with an error when the journal or the store authority fails. Otherwise it runs until its task is aborted.
+pub async fn run<C: FuzzerCaller, S: StoreView>(
+    config: &FuzzerRequestConfig,
+    caller: &C,
+    store: &S,
+    commitments: &dyn Commitments,
+) -> Result<()> {
     if config.prompt_count <= 0 {
         return Ok(());
     }
@@ -327,8 +411,10 @@ pub async fn run<C: FuzzerCaller>(config: &FuzzerRequestConfig, caller: &C) -> R
         pause(config.initial_delay_seconds).await;
     }
     let mut journal = Journal::open(&config.state_path)?;
+    let samplers = [BC01_SAMPLER, AU3_SAMPLER];
+    let base_seed = u32::try_from(config.seed).unwrap_or(1337);
     loop {
-        let Some(mut cycle) = journal.reserve(config, unix_seconds_f64())? else { return Ok(()) };
+        let Some(cycle) = journal.reserve(base_seed, &samplers, config.interval_seconds, unix_seconds_f64())? else { return Ok(()) };
         if cycle.state != "pending" {
             let remaining = cycle.finished_at.unwrap_or(0.0) + config.interval_seconds - unix_seconds_f64();
             if remaining > 0.0 {
@@ -336,114 +422,141 @@ pub async fn run<C: FuzzerCaller>(config: &FuzzerRequestConfig, caller: &C) -> R
             }
             continue;
         }
-        for stage in Stage::sequence(config.train_underlying) {
-            if !run_stage(config, caller, &mut journal, &mut cycle, stage).await? {
-                break;
+        let mut settled = true;
+        for tier in &config.tiers {
+            for stage in [Stage::Heads, Stage::FullEncoder] {
+                settled &= run_stage(config, caller, store, commitments, &mut journal, &cycle, &model_of(tier), stage).await?;
             }
         }
-        if cycle.all_accepted() {
-            cycle.state = "complete".to_string();
-            cycle.finished_at = Some(unix_seconds_f64());
-            journal.save(&cycle)?;
+        if settled {
+            journal.finish(&cycle, unix_seconds_f64())?;
+            log(format_args!("routine training round={} sampler={} complete", cycle.sequence, cycle.sampler));
         }
         if config.interval_seconds <= 0.0 {
             return Ok(());
         }
-        // Transient exhaustion remains pending and resumes with identical stage ids; a terminal safety rejection
-        // starts a fresh independent cycle.
+        // A stage left in flight resumes with its identity in the next pass.
         pause(config.interval_seconds).await;
     }
 }
 
-/// Run one stage of `cycle`. `Ok(true)` when it is accepted (now or before), `Ok(false)` when the cycle must stop here.
-async fn run_stage<C: FuzzerCaller>(
+/// Settle `row` from a receipt the store holds.
+fn settle_from(journal: &mut Journal, row: &AllocationRow, status: &CommitStatus) -> Result<()> {
+    let state = if status.status == "applied" { "accepted" } else { "rejected" };
+    journal.settle(&row.request_id, state, Some(&status.candidate), (!status.reason.is_empty()).then_some(status.reason.as_str()))
+}
+
+/// One tier and stage of a round. `Ok(true)` when it is settled (accepted or refused, now or before), `Ok(false)` when it stays in
+/// flight for the next pass.
+#[allow(clippy::too_many_arguments)]
+async fn run_stage<C: FuzzerCaller, S: StoreView>(
     config: &FuzzerRequestConfig,
     caller: &C,
+    store: &S,
+    commitments: &dyn Commitments,
     journal: &mut Journal,
-    cycle: &mut Cycle,
+    cycle: &Cycle,
+    model_id: &str,
     stage: Stage,
 ) -> Result<bool> {
-    let mut state = cycle.stage(stage).cloned().ok_or_else(|| Error(format!("cycle {} has no {} stage", cycle.cycle_id, stage.name())))?;
-    if state.state == "accepted" {
+    let policy = commitments.policy_sha256();
+    let timeout = Duration::try_from_secs_f64(config.timeout_seconds).unwrap_or(Duration::from_secs(3600));
+    let history = journal.allocations(cycle.sequence)?;
+    let mut latest = history.iter().rev().find(|row| row.model_id == model_id && row.stage == stage).cloned();
+    if let Some(row) = &latest
+        && matches!(row.state.as_str(), "accepted" | "rejected")
+    {
         return Ok(true);
     }
-    let expected_base =
-        if stage == Stage::FullEncoder { cycle.stage(Stage::Heads).and_then(|heads| heads.applied_version.clone()) } else { None };
-    let mut stage_config = config.clone();
-    stage_config.seed = cycle.seed;
-    let request = build_training_request(&stage_config, &state.request_id, expected_base.as_deref());
-    let serialized = hex(&request.encode_to_vec());
-    if let Some(existing) = &state.request_protobuf_hex
-        && *existing != serialized
-    {
-        return Err(Error("Pending automatic request bytes changed".to_string()));
-    }
-    state.request_protobuf_hex = Some(serialized);
-    cycle.set_stage(stage, state.clone());
-    journal.save(cycle)?;
-    let timeout = Duration::try_from_secs_f64(config.timeout_seconds).unwrap_or(Duration::from_secs(30));
+    let mut resumed = latest.is_some();
     for attempt in 0..config.max_attempts {
-        state.physical_attempts += 1;
-        cycle.set_stage(stage, state.clone());
-        journal.save(cycle)?;
-        match caller.call(stage, request.clone(), timeout).await {
-            Ok(response) => match accept(config, &response, expected_base.as_deref()) {
-                Ok(()) => {
-                    state.state = "accepted".to_string();
-                    state.base_version = Some(response.base_version.clone());
-                    state.applied_version = Some(response.applied_version.clone());
-                    state.response_protobuf_hex = Some(hex(&response.encode_to_vec()));
-                    cycle.set_stage(stage, state.clone());
-                    journal.save(cycle)?;
-                    return Ok(true);
+        // Allocate (or resume the allocation in flight).
+        let row = match latest.take().filter(|row| row.state == "allocated") {
+            Some(row) => row,
+            None => {
+                let next = journal
+                    .allocations(cycle.sequence)?
+                    .iter()
+                    .filter(|row| row.model_id == model_id && row.stage == stage)
+                    .map(|row| row.attempt + 1)
+                    .max()
+                    .unwrap_or(0);
+                let seed = allocation_seed(cycle.seed, model_id, stage, next);
+                let row = AllocationRow {
+                    request_id: format!(
+                        "v3r-c{}-{}-{}-a{next}-{}",
+                        cycle.sequence,
+                        model_id.trim_start_matches("privoke-v3-"),
+                        stage.name(),
+                        &uuid::Uuid::new_v4().simple().to_string()[..8]
+                    ),
+                    cycle: cycle.sequence,
+                    model_id: model_id.to_string(),
+                    stage,
+                    attempt: next,
+                    sampler: cycle.sampler.clone(),
+                    seed,
+                    expected_base: store.resolve(model_id)?,
+                    source_commitment: commitments.commitment(&cycle.sampler, seed)?,
+                    state: "allocated".to_string(),
+                    candidate: None,
+                    reason: None,
+                };
+                journal.allocate(&row)?;
+                resumed = false;
+                row
+            }
+        };
+        // What became of an earlier send of this identity is the store's to say before anyone is asked again.
+        if (resumed || attempt > 0)
+            && let Some(status) = store.commit_status(&row.request_id)?
+        {
+            settle_from(journal, &row, &status)?;
+            return Ok(true);
+        }
+        resumed = false;
+        let request = build_request(config, &row, &policy);
+        match caller.call(stage, request, timeout).await {
+            Ok(response) => {
+                if response.accepted && !response.applied_version.is_empty() && response.base_version == row.expected_base {
+                    if response.metadata.get("routine_commitment") != Some(&row.source_commitment) {
+                        log(format_args!(
+                            "routine training request={:?}: the fuzzer's routine commitment differs from the allocation (the store applied the candidate)",
+                            row.request_id
+                        ));
+                    }
+                    journal.settle(&row.request_id, "accepted", Some(&response.applied_version), None)?;
+                } else {
+                    let reason = if response.accepted { "mismatched response".to_string() } else { response.message.clone() };
+                    journal.settle(&row.request_id, "rejected", None, Some(&reason))?;
                 }
-                Err(message) => {
-                    reject(cycle, journal, stage, &mut state, &message)?;
-                    return Ok(false);
+                return Ok(true);
+            }
+            Err(error) if error.outcome_unknown() => {
+                // The fuzzer lost this fit. The store may still hold a receipt (a commit whose answer was lost).
+                match store.commit_status(&row.request_id)? {
+                    Some(status) => {
+                        settle_from(journal, &row, &status)?;
+                        return Ok(true);
+                    }
+                    None => {
+                        journal.settle(&row.request_id, "lost", None, Some(&error.to_string()))?;
+                        log(format_args!("routine training request={:?} lost ({error}); allocating a new request", row.request_id));
+                    }
                 }
-            },
+            }
+            Err(error) if error.refused() => {
+                journal.settle(&row.request_id, "rejected", None, Some(&error.to_string()))?;
+                return Ok(true);
+            }
             Err(error) => {
-                let text = error.to_string();
-                if error.terminal() {
-                    reject(cycle, journal, stage, &mut state, &text)?;
-                    return Ok(false);
+                log(format_args!("routine training request={:?} stage={}: {error}", row.request_id, stage.name()));
+                latest = Some(row);
+                if attempt + 1 < config.max_attempts {
+                    pause(config.retry_seconds).await;
                 }
-                state.last_error = Some(text.clone());
-                state.attempt_errors.push(text.clone());
-                cycle.set_stage(stage, state.clone());
-                journal.save(cycle)?;
-                log(format_args!("automatic training cycle={} stage={} state={}: {text}", cycle.cycle_id, stage.name(), cycle.state));
-                if attempt + 1 == config.max_attempts {
-                    return Ok(false);
-                }
-                pause(config.retry_seconds).await;
             }
         }
     }
     Ok(false)
-}
-
-/// The response checks of the Python loop; the text of a failure is the `StageRejected` message.
-fn accept(config: &FuzzerRequestConfig, response: &FuzzerTrainingResponse, expected_base: Option<&str>) -> std::result::Result<(), String> {
-    if !response.accepted || response.model_id != config.model_id || response.applied_version.is_empty() {
-        return Err("Fuzzer rejected the training stage or returned a mismatched publication.".to_string());
-    }
-    if let Some(base) = expected_base.filter(|base| !base.is_empty())
-        && response.base_version != base
-    {
-        return Err("Underlying stage did not use the acknowledged head publication base.".to_string());
-    }
-    Ok(())
-}
-
-fn reject(cycle: &mut Cycle, journal: &mut Journal, stage: Stage, state: &mut StageRecord, message: &str) -> Result<()> {
-    state.last_error = Some(message.to_string());
-    state.attempt_errors.push(message.to_string());
-    state.state = "rejected".to_string();
-    cycle.set_stage(stage, state.clone());
-    cycle.state = if cycle.stages.iter().any(|(_, record)| record.state == "accepted") { "partial" } else { "rejected" }.to_string();
-    cycle.finished_at = Some(unix_seconds_f64());
-    journal.save(cycle)?;
-    log(format_args!("automatic training cycle={} stage={} state={}: {message}", cycle.cycle_id, stage.name(), cycle.state));
-    Ok(())
 }

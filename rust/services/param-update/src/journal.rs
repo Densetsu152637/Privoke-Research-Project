@@ -1,21 +1,25 @@
-//! The persistent training-cycle journal (`training_cycles.py`): sequential head and encoder requests, each
-//! publication independent. The SQLite file and its record text are the Python ones (`cycles(sequence, fingerprint,
-//! state, record)`, the record written with `json.dumps(sort_keys=True)`), so a journal the Python scheduler started
-//! resumes here with the same identities and seed.
+//! The routine-training journal (stage V3-R6 of the routine-training plan).
+//!
+//! The scheduler is the only allocator of `(request_id, seed, expected_base, sampler, scope, source_commitment)`. Every
+//! allocation is written here, durably, **before** the fuzzer is called, so that
+//!
+//! * a restart finds the request it had in flight and asks the store (`GetCommitStatus`) what became of it before re-requesting;
+//! * the guard gate ([`crate::v3_guard::Allocations`]) can later tell, from the same file, that a commit belongs to a request
+//!   the scheduler made, on which base, in which release, at which scope and under which commitment.
+//!
+//! Two tables: `v3_cycles` (one routine round: a seed, the sampler of the round, its state) and `v3_allocations` (one row per
+//! tier x stage request: `allocated`, then `accepted`, `rejected` or `lost`). A fit that was lost is replaced by a new row with a
+//! new request id and seed (`attempt + 1`); the old row stays as the record of the loss.
 
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use privoke_contracts::digest::sha256_hex;
-use privoke_contracts::json::{self, Value};
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, Row, TransactionBehavior, params};
 
 use crate::error::{Error, Result};
-use crate::pyfmt::{Layout, dumps};
-use crate::scheduler::FuzzerRequestConfig;
+use crate::v3_guard::{Allocation, Allocations};
 
-/// The two kinds of request a cycle makes, in order.
+/// The two kinds of request a round makes per tier, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     /// `RunTrainingCycle`: the heads.
@@ -25,7 +29,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    /// The name in the journal.
+    /// The name in the journal, which is the scope name of the evidence.
     pub fn name(self) -> &'static str {
         match self {
             Self::Heads => "heads",
@@ -33,206 +37,95 @@ impl Stage {
         }
     }
 
-    /// The stages a configuration trains, in order.
-    pub fn sequence(train_underlying: bool) -> Vec<Self> {
-        if train_underlying { vec![Self::Heads, Self::FullEncoder] } else { vec![Self::Heads] }
+    /// The stage of a journal name.
+    pub fn of(name: &str) -> Option<Self> {
+        [Self::Heads, Self::FullEncoder].into_iter().find(|stage| stage.name() == name)
     }
 }
 
-/// One stage of a cycle.
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct StageRecord {
-    /// The request id sent to the fuzzer, stable across retries and restarts.
-    pub request_id: String,
-    /// `pending`, `accepted` or `rejected`.
-    pub state: String,
-    /// The exact request bytes, fixed before the first attempt.
-    pub request_protobuf_hex: Option<String>,
-    /// How many physical requests were started.
-    pub physical_attempts: i64,
-    /// The base version the fuzzer reported.
-    pub base_version: Option<String>,
-    /// The version the stage published.
-    pub applied_version: Option<String>,
-    /// The response bytes.
-    pub response_protobuf_hex: Option<String>,
-    /// The last error text.
-    pub last_error: Option<String>,
-    /// Every attempt's error text.
-    pub attempt_errors: Vec<String>,
+/// The tiers a round trains, in order.
+pub const TIERS: [&str; 3] = ["efficient", "balanced", "quality"];
+
+/// The model of a tier.
+pub fn model_of(tier: &str) -> String {
+    format!("privoke-v3-{tier}")
 }
 
-/// One scheduled cycle.
+/// One round.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cycle {
     /// Position in the journal.
     pub sequence: i64,
-    /// `dual-` and a random hex id.
-    pub cycle_id: String,
-    /// The training-settings fingerprint.
-    pub fingerprint: String,
-    /// The seed of this cycle's requests.
-    pub seed: i64,
-    /// The model.
-    pub model_id: String,
-    /// The requester's source id.
-    pub source_id: String,
-    /// `pending`, `complete`, `partial` or `rejected`.
+    /// The seed of the round (each allocation derives its own from it).
+    pub seed: u32,
+    /// `existing_taxonomy_benign_common_frozen_stream_v1` (BC01) or `audience_common_frozen_stream_v1` (AU3).
+    pub sampler: String,
+    /// `pending` or `complete`.
     pub state: String,
-    /// When it was reserved (seconds since the epoch).
+    /// When it was reserved.
     pub created_at: f64,
     /// When it ended.
     pub finished_at: Option<f64>,
-    /// The stages in request order.
-    pub stages: Vec<(String, StageRecord)>,
 }
 
-impl Cycle {
-    /// The record of a stage.
-    pub fn stage(&self, stage: Stage) -> Option<&StageRecord> {
-        self.stages.iter().find(|(name, _)| name == stage.name()).map(|(_, record)| record)
-    }
-
-    /// Replace the record of a stage.
-    pub fn set_stage(&mut self, stage: Stage, record: StageRecord) {
-        if let Some(slot) = self.stages.iter_mut().find(|(name, _)| name == stage.name()) {
-            slot.1 = record;
-        }
-    }
-
-    /// Whether every stage was accepted.
-    pub fn all_accepted(&self) -> bool {
-        self.stages.iter().all(|(_, record)| record.state == "accepted")
-    }
-
-    fn to_value(&self) -> Value {
-        let text = |value: &str| Value::String(value.to_string());
-        let mut map = BTreeMap::new();
-        map.insert("schema_version".to_string(), Value::Int("1".to_string()));
-        map.insert("sequence".to_string(), Value::Int(self.sequence.to_string()));
-        map.insert("cycle_id".to_string(), text(&self.cycle_id));
-        map.insert("fingerprint".to_string(), text(&self.fingerprint));
-        map.insert("seed".to_string(), Value::Int(self.seed.to_string()));
-        map.insert("model_id".to_string(), text(&self.model_id));
-        map.insert("source_id".to_string(), text(&self.source_id));
-        map.insert("state".to_string(), text(&self.state));
-        map.insert("created_at".to_string(), Value::Float(self.created_at));
-        if let Some(finished) = self.finished_at {
-            map.insert("finished_at".to_string(), Value::Float(finished));
-        }
-        let stages = self.stages.iter().map(|(name, record)| (name.clone(), record.to_value())).collect();
-        map.insert("stages".to_string(), Value::Object(stages));
-        Value::Object(map)
-    }
-
-    fn from_value(value: &Value) -> Option<Self> {
-        let Value::Object(map) = value else { return None };
-        let string = |name: &str| match map.get(name) {
-            Some(Value::String(text)) => Some(text.clone()),
-            _ => None,
-        };
-        let integer = |name: &str| match map.get(name) {
-            Some(Value::Int(digits)) => digits.parse::<i64>().ok(),
-            _ => None,
-        };
-        let float = |name: &str| match map.get(name) {
-            Some(Value::Float(number)) => Some(*number),
-            Some(Value::Int(digits)) => digits.parse::<f64>().ok(),
-            _ => None,
-        };
-        let Some(Value::Object(stage_map)) = map.get("stages") else { return None };
-        let mut stages = Vec::new();
-        for stage in [Stage::Heads, Stage::FullEncoder] {
-            if let Some(record) = stage_map.get(stage.name()) {
-                stages.push((stage.name().to_string(), StageRecord::from_value(record)?));
-            }
-        }
-        Some(Self {
-            sequence: integer("sequence")?,
-            cycle_id: string("cycle_id")?,
-            fingerprint: string("fingerprint")?,
-            seed: integer("seed")?,
-            model_id: string("model_id")?,
-            source_id: string("source_id")?,
-            state: string("state")?,
-            created_at: float("created_at")?,
-            finished_at: float("finished_at"),
-            stages,
-        })
-    }
+/// One allocation: a request the scheduler made (or is about to make) of the fuzzer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AllocationRow {
+    /// The request id, unique for ever.
+    pub request_id: String,
+    /// The round.
+    pub cycle: i64,
+    /// `privoke-v3-<tier>`.
+    pub model_id: String,
+    /// The stage (scope).
+    pub stage: Stage,
+    /// 0 for the first request of the stage, 1 after one lost fit, and so on.
+    pub attempt: i64,
+    /// The frozen release the guard and the schedule come from.
+    pub sampler: String,
+    /// The routine seed.
+    pub seed: u32,
+    /// The version the store served when the request was allocated.
+    pub expected_base: String,
+    /// The routine commitment the scheduler computed.
+    pub source_commitment: String,
+    /// `allocated`, `accepted`, `rejected` or `lost`.
+    pub state: String,
+    /// The candidate the store applied (`accepted`) or refused (`rejected`).
+    pub candidate: Option<String>,
+    /// The store's reason for a refusal, or why a fit was lost.
+    pub reason: Option<String>,
 }
 
-impl StageRecord {
-    fn to_value(&self) -> Value {
-        let text = |value: &str| Value::String(value.to_string());
-        let mut map = BTreeMap::new();
-        map.insert("request_id".to_string(), text(&self.request_id));
-        map.insert("state".to_string(), text(&self.state));
-        map.insert("physical_attempts".to_string(), Value::Int(self.physical_attempts.to_string()));
-        for (key, value) in [
-            ("request_protobuf_hex", &self.request_protobuf_hex),
-            ("base_version", &self.base_version),
-            ("applied_version", &self.applied_version),
-            ("response_protobuf_hex", &self.response_protobuf_hex),
-            ("last_error", &self.last_error),
-        ] {
-            if let Some(value) = value {
-                map.insert(key.to_string(), text(value));
-            }
-        }
-        if !self.attempt_errors.is_empty() {
-            map.insert("attempt_errors".to_string(), Value::Array(self.attempt_errors.iter().map(|error| text(error)).collect()));
-        }
-        Value::Object(map)
-    }
+const COLUMNS: &str =
+    "request_id, cycle, model_id, stage, attempt, sampler, seed, expected_base, source_commitment, state, candidate, reason";
 
-    fn from_value(value: &Value) -> Option<Self> {
-        let Value::Object(map) = value else { return None };
-        let optional = |name: &str| match map.get(name) {
-            Some(Value::String(text)) => Some(text.clone()),
-            _ => None,
-        };
-        let attempt_errors = match map.get("attempt_errors") {
-            Some(Value::Array(items)) => items
-                .iter()
-                .map(|item| match item {
-                    Value::String(text) => Some(text.clone()),
-                    _ => None,
-                })
-                .collect::<Option<Vec<_>>>()?,
-            _ => Vec::new(),
-        };
-        let physical_attempts = match map.get("physical_attempts") {
-            Some(Value::Int(digits)) => digits.parse::<i64>().ok()?,
-            _ => 0,
-        };
-        Some(Self {
-            request_id: optional("request_id")?,
-            state: optional("state")?,
-            request_protobuf_hex: optional("request_protobuf_hex"),
-            physical_attempts,
-            base_version: optional("base_version"),
-            applied_version: optional("applied_version"),
-            response_protobuf_hex: optional("response_protobuf_hex"),
-            last_error: optional("last_error"),
-            attempt_errors,
-        })
-    }
+fn db(error: rusqlite::Error) -> Error {
+    Error(format!("training journal: {error}"))
 }
 
-/// `config_fingerprint`: transport and cadence changes do not alter the training payload; training settings do, so an
-/// in-flight payload that changed across a restart fails closed.
-pub fn config_fingerprint(config: &FuzzerRequestConfig) -> String {
-    let mut map = BTreeMap::new();
-    map.insert("model_id".to_string(), Value::String(config.model_id.clone()));
-    map.insert("source_id".to_string(), Value::String(config.source_id.clone()));
-    map.insert("prompt_count".to_string(), Value::Int(config.prompt_count.to_string()));
-    map.insert("seed".to_string(), Value::Int(config.seed.to_string()));
-    map.insert("curriculum_sampler_policy".to_string(), Value::String(config.curriculum_sampler_policy.clone()));
-    map.insert("curriculum_sampler_seed".to_string(), Value::Int(config.curriculum_sampler_seed.to_string()));
-    map.insert("train_underlying".to_string(), Value::Bool(config.train_underlying));
-    let text = dumps(&Value::Object(map), Layout::Compact).unwrap_or_default();
-    sha256_hex(text.as_bytes())
+fn allocation_of(row: &Row<'_>) -> rusqlite::Result<AllocationRow> {
+    let stage: String = row.get(3)?;
+    Ok(AllocationRow {
+        request_id: row.get(0)?,
+        cycle: row.get(1)?,
+        model_id: row.get(2)?,
+        stage: Stage::of(&stage).ok_or_else(|| rusqlite::Error::InvalidColumnType(3, "stage".to_string(), rusqlite::types::Type::Text))?,
+        attempt: row.get(4)?,
+        sampler: row.get(5)?,
+        seed: u32::try_from(row.get::<_, i64>(6)?).unwrap_or_default(),
+        expected_base: row.get(7)?,
+        source_commitment: row.get(8)?,
+        state: row.get(9)?,
+        candidate: row.get(10)?,
+        reason: row.get(11)?,
+    })
+}
+
+fn connect(path: &Path) -> Result<Connection> {
+    let connection = Connection::open(path).map_err(db)?;
+    connection.busy_timeout(Duration::from_secs(120)).map_err(db)?;
+    Ok(connection)
 }
 
 /// The journal database.
@@ -241,131 +134,154 @@ pub struct Journal {
     connection: Connection,
 }
 
-fn db(error: rusqlite::Error) -> Error {
-    Error(format!("training journal: {error}"))
-}
-
-fn new_cycle(config: &FuzzerRequestConfig, fingerprint: &str, sequence: i64, now: f64) -> Cycle {
-    let seed = (i128::from(config.seed) + i128::from(sequence) - 1).rem_euclid(0xFFFF_FFFF) + 1;
-    let identity = format!("dual-{}", uuid::Uuid::new_v4().simple());
-    let stages = Stage::sequence(config.train_underlying)
-        .into_iter()
-        .map(|stage| {
-            (
-                stage.name().to_string(),
-                StageRecord { request_id: format!("{identity}-{}", stage.name()), state: "pending".to_string(), ..StageRecord::default() },
-            )
-        })
-        .collect();
-    Cycle {
-        sequence,
-        cycle_id: identity,
-        fingerprint: fingerprint.to_string(),
-        seed: i64::try_from(seed).unwrap_or(1),
-        model_id: config.model_id.clone(),
-        source_id: config.source_id.clone(),
-        state: "pending".to_string(),
-        created_at: now,
-        finished_at: None,
-        stages,
-    }
-}
-
 impl Journal {
     /// Open or create the journal, creating its directory.
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent).map_err(|error| Error(format!("training journal directory: {error}")))?;
         }
-        let connection = Connection::open(path).map_err(db)?;
-        connection.busy_timeout(Duration::from_secs(120)).map_err(db)?;
+        let connection = connect(path)?;
         connection.execute_batch("PRAGMA synchronous=FULL").map_err(db)?;
         connection
-            .execute_batch("CREATE TABLE IF NOT EXISTS cycles (sequence INTEGER PRIMARY KEY, fingerprint TEXT NOT NULL, state TEXT NOT NULL, record TEXT NOT NULL)")
+            .execute_batch(
+                "CREATE TABLE IF NOT EXISTS v3_cycles (
+                     sequence INTEGER PRIMARY KEY, seed INTEGER NOT NULL, sampler TEXT NOT NULL, state TEXT NOT NULL,
+                     created_at REAL NOT NULL, finished_at REAL);
+                 CREATE TABLE IF NOT EXISTS v3_allocations (
+                     request_id TEXT PRIMARY KEY, cycle INTEGER NOT NULL, model_id TEXT NOT NULL, stage TEXT NOT NULL,
+                     attempt INTEGER NOT NULL, sampler TEXT NOT NULL, seed INTEGER NOT NULL, expected_base TEXT NOT NULL,
+                     source_commitment TEXT NOT NULL, state TEXT NOT NULL, candidate TEXT, reason TEXT);",
+            )
             .map_err(db)?;
         Ok(Self { connection })
     }
 
-    /// `reserve`: the cycle to work on at time `now`, or `None` when a completed one-shot cycle with the same settings
-    /// already exists. A pending cycle resumes with its original identities; one that belongs to different training
-    /// settings is an error (resume its original settings first). A finished cycle with the same settings is returned
-    /// until its interval has passed; after that, or when the settings changed, a new cycle with fresh identities and
-    /// the next seed is created.
-    pub fn reserve(&mut self, config: &FuzzerRequestConfig, now: f64) -> Result<Option<Cycle>> {
+    /// The round to work on at time `now`: the pending one (resumed with its identities), else, when the last one finished and
+    /// `interval` seconds have passed (or none ever existed), a new one at the next seed with the next sampler of `samplers`
+    /// (alternating by sequence). `None` for a one-shot (`interval <= 0`) whose round is complete.
+    pub fn reserve(&mut self, base_seed: u32, samplers: &[&str], interval: f64, now: f64) -> Result<Option<Cycle>> {
         let transaction = self.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db)?;
-        let row = transaction
-            .query_row("SELECT sequence, fingerprint, state, record FROM cycles ORDER BY sequence DESC LIMIT 1", [], |row| {
-                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?))
-            })
+        let latest = transaction
+            .query_row(
+                "SELECT sequence, seed, sampler, state, created_at, finished_at FROM v3_cycles ORDER BY sequence DESC LIMIT 1",
+                [],
+                |row| {
+                    Ok(Cycle {
+                        sequence: row.get(0)?,
+                        seed: u32::try_from(row.get::<_, i64>(1)?).unwrap_or_default(),
+                        sampler: row.get(2)?,
+                        state: row.get(3)?,
+                        created_at: row.get(4)?,
+                        finished_at: row.get(5)?,
+                    })
+                },
+            )
             .optional()
             .map_err(db)?;
-        let fingerprint = config_fingerprint(config);
-        let parse = |text: &str| -> Result<Cycle> {
-            let value = json::parse(text).map_err(|error| Error(format!("training journal record: {error}")))?;
-            Cycle::from_value(&value).ok_or_else(|| Error("training journal record is not a cycle".to_string()))
-        };
-        let next_sequence = row.as_ref().map_or(0, |(sequence, ..)| sequence + 1);
-        let mut resumed: Option<Option<Cycle>> = None;
-        if let Some((_, row_fingerprint, state, record)) = &row {
-            if state == "pending" {
-                if *row_fingerprint != fingerprint {
-                    return Err(Error(
-                        "Pending automatic training cycle belongs to different training settings; resume its original settings first."
-                            .to_string(),
-                    ));
-                }
-                resumed = Some(Some(parse(record)?));
-            } else if *row_fingerprint == fingerprint && config.interval_seconds <= 0.0 {
-                // A completed one-shot stays completed on restart.
-                resumed = Some(None);
-            } else if *row_fingerprint == fingerprint {
-                let cycle = parse(record)?;
-                if now < cycle.finished_at.unwrap_or(0.0) + config.interval_seconds {
-                    resumed = Some(Some(cycle));
-                }
-            }
-        }
-        let outcome = match resumed {
-            Some(found) => found,
-            None => {
-                let cycle = new_cycle(config, &fingerprint, next_sequence, now);
-                let text = dumps(&cycle.to_value(), Layout::Spaced).map_err(|error| Error(error.to_string()))?;
+        let outcome = match latest {
+            Some(cycle) if cycle.state == "pending" => Some(cycle),
+            Some(_) if interval <= 0.0 => None,
+            Some(cycle) if now < cycle.finished_at.unwrap_or(0.0) + interval => Some(cycle),
+            other => {
+                let sequence = other.map_or(0, |cycle| cycle.sequence + 1);
+                let seed = u32::try_from((i128::from(base_seed) + i128::from(sequence) * 7919).rem_euclid(0xFFFF_FFFF) + 1).unwrap_or(1);
+                let sampler = samplers[usize::try_from(sequence).unwrap_or(0) % samplers.len()].to_string();
                 transaction
-                    .execute("INSERT INTO cycles VALUES (?1, ?2, ?3, ?4)", params![cycle.sequence, cycle.fingerprint, cycle.state, text])
+                    .execute(
+                        "INSERT INTO v3_cycles (sequence, seed, sampler, state, created_at) VALUES (?1, ?2, ?3, 'pending', ?4)",
+                        params![sequence, i64::from(seed), sampler, now],
+                    )
                     .map_err(db)?;
-                Some(cycle)
+                Some(Cycle { sequence, seed, sampler, state: "pending".to_string(), created_at: now, finished_at: None })
             }
         };
         transaction.commit().map_err(db)?;
         Ok(outcome)
     }
 
-    /// `save`: persist a cycle's state and record.
-    pub fn save(&mut self, cycle: &Cycle) -> Result<()> {
-        let text = dumps(&cycle.to_value(), Layout::Spaced).map_err(|error| Error(error.to_string()))?;
-        let transaction = self.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db)?;
-        transaction
-            .execute(
-                "UPDATE cycles SET state = ?1, record = ?2 WHERE sequence = ?3 AND fingerprint = ?4",
-                params![cycle.state, text, cycle.sequence, cycle.fingerprint],
-            )
+    /// Mark a round complete.
+    pub fn finish(&mut self, cycle: &Cycle, now: f64) -> Result<()> {
+        self.connection
+            .execute("UPDATE v3_cycles SET state='complete', finished_at=?1 WHERE sequence=?2", params![now, cycle.sequence])
             .map_err(db)?;
-        transaction.commit().map_err(db)
+        Ok(())
     }
 
-    /// The newest cycle, for tests and operators.
-    pub fn latest(&self) -> Result<Option<Cycle>> {
-        let record = self
-            .connection
-            .query_row("SELECT record FROM cycles ORDER BY sequence DESC LIMIT 1", [], |row| row.get::<_, String>(0))
-            .optional()
+    /// The allocations of a round, oldest first.
+    pub fn allocations(&self, cycle: i64) -> Result<Vec<AllocationRow>> {
+        let mut statement =
+            self.connection.prepare(&format!("SELECT {COLUMNS} FROM v3_allocations WHERE cycle=?1 ORDER BY rowid")).map_err(db)?;
+        let rows = statement.query_map(params![cycle], allocation_of).map_err(db)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>().map_err(db)
+    }
+
+    /// Record an allocation (durably, before the request is made).
+    pub fn allocate(&mut self, row: &AllocationRow) -> Result<()> {
+        self.connection
+            .execute(
+                &format!("INSERT INTO v3_allocations ({COLUMNS}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)"),
+                params![
+                    row.request_id,
+                    row.cycle,
+                    row.model_id,
+                    row.stage.name(),
+                    row.attempt,
+                    row.sampler,
+                    i64::from(row.seed),
+                    row.expected_base,
+                    row.source_commitment,
+                    row.state,
+                    row.candidate,
+                    row.reason
+                ],
+            )
             .map_err(db)?;
-        match record {
-            None => Ok(None),
-            Some(text) => {
-                let value = json::parse(&text).map_err(|error| Error(error.to_string()))?;
-                Ok(Cycle::from_value(&value))
-            }
-        }
+        Ok(())
+    }
+
+    /// Record how a request ended.
+    pub fn settle(&mut self, request_id: &str, state: &str, candidate: Option<&str>, reason: Option<&str>) -> Result<()> {
+        self.connection
+            .execute(
+                "UPDATE v3_allocations SET state=?1, candidate=?2, reason=?3 WHERE request_id=?4",
+                params![state, candidate, reason, request_id],
+            )
+            .map_err(db)?;
+        Ok(())
+    }
+}
+
+/// The allocations as the guard gate reads them: the journal file, opened per lookup (the scheduler writes it from another
+/// connection; SQLite serialises the two).
+#[derive(Debug, Clone)]
+pub struct JournalAllocations {
+    path: PathBuf,
+}
+
+impl JournalAllocations {
+    /// The allocations recorded in the journal at `path`.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+}
+
+impl Allocations for JournalAllocations {
+    fn allocation(&self, request_id: &str, model_id: &str) -> Option<Allocation> {
+        let connection = connect(&self.path).ok()?;
+        let row = connection
+            .query_row(
+                &format!("SELECT {COLUMNS} FROM v3_allocations WHERE request_id=?1 AND model_id=?2"),
+                params![request_id, model_id],
+                allocation_of,
+            )
+            .optional()
+            .ok()??;
+        Some(Allocation {
+            sampler: row.sampler,
+            scope: row.stage.name().to_string(),
+            seed: u64::from(row.seed),
+            source_commitment: row.source_commitment,
+            expected_base: row.expected_base,
+        })
     }
 }
