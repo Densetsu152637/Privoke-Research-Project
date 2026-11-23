@@ -1,8 +1,9 @@
 //! The V3 model: native pretrained BERT with affine task heads (`v3/model.py::PretrainedV3`).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::Path;
 
+use ahash::AHashMap;
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::publication::KeySet;
 use privoke_contracts::v3::{LineageState, Manifest, admit_lineage, admitted_manifest};
@@ -65,7 +66,7 @@ fn read(path: &Path) -> Result<Vec<u8>, SemanticError> {
 fn build_tokenizer(vocab: &[u8]) -> Result<Tokenizer, SemanticError> {
     let failure = |error: tokenizers::Error| SemanticError::Tokenizer(error.to_string());
     let text = std::str::from_utf8(vocab).map_err(|_| SemanticError::artifact("The vocabulary is not UTF-8."))?;
-    let tokens: HashMap<String, u32> = text.lines().enumerate().map(|(index, line)| (line.trim_end().to_owned(), index as u32)).collect();
+    let tokens: AHashMap<String, u32> = text.lines().enumerate().map(|(index, line)| (line.trim_end().to_owned(), index as u32)).collect();
     let model = WordPiece::builder().vocab(tokens).unk_token("[UNK]".to_string()).build().map_err(failure)?;
     let cls = model.token_to_id("[CLS]").ok_or_else(|| SemanticError::artifact("The vocabulary has no [CLS] token."))?;
     let sep = model.token_to_id("[SEP]").ok_or_else(|| SemanticError::artifact("The vocabulary has no [SEP] token."))?;
