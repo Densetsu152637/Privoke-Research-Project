@@ -101,6 +101,16 @@ Root defaults, which the user may override:
 - Outcome:
 - Handoff notes: the sqlite `current` table is the single authority for every later stage.
 
+## Stage V3-P: Pre-flight checks for the two user stop points
+
+- Objective: before V3-R2 starts, answer the two late stop conditions with existing code. (1) Time one real-weight quality-tier FULL_ENCODER fit (and HEADS) through the stage-22 `FitCandidate` with 8 CPUs, sending `[SEMANTIC]`, against the U5 threshold. (2) Check read-only that every row of the approved bank (`BANK_SHA256`) maps onto the V3 heads' outputs.
+- Depends on: none (runs beside V3-R1).
+- Owned paths: a timing script or env-gated test and a bank-mapping check; results recorded in the V3-R5 and V3-R9 handoff notes. Calibration weights, if any are kept, go under `models/experiments/<run>/` with provenance.
+- Acceptance checks: the timings and the mapping result are recorded; if either stop condition triggers, root asks the user before V3-R2.
+- Status: in progress (23 Nov 2026).
+- Outcome:
+- Handoff notes: V3-R5 and V3-R9 keep their checks as confirmations.
+
 ## Stage V3-R2: Signed publication, derived directory and drift bounds
 
 - Objective:
@@ -111,6 +121,8 @@ Root defaults, which the user may override:
   - **Routine guard-row selection.** One shared function in `privoke-curriculum` (`v3::routine_guard_rows(release, seed, source_commitment)`), owned by this stage, defines how a routine seed selects the 16 guard rows from the frozen BC01/AU3 releases. V3-R5 calls it; nothing else re-implements it.
   - **Guard recomputation.** Param-update rebuilds the 16 guard rows itself from the frozen BC01/AU3 releases, the scheduler-allocated seed and the `source_commitment`, never from rows the trainer supplies. It recomputes the guard on both the base and the candidate with the Rust V3 encoder, loading the candidate through `V3Model::with_tensors`, not through `admitted_manifest`. This runs before the transaction and is bound to the candidate SHA.
   - **Key custody and rotation.** Clients compile a key set indexed by `key_id`. Test keys exist only behind a `test-keys` cargo feature.
+  - **Shared signed-chain fixtures.** Generate one deterministic fixture set with the test keys on the toy checkpoint: ORIGINAL → HEADS → FULL → rollback to the ORIGINAL, a second key for the rotation overlap, and the forged variants. V3-R3, V3-R4a, V3-R4b and the `update_security.py` rows consume these fixtures.
+  - **Bounds evidence field.** `v3-drift-bounds.toml` carries the SHA-256 of the calibration record its values came from.
 - Depends on: V3-R1.
 - Owned paths: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, `rust/crates/privoke-curriculum/src/v3.rs` (`routine_guard_rows`), `rust/services/param-update/config/v3-drift-bounds.toml` (format and provisional values), the ModelPackage proto field, `docs/runtime/v3-publication.md` (custody and rotation).
 - Note: the drift bounds are final only after V3-R5's recalibration.
@@ -195,7 +207,7 @@ Root defaults, which the user may override:
   - The scheduler (V3-R6) is the only allocator of `(request_id, seed, expected_base)`; it journals them before the call and passes them to the fuzzer, which only records them. On restart the scheduler queries `GetCommitStatus` for the journalled request id before re-requesting; if the earlier fit was lost, the scheduler allocates a new request id. Until V3-R6 lands, the R5 tests act as the scheduler.
   - It commits the candidate through the param-update store.
   - It measures the per-tier cycle time and applies the U5 threshold.
-  - It recalibrates the V3-R2 drift bounds from real-weight fits of every tier and scope, writes the values into `rust/services/param-update/config/v3-drift-bounds.toml` (this stage owns the values; V3-R2 owns the format), and records them in this plan.
+  - It recalibrates the V3-R2 drift bounds from real-weight fits of every tier and scope, keeps the calibration fits, their provenance and the observed L2 values under `models/experiments/<run>/`, writes the values and that record's SHA-256 into `rust/services/param-update/config/v3-drift-bounds.toml` (this stage owns the values; V3-R2 owns the format), and records them in this plan.
 - Depends on: V3-R1, and V3-R2's `routine_guard_rows` (which V3-R2 lands first).
 - Owned paths: `rust/services/v3-fuzzer/src/{cycle,source,config}.rs`.
 - Acceptance checks:
@@ -249,7 +261,7 @@ Root defaults, which the user may override:
 - Acceptance checks:
   - The container smoke CI is green.
   - One end-to-end efficient cycle publishes, and a client refreshes to the new version.
-  - The deployed `v3-drift-bounds.toml` holds V3-R5's recalibrated values, not the provisional ones.
+  - The deployed `v3-drift-bounds.toml` holds V3-R5's recalibrated values, and its evidence SHA-256 matches V3-R5's calibration record.
 - Status: pending.
 - Outcome:
 - Handoff notes:
@@ -291,4 +303,4 @@ Root defaults, which the user may override:
 - Outcome:
 - Handoff notes: the Python oracles and goldens for the deleted code stay.
 
-Order: R1 → R2 (lands `routine_guard_rows` first) → (R5, R3, R9) → R6 → R4a → R4b → R7 → R8a → R8b.
+Order: (R1, P) → R2 (lands `routine_guard_rows` first) → (R5, R3, R9) → R6 → R4a → R4b → R7 → R8a → R8b.
