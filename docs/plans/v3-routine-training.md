@@ -11,6 +11,9 @@ User decisions on the open questions, 23 November 2026:
 - **U3, retention:** a V3 retention check gates publication (stage V3-R9).
 - **U4, presence:** presence training is retired. The V1 presence gate keeps working for detection with its current model.
 
+- **U7, cumulative drift cap (23 November 2026):** routine cycles add about 1 to 2 L2 per cycle with no saturation in three cycles. The user chose "Raise the cap": the cumulative bound is sized for about 50 cycles at the largest observed growth (100 for every tier and scope); per-update bounds stay as calibrated in V3-R5.
+- **Routine root (root decision, 23 November 2026):** routine training starts from the pinned standard release of each tier (scope full_encoder, `original` = the initials ORIGINAL manifest), never from `initials/`. Candidates carry parent = the pin or a later published version and original = the pin's `original`; cumulative drift is measured from the pinned release.
+
 Root defaults, which the user may override:
 
 - **U5, compute:** CPU-only Rust fits. Stage V3-R5 measures the per-tier cycle time. Threshold: a full routine round (3 tiers x HEADS and FULL_ENCODER) must finish within the scheduler interval on the deployment VM's CPUs; if the quality FULL fit alone exceeds 60 minutes on 8 CPUs, root stops before V3-R7 and asks the user (CUDA, fewer steps, or a longer interval). CUDA is otherwise out of scope.
