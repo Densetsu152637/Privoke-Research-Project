@@ -8,6 +8,7 @@
 //! * [`digest`]: artifact checksums, receipt keys and derived seeds.
 //! * [`fingerprint`]: structurally framed tensor identity.
 //! * [`v3`]: the pinned standard V3 manifest rules.
+//! * [`pywire`]: protobuf bytes as Python's deterministic serialization writes them (the fuzzer request, V3-R8a).
 //! * [`model_cache`]: which cached version of a model a client may load (stage V3-R4b).
 //!
 //! The protobuf bindings are re-exported as [`proto`].
@@ -19,6 +20,7 @@ pub mod json;
 pub mod model_cache;
 pub mod publication;
 pub mod pyfloat;
+pub mod pywire;
 pub mod v3;
 
 pub use privoke_proto as proto;

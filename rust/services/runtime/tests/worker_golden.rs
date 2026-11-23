@@ -23,8 +23,8 @@ use std::sync::Arc;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use privoke_contracts::proto::v1::{
-    AnalyzePromptResponse, ComputePresenceGradientsResponse, ComputeSemanticGradientsResponse, DetectAnnotationPresenceResponse,
-    RuntimeDetectionResult, SemanticPresenceGateTrace,
+    AnalyzePromptResponse, ComputeSemanticGradientsResponse, DetectAnnotationPresenceResponse, RuntimeDetectionResult,
+    SemanticPresenceGateTrace,
 };
 use privoke_ner_layer::EntityNerDetector;
 use privoke_ner_layer::replay::ReplayAnalyzer;
@@ -362,19 +362,6 @@ fn semantic_parts(response: &ComputeSemanticGradientsResponse) -> Gradients<'_> 
     }
 }
 
-fn presence_parts(response: &ComputePresenceGradientsResponse) -> Gradients<'_> {
-    Gradients {
-        request_id: &response.request_id,
-        model_id: &response.model_id,
-        base_version: &response.base_version,
-        error: &response.error,
-        gradients: response.gradients.iter().map(|g| (g.name.as_str(), g.values.clone(), g.shape.as_slice())).collect(),
-        metrics: &response.metrics,
-        metadata: &response.metadata,
-        executions: response.executions.iter().map(|e| (e.phase.clone(), e.layer, e.status.clone(), e.examples, e.error.clone())).collect(),
-    }
-}
-
 fn gradients_match(got: &Gradients<'_>, want: &Gradients<'_>, tally: &mut GradientTally) -> Result<(), String> {
     let identity = (got.request_id, got.model_id, got.base_version, got.error);
     if identity != (want.request_id, want.model_id, want.base_version, want.error) {
@@ -490,6 +477,18 @@ async fn every_recorded_answer_matches_the_python_worker() {
         let answer = service.handle_frame(&request_frame(case, index as u64 + 1)).await;
         let entry = counts.entry(format!("{}/{}", case["scope"].as_str().unwrap(), method)).or_default();
         entry.total += 1;
+        if method == 6 {
+            // `ComputePresenceGradients` was removed (stage V3-R8a, decision U4): the Python rows stay as the frozen oracle,
+            // and the worker refuses every one of them without reading the request or any model.
+            let got = error_code(&answer);
+            if got == code::UNKNOWN_METHOD {
+                entry.matched += 1;
+                entry.identical += 1;
+            } else {
+                failures.push(format!("{id}: presence gradients answered {got}, expected {}", code::UNKNOWN_METHOD));
+            }
+            continue;
+        }
         if let Some(expected) = case.get("error_code") {
             // A frame the worker refuses: the same code, and nothing was run.
             let got = error_code(&answer);
@@ -527,13 +526,6 @@ async fn every_recorded_answer_matches_the_python_worker() {
                     ComputeSemanticGradientsResponse::decode(expected.as_slice()).unwrap(),
                 );
                 gradients_match(&semantic_parts(&got), &semantic_parts(&want), &mut tally)
-            }
-            6 => {
-                let (got, want) = (
-                    ComputePresenceGradientsResponse::decode(payload).unwrap(),
-                    ComputePresenceGradientsResponse::decode(expected.as_slice()).unwrap(),
-                );
-                gradients_match(&presence_parts(&got), &presence_parts(&want), &mut tally)
             }
             other => panic!("{id}: method {other}"),
         };
@@ -775,5 +767,6 @@ async fn an_empty_layer_selection_never_reaches_a_model() {
     }
     let request =
         ComputePresenceGradientsRequest { request_id: "r".into(), model_id: "privoke-presence-efficient".into(), ..Default::default() };
-    assert_eq!(error_code(&service.handle_frame(&frame_of(6, &[], &request.encode_to_vec(), 3)).await), code::INVALID_LAYERS);
+    // Presence gradients are removed: refused as an unknown method, whatever the layers.
+    assert_eq!(error_code(&service.handle_frame(&frame_of(6, &[], &request.encode_to_vec(), 3)).await), code::UNKNOWN_METHOD);
 }

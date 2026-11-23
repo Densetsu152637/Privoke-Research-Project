@@ -101,7 +101,7 @@ fn apply_limits(pool: &mut PoolConfig, worker: &WorkerSettings) {
 }
 
 /// The pool configuration for the Rust analysis worker (`privoke-runtime-worker`), under the same sandbox, limits and
-/// deadlines as the Python worker. It serves the semantic layer, presence and the gradient RPCs from its read-only model
+/// deadlines as the Python worker. It serves the semantic layer and presence from its read-only model
 /// root, which is by default this service's own cache (the `<id>.snapshot.pb` files it replaces atomically). Regex and
 /// NER are never exercised by this service, so they are not warmed. The start-up models are warmed only when the root is
 /// the cache, which `start` has filled by then; another root is the operator's, and a model missing there is that

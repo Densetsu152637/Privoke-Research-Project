@@ -21,8 +21,6 @@ privoke-transport = { path = "../../crates/privoke-transport" }
 # The contract helpers (`parse`, `canonical`, `digest`), the bounded blob transport and the frozen source records of the V3
 # fuzzer are reused, not copied: this service is the runtime that the fuzzer's fit request is addressed to.
 privoke-v3-fuzzer = { path = "../v3-fuzzer" }
-# `client_tls_from_lookup`: the outbound mutual-TLS credentials.
-privoke-fuzzer = { path = "../fuzzer" }
 # The frozen schedules (`validate_bc01`, `validate_au3`) and the wire encoding of the rows.
 privoke-curriculum = { path = "../../crates/privoke-curriculum" }
 # The V3 fit (`v3_fit::fit`).

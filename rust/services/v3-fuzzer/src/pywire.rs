@@ -3,36 +3,13 @@
 //! the `cycles` table).
 //!
 //! Python writes every protobuf map entry with its value field even when the value is the default; `prost` omits it. The
-//! request encoder is the one of the legacy fuzzer ([`privoke_fuzzer::pywire`]); the response encoder is here.
+//! request encoder is shared ([`privoke_contracts::pywire`]); the response encoder is here.
 
 use privoke_contracts::proto::v1::FuzzerTrainingResponse;
 use prost::Message;
 
-pub use privoke_fuzzer::pywire::fuzzer_request_bytes;
-
-fn varint(mut number: usize, out: &mut Vec<u8>) {
-    loop {
-        let low = (number & 0x7f) as u8;
-        number >>= 7;
-        if number == 0 {
-            out.push(low);
-            return;
-        }
-        out.push(low | 0x80);
-    }
-}
-
-fn text_entry(field_tag: u8, key: &str, value: &str, out: &mut Vec<u8>) {
-    let mut entry = vec![0x0a];
-    varint(key.len(), &mut entry);
-    entry.extend_from_slice(key.as_bytes());
-    entry.push(0x12);
-    varint(value.len(), &mut entry);
-    entry.extend_from_slice(value.as_bytes());
-    out.push(field_tag);
-    varint(entry.len(), out);
-    out.extend_from_slice(&entry);
-}
+pub use privoke_contracts::pywire::fuzzer_request_bytes;
+use privoke_contracts::pywire::text_entry;
 
 /// `response.SerializeToString(deterministic=True)` of a [`FuzzerTrainingResponse`] (`metadata` is field 7, the last).
 pub fn fuzzer_response_bytes(response: &FuzzerTrainingResponse) -> Vec<u8> {

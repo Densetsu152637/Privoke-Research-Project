@@ -8,8 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
-use privoke_fuzzer::config::client_tls_from_lookup;
-use privoke_transport::startup::CloudTlsArgs;
+use privoke_transport::startup::{CloudTlsArgs, client_tls_from_lookup};
 use privoke_v3_fuzzer::backend::{GrpcCheckpoint, GrpcFit};
 use privoke_v3_fuzzer::config::{V3Settings, load_policy, load_routine_schedules, load_schedules};
 use privoke_v3_fuzzer::cycle::{Engine, EngineParts, Mode};
@@ -61,10 +60,8 @@ async fn serve(args: Args) -> Result<()> {
     let transport = args.tls.into_config().map_err(|error| Error(error.to_string()))?;
     let settings = V3Settings::from_env()?;
     let lookup = |name: &str| std::env::var(name).ok();
-    let runtime_tls =
-        client_tls_from_lookup(&settings.runtime_target, "V3_RUNTIME_TLS_SERVER_NAME", lookup).map_err(|error| Error(error.0))?;
-    let checkpoint_tls =
-        client_tls_from_lookup(&settings.checkpoint_target, "V3_CHECKPOINT_TLS_SERVER_NAME", lookup).map_err(|error| Error(error.0))?;
+    let runtime_tls = client_tls_from_lookup(&settings.runtime_target, "V3_RUNTIME_TLS_SERVER_NAME", lookup).map_err(Error)?;
+    let checkpoint_tls = client_tls_from_lookup(&settings.checkpoint_target, "V3_CHECKPOINT_TLS_SERVER_NAME", lookup).map_err(Error)?;
     let (policy, _) = load_policy(&settings.policy_file)?;
     let schedules = load_schedules(&settings)?;
     let fit = Arc::new(GrpcFit::new(settings.runtime_target.clone(), runtime_tls));

@@ -24,6 +24,7 @@ pub mod error;
 pub mod net;
 pub mod objective;
 pub mod presence;
+pub mod pycompat;
 pub mod reference;
 pub mod retention;
 pub mod retention_common;

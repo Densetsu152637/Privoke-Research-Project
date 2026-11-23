@@ -14,7 +14,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use privoke_contracts::pyfloat;
 use privoke_rules::preprocessing::normalize_text;
-use privoke_rules::pyunicode;
 use privoke_semantic::{TinyModel, TinyPrediction};
 use serde_json::Value;
 
@@ -85,31 +84,7 @@ fn invalid(message: &str) -> TrainingError {
     TrainingError::invalid(message)
 }
 
-/// `training_text_key` (`\d` is Unicode `Nd`, whitespace is Python's `str.isspace`): NFKC, lower case, `[at]` and `(at)` as `@`, digit-adjacent blanks removed, whitespace collapsed.
-pub fn training_text_key(text: &str) -> String {
-    let lowered = pyunicode::lower(&pyunicode::nfkc(text)).replace("[at]", "@").replace("(at)", "@");
-    let chars: Vec<char> = lowered.chars().collect();
-    let mut joined = String::new();
-    let mut index = 0;
-    while index < chars.len() {
-        if chars[index] == ' ' || chars[index] == '\t' {
-            let start = index;
-            while index < chars.len() && (chars[index] == ' ' || chars[index] == '\t') {
-                index += 1;
-            }
-            let digit_before = start > 0 && pyunicode::is_decimal(chars[start - 1]);
-            let digit_after = index < chars.len() && pyunicode::is_decimal(chars[index]);
-            if !(digit_before && digit_after) {
-                joined.extend(&chars[start..index]);
-            }
-        } else {
-            joined.push(chars[index]);
-            index += 1;
-        }
-    }
-    // `str.split()`: runs of Python whitespace (`str.isspace`) separate the words.
-    joined.split(pyunicode::is_space).filter(|word| !word.is_empty()).collect::<Vec<_>>().join(" ")
-}
+pub use crate::pycompat::training_text_key;
 
 fn sensitivity_value(name: &str) -> i64 {
     match name {

@@ -15,6 +15,16 @@ path = "src/lib.rs"
 name = "analysis-service"
 path = "src/main.rs"
 
+[[bin]]
+name = "privoke-analysis-test-worker"
+path = "src/bin/test_worker.rs"
+required-features = ["test-helpers"]
+
+[features]
+default = []
+# Test-only: the stand-in W1 worker that records what it is asked (`tests/gradients_removed.rs`). Never enabled by a normal build.
+test-helpers = []
+
 [dependencies]
 privoke-contracts = { path = "../../crates/privoke-contracts" }
 privoke-transport = { path = "../../crates/privoke-transport" }
@@ -31,6 +41,7 @@ sha2 = { workspace = true }
 bytes = "1"
 
 [dev-dependencies]
+privoke-analysis = { path = ".", features = ["test-helpers"] }
 # The worker's own reader of the cache, to compare it with the artifact file the cache was fetched from.
 privoke-runtime = { path = "../runtime" }
 privoke-pki = { path = "../../tools/privoke-pki" }

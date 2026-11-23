@@ -23,8 +23,7 @@ use privoke_semantic::TinyModel;
 use serde_json::{Value, json};
 
 use crate::error::TrainingError;
-use crate::retention::TEACHERS;
-use crate::retention_common::{BANK_SHA256, BOUNDARY, EPSILON, is_sensitive, safety_margin, teacher_tensors};
+use crate::retention_common::{BANK_SHA256, BOUNDARY, EPSILON, TEACHERS, is_sensitive, safety_margin, teacher_tensors};
 
 fn invalid(message: &str) -> TrainingError {
     TrainingError::invalid(message)

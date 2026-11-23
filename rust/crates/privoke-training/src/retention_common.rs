@@ -19,6 +19,12 @@ pub const BANK_SHA256: &str = "c9b0b64133e6474487c1d3fe2ac9410c720b19a1f1571469d
 pub const BOUNDARY: &str = "{\"version\":\"original_sensitive_strict_margin_gap_v1\",\"epsilon\":1e-6,\"gold_non_s0\":true,\"decoded_sensitive\":true,\"packed_exact\":false,\"teacher_at_least_gold\":false,\"required_groups\":20}";
 /// The strict margin and gap threshold of [`BOUNDARY`].
 pub const EPSILON: f64 = 1e-6;
+/// The three fixed ORIGINAL teacher artifacts (profile, sha256 of the artifact bytes) a retention reference is pinned to.
+pub(crate) const TEACHERS: [(&str, &str); 3] = [
+    ("quality", "50657f82e52bb2df56e0ce57c3124a7d7b97a9d9ea338e5eac3c42552fb40733"),
+    ("balanced", "4e991e8f1c3e6211e824613fa8eee2fdc6f0cec6ec9a5e817dbf1c17802cf8a1"),
+    ("efficient", "a23e986915225373663ed7a017d13fa82aac8c3a266ff5a3f4943b129d92e4ef"),
+];
 /// The category bits of a packed classification.
 pub(crate) const CATEGORY_MASK: u16 = 0x7FE0;
 

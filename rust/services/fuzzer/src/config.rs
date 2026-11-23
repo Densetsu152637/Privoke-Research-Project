@@ -324,27 +324,9 @@ impl FuzzerConfig {
     }
 }
 
-/// The credentials every outbound channel presents: the service's registered certificate and the server CA
-/// (`PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE`). A missing or empty file is an error, so a
-/// deployment without credentials fails at startup instead of sending plaintext.
+/// The credentials every outbound channel presents (the shared `privoke_transport::startup::client_tls_from_lookup`).
 pub fn client_tls_from_lookup(target: &str, server_name_variable: &str, get: impl Fn(&str) -> Option<String>) -> Result<ClientTlsConfig> {
-    let file = |variable: &str| -> Result<PathBuf> {
-        let path = get(variable)
-            .filter(|value| !value.trim().is_empty())
-            .map(PathBuf::from)
-            .ok_or_else(|| Error(format!("{variable} is required.")))?;
-        match std::fs::metadata(&path) {
-            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => Ok(path),
-            _ => Err(Error(format!("{variable} {} is not a non-empty file.", path.display()))),
-        }
-    };
-    let host = target.rsplit_once(':').map_or(target, |(host, _)| host).trim_matches(['[', ']']).to_string();
-    let server_name = get(server_name_variable).filter(|value| !value.trim().is_empty()).unwrap_or(host);
-    Ok(ClientTlsConfig {
-        server_ca: file("PRIVOKE_TLS_CA_FILE")?,
-        identity: Some((file("PRIVOKE_TLS_CERT_FILE")?, file("PRIVOKE_TLS_KEY_FILE")?)),
-        server_name,
-    })
+    privoke_transport::startup::client_tls_from_lookup(target, server_name_variable, get).map_err(Error)
 }
 
 #[cfg(test)]

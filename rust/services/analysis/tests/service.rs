@@ -16,8 +16,8 @@ use common::{Env, connect, raw_call, repo_root, strip_wall_clock, worker_python}
 use privoke_contracts::proto::v1::model_streaming_service_client::ModelStreamingServiceClient;
 use privoke_contracts::proto::v1::param_update_service_client::ParamUpdateServiceClient;
 use privoke_contracts::proto::v1::{
-    AnalyzePromptRequest, ComputeSemanticGradientsRequest, DetectAnnotationPresenceRequest, DetectionLayer, ModelParametersRequest,
-    ParameterUpdateRequest, RuntimeHealthRequest,
+    AnalyzePromptRequest, ComputePresenceGradientsRequest, ComputeSemanticGradientsRequest, DetectAnnotationPresenceRequest,
+    DetectionLayer, ModelParametersRequest, ParameterUpdateRequest, RuntimeHealthRequest,
 };
 use sha2::{Digest, Sha256};
 use tonic::Code;
@@ -117,15 +117,16 @@ async fn the_service_with_a_real_worker() {
         request.layers = layers.clone();
         assert_eq!(fuzzer_client.analyze_prompt(request).await.unwrap_err().code(), Code::InvalidArgument, "{layers:?}");
     }
+    // The gradient RPCs are not served at all (stage V3-R8a): `UNIMPLEMENTED`, whatever the layers, with no worker called.
     let mut gradients =
         ComputeSemanticGradientsRequest { request_id: "g".into(), model_id: "privoke-balanced".into(), ..Default::default() };
-    assert_eq!(
-        fuzzer_client.compute_semantic_gradients(gradients.clone()).await.unwrap_err().code(),
-        Code::InvalidArgument,
-        "empty layers"
-    );
-    gradients.layers = vec![DetectionLayer::Semantic as i32, DetectionLayer::Ner as i32];
-    assert_eq!(fuzzer_client.compute_underlying_model_gradients(gradients).await.unwrap_err().code(), Code::InvalidArgument);
+    assert_eq!(fuzzer_client.compute_semantic_gradients(gradients.clone()).await.unwrap_err().code(), Code::Unimplemented, "empty layers");
+    gradients.layers = vec![DetectionLayer::Semantic as i32];
+    assert_eq!(fuzzer_client.compute_semantic_gradients(gradients.clone()).await.unwrap_err().code(), Code::Unimplemented);
+    assert_eq!(fuzzer_client.compute_underlying_model_gradients(gradients).await.unwrap_err().code(), Code::Unimplemented);
+    let presence_gradients =
+        ComputePresenceGradientsRequest { request_id: "g".into(), model_id: "privoke-presence-efficient".into(), ..Default::default() };
+    assert_eq!(fuzzer_client.compute_presence_gradients(presence_gradients).await.unwrap_err().code(), Code::Unimplemented);
     let presence = DetectAnnotationPresenceRequest { text: "x".into(), layers: vec![DetectionLayer::Regex as i32], ..Default::default() };
     assert_eq!(fuzzer_client.detect_annotation_presence(presence).await.unwrap_err().code(), Code::InvalidArgument);
 
