@@ -4,6 +4,9 @@
 //! * `SubmitParameterUpdate`: registered `publisher` services only.
 //! * `GetParameterUpdateStatus`: `publisher` and `trainer` services.
 //! * `Health`: `publisher`, `trainer` and `runtime` services (the container probe and the operator).
+//! * `CheckpointService` (when a V3 store is configured, stage V3-R1): `CommitCandidate` for `publisher` and `trainer` services
+//!   only; `StageCheckpoint`, `ResolveCurrent`, `FetchBlob`, `GetCommitStatus` and `Health` also for `runtime` services (the V3
+//!   runtime stages the candidates it fits and never commits them).
 //!
 //! An RPC the policy does not list, including `GetModelParameters` and the other services' methods, is `UNIMPLEMENTED`
 //! here. An installation or reporter certificate that the CA signed is `PERMISSION_DENIED`. There is no plaintext
@@ -12,6 +15,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use privoke_contracts::proto::experimental_v3::checkpoint_service_server::CheckpointServiceServer;
 use privoke_contracts::proto::v1::param_update_service_server::ParamUpdateServiceServer;
 use privoke_transport::startup::CloudTransport;
 use privoke_transport::{AuthLayer, LimiterKey, Limits, Policy, Role, SecureListener, secure_server};
@@ -20,10 +24,18 @@ use tokio::task::JoinHandle;
 
 use crate::error::{Error, Result};
 use crate::service::ParamUpdateHandler;
+use crate::v3_store::CheckpointHandler;
+use crate::v3_store::service::MESSAGE_LIMIT as CHECKPOINT_MESSAGE_LIMIT;
 
 const SUBMIT: &str = "/privoke.v1.ParamUpdateService/SubmitParameterUpdate";
 const STATUS: &str = "/privoke.v1.ParamUpdateService/GetParameterUpdateStatus";
 const HEALTH: &str = "/privoke.v1.ParamUpdateService/Health";
+const CHECKPOINT_RESOLVE: &str = "/privoke.experimental.v3.CheckpointService/ResolveCurrent";
+const CHECKPOINT_FETCH: &str = "/privoke.experimental.v3.CheckpointService/FetchBlob";
+const CHECKPOINT_STAGE: &str = "/privoke.experimental.v3.CheckpointService/StageCheckpoint";
+const CHECKPOINT_COMMIT: &str = "/privoke.experimental.v3.CheckpointService/CommitCandidate";
+const CHECKPOINT_STATUS: &str = "/privoke.experimental.v3.CheckpointService/GetCommitStatus";
+const CHECKPOINT_HEALTH: &str = "/privoke.experimental.v3.CheckpointService/Health";
 
 /// Which roles may call which RPC.
 pub fn policy() -> Policy {
@@ -31,6 +43,12 @@ pub fn policy() -> Policy {
         .allow(SUBMIT, &[Role::Publisher], LimiterKey::Identity)
         .allow(STATUS, &[Role::Publisher, Role::Trainer], LimiterKey::Identity)
         .allow(HEALTH, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
+        .allow(CHECKPOINT_RESOLVE, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
+        .allow(CHECKPOINT_FETCH, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
+        .allow(CHECKPOINT_STAGE, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
+        .allow(CHECKPOINT_COMMIT, &[Role::Publisher, Role::Trainer], LimiterKey::Identity)
+        .allow(CHECKPOINT_STATUS, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
+        .allow(CHECKPOINT_HEALTH, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
 }
 
 /// A running server; dropping the handle does not stop it, [`shutdown`](Self::shutdown) does.
@@ -55,10 +73,22 @@ impl ServerHandle {
     }
 }
 
-/// Bind the listener over the validated transport and start serving.
+/// Bind the listener over the validated transport and start serving the update service.
 pub async fn start(
     listen: SocketAddr,
     handler: ParamUpdateHandler,
+    transport: CloudTransport,
+    limits: Limits,
+    poll: Duration,
+) -> Result<ServerHandle> {
+    start_with_checkpoint(listen, handler, None, transport, limits, poll).await
+}
+
+/// [`start`], and the V3 `CheckpointService` on the same listener when `checkpoint` is given.
+pub async fn start_with_checkpoint(
+    listen: SocketAddr,
+    handler: ParamUpdateHandler,
+    checkpoint: Option<CheckpointHandler>,
     transport: CloudTransport,
     limits: Limits,
     poll: Duration,
@@ -73,7 +103,12 @@ pub async fn start(
     let (shutdown, receiver) = watch::channel(false);
 
     let service = ParamUpdateServiceServer::new(handler).max_decoding_message_size(limits.max_message_bytes);
-    let server = secure_server(&limits, auth.clone()).add_service(service);
+    let router = secure_server(&limits, auth.clone()).add_service(service);
+    // A checkpoint chunk is 1 MiB, which is the default message bound of the update service: the V3 service has its own.
+    let server = match checkpoint {
+        Some(handler) => router.add_service(CheckpointServiceServer::new(handler).max_decoding_message_size(CHECKPOINT_MESSAGE_LIMIT)),
+        None => router,
+    };
     let signal = stop_signal(receiver.clone());
     let task = tokio::spawn(async move {
         let _keep_alive = (tls_watcher, registry_watcher);

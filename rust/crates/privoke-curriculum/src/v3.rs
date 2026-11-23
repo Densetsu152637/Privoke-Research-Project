@@ -588,6 +588,16 @@ fn rows_from_sidecar(records: &[Value]) -> Result<Vec<RuntimeTrainingExample>> {
 /// `validate_source_evidence(evidence)` for the AU3 sampler: reconstruct the committed wires from the sidecars and
 /// validate the whole source against the trusted deterministic schedule.
 pub fn validate_source_evidence_au3(evidence: &Value, release: &AudienceRelease) -> Result<()> {
+    validate_source_evidence_with(evidence, |schedule, policy| validate_au3(schedule, policy, release))
+}
+
+/// `validate_source_evidence(evidence)` for the BC01 sampler: the same reconstruction, validated against the pinned taxonomy
+/// and benign inputs.
+pub fn validate_source_evidence_bc01(evidence: &Value, sources: &Sources) -> Result<()> {
+    validate_source_evidence_with(evidence, |schedule, policy| validate_bc01(schedule, policy, sources))
+}
+
+fn validate_source_evidence_with(evidence: &Value, check: impl FnOnce(&Schedule, Policy) -> Result<Value>) -> Result<()> {
     let source = value::require(evidence, "source")?;
     if value::digest_of(source)? != value::str_at(evidence, "source_commitment")? {
         return invalid("Execution source bytes differ from fit commitment.");
@@ -598,7 +608,7 @@ pub fn validate_source_evidence_au3(evidence: &Value, release: &AudienceRelease)
         guard: rows_from_sidecar(value::array_at(source, "guard_sidecar")?)?,
         source: source.clone(),
     };
-    let counts = validate_au3(&schedule, policy, release)?;
+    let counts = check(&schedule, policy)?;
     if value::as_object(&counts).is_some_and(|map| map.iter().any(|(key, expected)| value::get(source, key) != Some(expected))) {
         return invalid("Source exposure counts differ from actual rows.");
     }

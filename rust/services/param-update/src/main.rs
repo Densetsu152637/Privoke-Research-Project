@@ -11,13 +11,14 @@ use clap::{Parser, Subcommand};
 use privoke_model_streaming::contextual::{FULL_ENCODER_STRATEGY, STRATEGY_KEY};
 use privoke_param_update::artifact_io;
 use privoke_param_update::bootstrap::bootstrap_model;
-use privoke_param_update::config::ServiceConfig;
+use privoke_param_update::config::{ServiceConfig, V3Config};
 use privoke_param_update::engine::{Engine, no_hook, system_clock};
 use privoke_param_update::healthcheck::{self, HealthcheckArgs};
 use privoke_param_update::scheduler::{self, FuzzerRequestConfig, GrpcFuzzer};
 use privoke_param_update::server;
 use privoke_param_update::service::ParamUpdateHandler;
 use privoke_param_update::util::log;
+use privoke_param_update::v3_store::{CheckpointHandler, CheckpointStore, PinnedSources};
 use privoke_param_update::{Error, Result, SERVICE_NAME};
 use privoke_transport::startup::CloudTlsArgs;
 use privoke_transport::{Limits, RateLimit};
@@ -82,6 +83,17 @@ fn bootstrap(config: &ServiceConfig) -> Result<()> {
     Ok(())
 }
 
+/// Open the V3 checkpoint store and admit the configured ORIGINAL packages (the oracle's `CheckpointStore(V3_STORE, V3_INITIAL)`).
+fn open_checkpoint(config: &V3Config) -> Result<CheckpointHandler> {
+    let sources = PinnedSources::from_root(&config.source_root, config.audience.clone());
+    let store = CheckpointStore::open(&config.store, Arc::new(sources)).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
+    for initial in &config.initial {
+        store.bootstrap(initial).map_err(|error| Error(format!("V3 checkpoint bootstrap of {}: {error}", initial.display())))?;
+    }
+    log(format_args!("{SERVICE_NAME} V3 checkpoint store ready directory={}", config.store.display()));
+    Ok(CheckpointHandler::new(Arc::new(store)))
+}
+
 async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Result<()> {
     // Authentication inputs first: nothing is opened or bound until the verifier exists.
     let transport = tls.into_config().map_err(|error| Error(error.to_string()))?;
@@ -110,8 +122,16 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Resu
         ..Limits::default()
     };
     let listen = SocketAddr::new(config.bind, config.port);
-    let mut handle =
-        server::start(listen, ParamUpdateHandler::new(engine), transport, limits, Duration::from_secs(poll_secs.max(1))).await?;
+    let checkpoint = config.v3.as_ref().map(open_checkpoint).transpose()?;
+    let mut handle = server::start_with_checkpoint(
+        listen,
+        ParamUpdateHandler::new(engine),
+        checkpoint,
+        transport,
+        limits,
+        Duration::from_secs(poll_secs.max(1)),
+    )
+    .await?;
     log(format_args!("{SERVICE_NAME} listening port={} drift_policy={:?}", handle.addr.port(), config.drift));
     let scheduler_task = scheduler_client.map(|client| {
         tokio::spawn(async move {
