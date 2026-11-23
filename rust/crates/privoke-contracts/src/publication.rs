@@ -204,6 +204,16 @@ pub fn verify(keys: &KeySet, encoded: &[u8]) -> Result<Statement, PublicationErr
     Ok(statement)
 }
 
+/// The publication public keys compiled into this build, as `(key_id, 64 lowercase hexadecimal characters)`. A rotation overlap
+/// lists both keys (see `docs/runtime/v3-publication.md`). Empty until the first publication key is generated: a client then
+/// admits no signed version and keeps the pinned ORIGINAL.
+pub const PRODUCTION_KEYS: &[(&str, &str)] = &[];
+
+/// The key set of this build: [`PRODUCTION_KEYS`]. An entry that does not parse is left out (fewer keys, never more).
+pub fn production_key_set() -> KeySet {
+    PRODUCTION_KEYS.iter().fold(KeySet::new(), |keys, (key_id, public)| keys.clone().with_hex(key_id, public).unwrap_or(keys))
+}
+
 /// Deterministic keys for tests and fixtures. They exist only behind the `test-keys` cargo feature and are never compiled into
 /// a client or a service build.
 #[cfg(feature = "test-keys")]
@@ -238,6 +248,14 @@ pub mod test_keys {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_compiled_production_key_parses() {
+        let keys = production_key_set();
+        for (key_id, _) in PRODUCTION_KEYS {
+            assert!(keys.contains(key_id), "{key_id}");
+        }
+    }
 
     /// RFC 8032 section 7.1, test 1 (empty message).
     const SEED: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";

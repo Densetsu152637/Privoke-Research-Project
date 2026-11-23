@@ -14,6 +14,23 @@ fn manifests() -> Vec<(String, String)> {
 }
 
 #[test]
+fn the_compiled_pins_and_release_originals_are_those_of_the_captured_manifests() {
+    for (model, payload) in &manifests() {
+        let tier = TIERS.iter().find(|tier| format!("privoke-v3-{}", tier.name) == *model).unwrap();
+        assert_eq!(sha256_hex(payload.as_bytes()), tier.manifest_pin, "{model}: pin");
+        let value = v3::parse_canonical(payload.as_bytes(), v3::MAX_MANIFEST_BYTES).unwrap();
+        let privoke_contracts::json::Value::Object(map) = &value else { panic!("{model}: not an object") };
+        let original = match map.get("original") {
+            Some(privoke_contracts::json::Value::String(text)) => text.as_str(),
+            other => panic!("{model}: original is {other:?}"),
+        };
+        assert_eq!(original, tier.release_original, "{model}: release original");
+        let standard = v3::standard_tier_pin(model).unwrap();
+        assert_eq!((standard.manifest_sha.as_str(), standard.original.as_str()), (tier.manifest_pin, tier.release_original));
+    }
+}
+
+#[test]
 fn pinned_manifests_are_admitted_and_hash_to_their_pins() {
     let all = manifests();
     assert_eq!(all.len(), 3);

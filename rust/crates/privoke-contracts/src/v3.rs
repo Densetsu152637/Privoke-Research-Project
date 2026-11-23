@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use crate::canonical::{self, Variant};
 use crate::digest::sha256_hex;
 use crate::json::{self, Duplicates, ParseOptions, Value};
+use crate::publication::{self, KeySet, PublicationError, Statement};
 
 /// Bytes streamed per `ModelAssetChunk`.
 pub const CHUNK_BYTES: usize = 1024 * 1024;
@@ -44,6 +45,8 @@ pub struct Tier {
     pub config_sha256: &'static str,
     /// SHA-256 of the pinned released manifest.
     pub manifest_pin: &'static str,
+    /// The `original` field of the pinned released manifest: the ORIGINAL-scope manifest every trained version descends from.
+    pub release_original: &'static str,
 }
 
 /// The three admitted tiers, in the order of the Python `TIERS` table.
@@ -59,6 +62,7 @@ pub const TIERS: [Tier; 3] = [
         weights_sha256: "2e37a60f99c30c244da3a2ada3653faf378689783c5b6500d7291acc2516e199",
         config_sha256: "191ec8105cc6eb8ce2d64c117f7c5830f6028c06da4d7a0d3672414f2c77ad98",
         manifest_pin: "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        release_original: "a60ab3c01592dd3d759950f35fad1a291aa94e57c954cf6beffa4e97d66a686e",
     },
     Tier {
         name: "balanced",
@@ -71,6 +75,7 @@ pub const TIERS: [Tier; 3] = [
         weights_sha256: "67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783",
         config_sha256: "ba873b4875d069697fa5bab011ea9e3f63b7f8186701bdf5356b4d8622d8f5c1",
         manifest_pin: "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+        release_original: "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
     },
     Tier {
         name: "quality",
@@ -83,6 +88,7 @@ pub const TIERS: [Tier; 3] = [
         weights_sha256: "1be1c8c6a57894a139fdf526fb8435f6acb6ea01600569a4ac3cfd405dc5f875",
         config_sha256: "9efa18e50a359c542d79f9c00a23049c2d78aa07c1fd11827c6e2487b3333cd7",
         manifest_pin: "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+        release_original: "c86f710946090e31cb9b15d2e2fc476fb23ac74286cbae59e4d5aa286c90210e",
     },
 ];
 
@@ -325,6 +331,176 @@ pub fn admitted_manifest(payload: &[u8], model_id: Option<&str>) -> Result<Manif
 /// The pinned manifest SHA-256 for a standard model id.
 pub fn standard_pin(model_id: &str) -> Option<&'static str> {
     TIERS.iter().find(|tier| model_id == format!("privoke-v3-{}", tier.name)).map(|tier| tier.manifest_pin)
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Lineage and signature admission of a published version (stage V3-R4a of the routine-training plan).
+// ---------------------------------------------------------------------------------------------------------------------------
+
+/// Why [`admit_lineage`] refused a version.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum LineageError {
+    /// The manifest is not a valid, canonical manifest, or names another model than the request.
+    #[error(transparent)]
+    Manifest(#[from] ManifestError),
+    /// The statement is malformed, names an unknown key or does not verify.
+    #[error(transparent)]
+    Publication(#[from] PublicationError),
+    /// The model has no compiled pinned ORIGINAL.
+    #[error("model has no compiled pinned ORIGINAL")]
+    NoPin,
+    /// An unsigned manifest that is not the compiled pin.
+    #[error("an unsigned manifest is admitted only as the pinned ORIGINAL")]
+    Unsigned,
+    /// The unsigned pinned ORIGINAL after a signed version was accepted for the model.
+    #[error("unsigned ORIGINAL refused: a signed version was already accepted for this model")]
+    Downgrade,
+    /// The statement names another model than the manifest.
+    #[error("publication statement names another model than the manifest")]
+    StatementModel,
+    /// The statement names another manifest than the one presented.
+    #[error("publication statement names another manifest")]
+    StatementManifest,
+    /// The statement's `parent` or `original` differs from the manifest's own fields.
+    #[error("publication statement lineage differs from the manifest")]
+    StatementLineage,
+    /// The statement's sequence is below the persisted high-water mark.
+    #[error("publication sequence {got} is below the accepted high-water mark {seen}")]
+    Replay {
+        /// The persisted high-water mark.
+        seen: u64,
+        /// The statement's sequence.
+        got: u64,
+    },
+    /// The statement's sequence equals the high-water mark but names another manifest.
+    #[error("publication sequence {0} is already accepted for another manifest")]
+    SequenceConflict(u64),
+    /// The manifest is not the pin and does not descend from the compiled pinned ORIGINAL.
+    #[error("manifest does not descend from the pinned ORIGINAL")]
+    WrongOriginal,
+    /// The persisted high-water record could not be read or is not usable.
+    #[error("high-water record: {0}")]
+    HighWater(String),
+}
+
+/// The compiled pin of a tier: the pinned release manifest and the `original` field of that manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TierPin {
+    /// SHA-256 of the pinned release manifest.
+    pub manifest_sha: String,
+    /// The pinned release's own `original` field: what a trained version's `original` must equal.
+    pub original: String,
+}
+
+/// The compiled pin of a standard model id.
+pub fn standard_tier_pin(model_id: &str) -> Option<TierPin> {
+    TIERS
+        .iter()
+        .find(|tier| model_id == format!("privoke-v3-{}", tier.name))
+        .map(|tier| TierPin { manifest_sha: tier.manifest_pin.to_string(), original: tier.release_original.to_string() })
+}
+
+/// What the client has compiled in and persisted for [`admit_lineage`].
+pub trait LineageState {
+    /// The compiled pin of `model_id`, if the model has one.
+    fn tier_pin(&self, model_id: &str) -> Option<TierPin>;
+    /// The highest publication statement already accepted for `model_id` (re-verified by the implementation), if any.
+    fn high_water(&self, model_id: &str) -> Result<Option<Statement>, String>;
+}
+
+/// A version that passed [`admit_lineage`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineageAdmitted {
+    /// The validated manifest.
+    pub manifest: Manifest,
+    /// SHA-256 of the manifest bytes.
+    pub manifest_sha: String,
+    /// The verified statement; `None` only for the unsigned pinned ORIGINAL on a first start.
+    pub statement: Option<Statement>,
+}
+
+/// A manifest's `parent` or `original` as the text a statement repeats: a digest or the empty text.
+fn lineage_field(value: &Value, key: &str) -> Option<String> {
+    let Value::Object(map) = value else { return None };
+    match map.get(key) {
+        Some(Value::String(text)) => Some(text.clone()),
+        Some(Value::Null) => Some(String::new()),
+        _ => None,
+    }
+}
+
+/// Admit a version by lineage and signature. This is the client rule for a trained V3 version; [`admitted_manifest`] stays the
+/// pin-only rule that the model loaders share.
+///
+/// `payload` is the manifest as served, `statement` its wire statement (empty when the server sent none) and `requested` the
+/// model id the client asked for (`latest`, a model id or empty). `keys` is the key set compiled into the client and `state`
+/// holds the compiled tier pin and the persisted high-water statement. The version is admitted when:
+///
+/// 1. the manifest is canonical and satisfies the manifest contract, and names the requested model;
+/// 2. a statement is present, verifies under a `key_id` of `keys`, and names this model and this manifest;
+/// 3. the statement's `parent` and `original` equal the manifest's own fields;
+/// 4. its sequence is above the high-water mark, or equal to it with the same manifest;
+/// 5. the manifest is the compiled tier pin (a signed rollback), or its `original` equals the `original` of the pinned release.
+///
+/// Without a statement only the compiled pin is admitted, and only while the model has no high-water mark (first start): an
+/// unsigned ORIGINAL after a signed version is a downgrade.
+pub fn admit_lineage(
+    payload: &[u8],
+    statement: &[u8],
+    requested: Option<&str>,
+    keys: &KeySet,
+    state: &dyn LineageState,
+) -> Result<LineageAdmitted, LineageError> {
+    let value = parse_canonical(payload, MAX_MANIFEST_BYTES)?;
+    let manifest = validate_manifest(&value)?;
+    if let Some(requested) = requested
+        && !requested.is_empty()
+        && requested != "latest"
+        && requested != manifest.model_id
+    {
+        return Err(ManifestError::IdentityDiffers.into());
+    }
+    let pin = state.tier_pin(&manifest.model_id).ok_or(LineageError::NoPin)?;
+    let manifest_sha = sha256_hex(payload);
+    let is_pin = manifest_sha == pin.manifest_sha;
+    let high_water = state.high_water(&manifest.model_id).map_err(LineageError::HighWater)?;
+    if let Some(seen) = &high_water
+        && seen.model_id != manifest.model_id
+    {
+        return Err(LineageError::HighWater("the record names another model".to_string()));
+    }
+
+    if statement.is_empty() {
+        return match (is_pin, high_water) {
+            (true, None) => Ok(LineageAdmitted { manifest, manifest_sha, statement: None }),
+            (true, Some(_)) => Err(LineageError::Downgrade),
+            (false, _) => Err(LineageError::Unsigned),
+        };
+    }
+
+    let statement = publication::verify(keys, statement)?;
+    if statement.model_id != manifest.model_id {
+        return Err(LineageError::StatementModel);
+    }
+    if statement.manifest_sha != manifest_sha {
+        return Err(LineageError::StatementManifest);
+    }
+    let (parent, original) = (lineage_field(&value, "parent"), lineage_field(&value, "original"));
+    if parent.as_deref() != Some(statement.parent.as_str()) || original.as_deref() != Some(statement.original.as_str()) {
+        return Err(LineageError::StatementLineage);
+    }
+    if let Some(seen) = &high_water {
+        if statement.sequence < seen.sequence {
+            return Err(LineageError::Replay { seen: seen.sequence, got: statement.sequence });
+        }
+        if statement.sequence == seen.sequence && statement.manifest_sha != seen.manifest_sha {
+            return Err(LineageError::SequenceConflict(statement.sequence));
+        }
+    }
+    if !is_pin && (manifest.scope == "original" || statement.original != pin.original) {
+        return Err(LineageError::WrongOriginal);
+    }
+    Ok(LineageAdmitted { manifest, manifest_sha, statement: Some(statement) })
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------

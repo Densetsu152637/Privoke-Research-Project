@@ -124,6 +124,23 @@ jobs:
             exit 1
           fi
 
+      - name: Publication test keys are absent from the client build (V3-R4a)
+        # The supervisor's lineage admission compiles the production key set; the deterministic test keys exist only through the
+        # dev-dependencies of its tests.
+        run: |
+          if cargo tree -p privoke-runtime-supervisor -e normal,build,features --locked | grep -q 'test-keys'; then
+            echo 'privoke-runtime-supervisor enables the test-keys feature outside its tests' >&2
+            exit 1
+          fi
+
+      - name: Client lineage attack rows (V3-R4a)
+        # Runs the shared signed-chain table and the Fetcher rows, then judges every row against the table of update_security.py.
+        run: |
+          rows="$RUNNER_TEMP/lineage-rows.jsonl"
+          rm -f "$rows"
+          PRIVOKE_LINEAGE_ROWS_OUT="$rows" cargo test -p privoke-runtime-supervisor --test lineage_chain --test lineage_fetch --locked -- --nocapture --test-threads=1
+          python3 ../evaluation/update_security.py --target rust --rust-service client-lineage --lineage-rows "$rows" --output "$RUNNER_TEMP/update-security-rust-lineage.json"
+
       - name: V3 checkpoint store replay report (V3-R1)
         # Prints the counts of the checkpoint store replay against the Python oracle (eprintln): steps, answers, refusals with their reasons, commit outcomes, blob listings and receipt rows.
         run: cargo test -p privoke-param-update --test checkpoint_store_golden --test checkpoint_mtls --locked -- --nocapture --test-threads=1

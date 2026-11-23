@@ -51,6 +51,8 @@ uuid = { version = "1", default-features = false, features = ["v4"] }
 [dev-dependencies]
 privoke-runtime-supervisor = { path = ".", features = ["test-helpers"] }
 privoke-model-streaming = { path = "../model-streaming" }
+# The deterministic publication test keys of the lineage tests (V3-R4a); the service build never enables them.
+privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
 tempfile = { workspace = true }
 time = { workspace = true }
 rcgen = { workspace = true }

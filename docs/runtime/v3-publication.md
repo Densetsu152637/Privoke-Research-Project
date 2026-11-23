@@ -69,11 +69,39 @@ If the authority serves a manifest other than its newest publication's, the plai
 | Consumer | Path | After the first publication |
 | --- | --- | --- |
 | `extension/client-runtime/src/LLM/privoke/v3_package.py` (`fetch_package`, called from `parameter_stream.py`; `worker_main.py` and `streamed_model.py` only load the cached directory) | `GetModelPackage` with the plain id, then `StreamModelAsset` by the compiled pin | **Affected.** It refuses a manifest that is not the compiled pin (`admitted_manifest`, `STANDARD_PINS`), so with the plain id it fails closed once a tier is published. It is frozen by plan decision. To keep running it, its owner must send `privoke-v3-<tier>@<pin>` on the wire and keep the bare id for `admitted_manifest` (which compares the id string); this stage does not touch it. Until then plain-id runs are valid only while nothing is published. |
-| `evaluation/update_security.py` (V3 fetch rows) | plain id, then assets by the manifest it received | Unaffected while nothing is published; against a store with publications, the ORIGINAL rows use `<id>@<pin>`. V3-R4a adds the signed-chain rows. |
+| `evaluation/update_security.py` (V3 fetch rows) | plain id, then assets by the manifest it received | Unaffected while nothing is published; against a store with publications, the ORIGINAL rows use `<id>@<pin>`. The signed-chain rows are the separate `--rust-service client-lineage` target (V3-R4a, Client admission). |
 | `evaluation/capture_conformance.py` (Go-parity capture) | plain ids against the Go service or a fresh Rust service | Unaffected: it records a service with nothing published (the Go-parity claim ends at the pinned set). |
 | `evaluation/generate_model_fetch_golden.py` | a scripted stub, not a service | Unaffected. |
 | `evaluation/run-rq3-semantic-cost.py`, `evaluation/adversarial_evasion.py`, `extension/src/settings.js`, `extension/test/rq3-v3-browser-cost.*` | name V3 model ids, but load from a local release directory or through the client-runtime row above | Unaffected by the server; the client-runtime row applies wherever they fetch. |
 | `services/model-streaming-service` (Go) | serves only the pinned set | Unaffected (never reads the published root). |
+
+## Client admission
+
+Stage V3-R4a. `privoke_contracts::v3::admit_lineage` (`rust/crates/privoke-contracts/src/v3.rs`) is the rule, `LineageAdmission` (`rust/services/runtime-supervisor/src/fetch.rs`) applies it in the supervisor fetch. `admitted_manifest` stays the pin-only rule of the model loaders until stage V3-R4b.
+
+A fetched manifest is accepted only when all of these hold (checked in this order):
+
+1. the manifest is canonical, satisfies the manifest contract and names the requested model;
+2. a statement is present, is a canonical statement of exactly the admitted fields, names a `key_id` of the compiled key set and verifies under it (a changed or malleable signature fails);
+3. the statement names this model and this manifest;
+4. the statement's `parent` and `original` equal the manifest's own fields;
+5. its `sequence` is above the persisted high-water mark of the model, or equal to it with the same manifest (a mark that names another model, or that does not verify, refuses everything);
+6. the manifest is the compiled tier pin (the pinned release: a signed rollback), or its `original` equals the `original` field of the pinned release (`Tier::release_original`, compiled beside the pin: the ORIGINAL-scope manifest the release descends from). Trained versions descend from the pinned release, so their `parent` is the pin or a later published version; the client does not check `parent` against what it has admitted, because it may have skipped versions (the signature attests param-update's own lineage admission).
+
+Without a statement only the compiled pin is accepted, and only while the model has no high-water mark (the first start, as today). The unsigned ORIGINAL after a signed version is refused as a downgrade, and any other unsigned manifest as unsigned. The server's claim of which manifest it serves is never trusted, and the client asks by the plain model id (`privoke-v3-<tier>`, or `latest`): a signed rollback to the ORIGINAL is the pinned bytes with a rollback statement, which only the plain id returns. The server answers `UNAVAILABLE` (an authority that serves a manifest other than its newest publication's, see Serving) or `DEADLINE_EXCEEDED` transiently: the fetch fails, nothing in the cache or the mark changes, and the client retries later.
+
+**Key set.** `privoke_contracts::publication::PRODUCTION_KEYS` lists the `(key_id, public key)` pairs compiled into a client build. It is empty until the first publication key is generated, so a client admits no signed version and keeps the pinned ORIGINAL until a release adds the key (the operator step in Key custody). The deterministic test keys exist only behind the `test-keys` cargo feature, which no client or service build enables (CI checks `cargo tree`). A rotation overlap lists both keys.
+
+**What is persisted** (in the model cache, `<cache>/<model-id>/`):
+
+| File | Meaning |
+| --- | --- |
+| `<manifest-sha>/statement.json` | the statement that admitted that version, written before the version is used and replaced when a rollback returns to a version the cache already holds |
+| `high-water.statement` | the highest statement accepted for the model: the statement itself, replaced atomically, only after the package is complete and verified, never lowered |
+
+Both are the signed wire form, so they are re-verified under the compiled keys on every read, not trusted as files. A fresh process (a restart) therefore re-admits a cached version from its `statement.json` and the mark. A mark that is malformed or whose signature is wrong (tampered) refuses every version of that model: the client fails closed. A mark signed by a key the client no longer compiles (a rotation, or a compromise) is kept as a **floor**: its sequence and manifest still count, and the next version needs a statement under a current key with a sequence above it, so dropping a key never bricks a client. A missing mark is rebuilt as a floor from the highest cached `statement.json` that still verifies under the current keys, so deleting the mark reopens nothing while the cache holds a signed version; only an empty model cache (the first start, or the whole directory deleted) is the trust-on-first-use state below. One fetch runs at a time in a process; two supervisors fetching into one cache at the same moment can each pass the check, and the mark is then written by the later one, but never to a lower sequence than it read just before.
+
+**Tests and rows.** `tests/lineage_chain.rs` and `tests/lineage_fetch.rs` of `rust/services/runtime-supervisor`, judged by `evaluation/update_security.py --target rust --rust-service client-lineage` (rows L01-L25 over the shared fixtures, LF1-LF14 through the real fetch).
 
 ## Rollback
 
@@ -84,7 +112,7 @@ If the authority serves a manifest other than its newest publication's, the plai
 - The publication key is an **Ed25519 key dedicated to publication**. It is not a TLS key and is never reused as one.
 - It is a 32-byte seed in a **mounted secret file** (64 hexadecimal characters, `V3_PUBLICATION_KEY_FILE`), readable only by the param-update service user. It is never baked into an image, never in the repository, never in an environment variable, and `test-keys` (the deterministic keys of the fixtures) exist only behind the `test-keys` cargo feature, which no service or client build enables.
 - Generate it on a trusted host: `head -c 32 /dev/urandom | od -An -vtx1 | tr -d ' \n' > publication.key` (mode 0400). Read the public key for the client key set with `param-update-service publication-key --key-file publication.key`; record the key id (`V3_PUBLICATION_KEY_ID`, for example `publication-2026-1`) with it.
-- Clients compile the public keys into the controller (V3-R4a). A key change is a client release.
+- Clients compile the public keys into the supervisor (`PRODUCTION_KEYS`, V3-R4a). A key change is a client release.
 
 ## Rotation
 
@@ -96,7 +124,7 @@ A rotation is an overlap, so that no client ever holds a statement it cannot ver
 4. Publish once under the new key (the next routine cycle, or a rollback to an earlier version and forward again) so that the served version carries a new-key statement.
 5. Release clients that drop the old key.
 
-Clients accept either key during step 2 to 4 (tested in V3-R4a with the shared fixtures: `rotation-second-key`). If a key is compromised, skip the overlap: release clients that drop it, accept that clients on the old release refuse new publications until they update, and publish under the new key.
+Clients accept either key during step 2 to 4 (tested in V3-R4a with the shared fixtures: `rotation-second-key`, rows L22, L23, L24 and LF4). A client keeps the statement that set its high-water mark, so step 5 must wait until clients have fetched a version under the new key; a client still holding an old-key mark when it drops that key keeps the mark as a floor and accepts the next statement under the new key above it (it cannot re-verify the old statement, so a local attacker who writes a forged mark with an unknown key id can only raise the floor, which denies service and grants nothing). If a key is compromised, skip the overlap: release clients that drop it, accept that clients on the old release refuse new publications until they update, and publish under the new key.
 
 ## Accepted limitation: trust on first use
 
