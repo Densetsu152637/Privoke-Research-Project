@@ -32,7 +32,7 @@ async fn the_real_package_fits_replay_within_the_stage_19_tolerance() {
     let root = tempfile::tempdir().unwrap();
     checkout(root.path());
     let started = std::time::Instant::now();
-    let counts = replay_golden(&golden, &package, &model_id, Admission::Pinned, root.path(), 4).await;
+    let counts = replay_golden(&golden, &package, &model_id, Admission::Pinned, root.path(), 4, &["full-64"]).await;
     say(&format!("FitCandidate real package: {} fits in {:.1} s", counts.fits, started.elapsed().as_secs_f64()));
     assert_eq!(counts.fits, golden["cases"].as_array().unwrap().len());
 }

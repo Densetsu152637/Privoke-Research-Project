@@ -33,7 +33,7 @@ fn golden() -> Value {
 async fn the_synthetic_golden_replays_identically() {
     let root = tempfile::tempdir().unwrap();
     checkout(root.path());
-    let counts = replay_golden(&golden(), &package(), "privoke-v3-efficient", Admission::Structural, root.path(), 4).await;
+    let counts = replay_golden(&golden(), &package(), "privoke-v3-efficient", Admission::Structural, root.path(), 4, &["full-2"]).await;
     assert_eq!(counts.fits, 2);
 }
 

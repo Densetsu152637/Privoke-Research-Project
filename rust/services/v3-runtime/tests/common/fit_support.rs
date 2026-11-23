@@ -129,16 +129,27 @@ fn compare_evidence(label: &str, python: &Value, rust: &Value) {
     }
 }
 
-fn compare_candidate(label: &str, python: &[u8], rust: &[u8], full: bool, counts: &mut Counts) {
+/// The stage 19 rule for a candidate: every coordinate within this absolute distance of the Python (Torch float32) one.
+pub const STRICT: f64 = 1e-6;
+/// The declared tolerance category of a full-encoder fit that runs many Adam steps: at most this many coordinates outside
+/// [`STRICT`] (observed: 149 of 4,785,044 for the real `efficient` package at 64 steps, 6 of 51,828 for the synthetic package at 2
+/// steps) and none beyond [`TOLERANCE_MAX`]. Reason: Torch accumulates in float32 and this port in float64 over float32 storage,
+/// and AdamW turns the float32 rounding noise of near-zero gradients (the attention key biases, whose true gradient is exactly
+/// zero because softmax ignores a constant added to every score) into a real step, so a few coordinates differ by a few
+/// optimizer steps' worth of noise. Heads fits and the 2-step real fits show none (all within 1e-6).
+pub const TOLERANCE_MAX_OUTSIDE: usize = 200;
+/// The largest absolute difference the tolerance category admits (observed 4.39e-6).
+pub const TOLERANCE_MAX: f64 = 1e-5;
+
+fn compare_candidate(label: &str, python: &[u8], rust: &[u8], tolerant: bool, counts: &mut Counts) {
     let (python_tensors, rust_tensors): (BTreeMap<String, Tensor>, BTreeMap<String, Tensor>) =
         (parse(python).unwrap(), parse(rust).unwrap());
     assert_eq!(python_tensors.keys().collect::<Vec<_>>(), rust_tensors.keys().collect::<Vec<_>>(), "{label}: tensor inventory");
-    let _ = full;
     let (mut values, mut within, mut worst, mut bitwise, mut identical) = (0usize, 0usize, 0f64, 0usize, 0usize);
     for (name, tensor) in &rust_tensors {
         let reference = &python_tensors[name];
         assert_eq!(tensor.shape, reference.shape, "{label}: {name}");
-        let bound = 2.0 * if name.starts_with("heads.") { 1e-3 } else { 2e-5 } * 1.01 + 1e-6;
+        let bound = if tolerant { TOLERANCE_MAX } else { STRICT };
         for (a, b) in tensor.data.iter().zip(&reference.data) {
             let error = f64::from((a - b).abs());
             assert!(error <= bound, "{label}: {name}: {a} against {b}");
@@ -153,7 +164,12 @@ fn compare_candidate(label: &str, python: &[u8], rust: &[u8], full: bool, counts
         "FitCandidate {label}: candidate {values} values, {within} within 1e-6, {bitwise} bitwise, {identical} of {} tensors byte-identical, max abs error {worst:.3e}",
         rust_tensors.len()
     ));
-    assert!(within as f64 >= 0.9 * values as f64, "{label}: only {within} of {values} candidate values within 1e-6");
+    let allowed = if tolerant { TOLERANCE_MAX_OUTSIDE } else { 0 };
+    assert!(
+        values - within <= allowed,
+        "{label}: {} of {values} candidate values outside 1e-6 (at most {allowed} declared)",
+        values - within
+    );
     counts.values += values;
     counts.within += within;
     counts.bitwise += bitwise;
@@ -166,7 +182,15 @@ fn compare_candidate(label: &str, python: &[u8], rust: &[u8], full: bool, counts
 }
 
 /// Replay every case of `golden` in order through one runtime over `package` (the base snapshot the oracle fitted from).
-pub async fn replay_golden(golden: &Value, package: &Path, model_id: &str, admission: Admission, root: &Path, threads: usize) -> Counts {
+pub async fn replay_golden(
+    golden: &Value,
+    package: &Path,
+    model_id: &str,
+    admission: Admission,
+    root: &Path,
+    threads: usize,
+    tolerant: &[&str],
+) -> Counts {
     let manifest = b64(golden["base_manifest"].as_str().unwrap());
     let scripted = Scripted::ready();
     let base = serve_package(&scripted, package, model_id, &manifest);
@@ -235,7 +259,7 @@ pub async fn replay_golden(golden: &Value, package: &Path, model_id: &str, admis
             manifest["tensors"].as_object().unwrap().iter().map(|(name, tensor)| (name.clone(), tensor["shape"].clone())).collect()
         };
         assert_eq!(shapes(&rust_manifest), shapes(&python_manifest), "{id}: tensor inventory and shapes");
-        compare_candidate(id, &python_candidate, &candidate_payload, id.starts_with("full"), &mut counts);
+        compare_candidate(id, &python_candidate, &candidate_payload, tolerant.contains(&id), &mut counts);
         // The work directory keeps every wire message of the attempt.
         let work = state.path().join("state/attempts").join(digest(request.request_id.as_bytes()));
         assert_eq!(std::fs::read(work.join("request.pb")).unwrap(), request.encode_to_vec(), "{id}");
