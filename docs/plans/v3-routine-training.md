@@ -187,8 +187,8 @@ Root defaults, which the user may override:
   - A key-rotation overlap accepts both keys.
   - G4: `fetch_golden.rs` is unchanged.
   - Rust CI is green.
-- Status: pending.
-- Outcome:
+- Status: done (RUST-V3R4A, 23 Nov 2026).
+- Outcome: `bb12d18` (merged). Rust CI run 45166749316 green; 42 lineage attack rows, none unmet. Lineage rule as decided: `original` equals the pinned release's `original`; no parent-is-admitted check (the signature attests param-update's lineage admission). Independent review: no admission bypass; 5 findings fixed (a mark signed by a dropped key now becomes a floor instead of bricking the model, and a missing mark is rebuilt from the highest verified cached statement; LF10 reason; scope branch exercised; pins and originals checked against the conformance corpus; stale comment). The delta review of those fixes was a root self-check (usage gate closed): an unverifiable mark under an unknown key can only raise the floor (denial of service), never admit anything. Deferred to V3-R4b: advisory lock on the mark; loaders must honour the mark. `PRODUCTION_KEYS` is empty until V3-R7.
 - Handoff notes: the highest-security change. A critic reviews the diff.
   R4a (23 Nov 2026, wt/rust-v3r4a; details in `docs/runtime/v3-publication.md#client-admission`):
   - Rule: `privoke_contracts::v3::admit_lineage(manifest, statement, requested, keys, state)` with `LineageState { tier_pin, high_water }`; `admitted_manifest` is untouched. The supervisor's `fetch::LineageAdmission` implements `Admission` over it; `Admission` gained the defaulted `admit_published` and `accepted`, so `StandardAdmission` and `fetch_golden.rs` did not change. `privoke-supervisor fetch-model` now uses `LineageAdmission::production`.
