@@ -12,6 +12,8 @@ FROM rust:1.99.1-slim-bookworm AS builder
 WORKDIR /workspace
 COPY rust /workspace/rust
 COPY shared/proto /workspace/shared/proto
+# privoke-training links privoke-rules, which embeds this rule file at compile time.
+COPY extension/client-runtime/src/regex/external_rules /workspace/extension/client-runtime/src/regex/external_rules
 
 WORKDIR /workspace/rust
 # SQLite is compiled in. No cargo feature is enabled.

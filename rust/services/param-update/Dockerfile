@@ -17,17 +17,22 @@ COPY extension/client-runtime/src/regex/external_rules /workspace/extension/clie
 WORKDIR /workspace/rust
 # The cloud build enables no cargo feature: `workstation-loopback` is never compiled in. SQLite is compiled in.
 RUN cargo build --release --locked -p privoke-param-update --bin param-update-service \
-    && mkdir /data-skeleton /models-skeleton
+    && mkdir /data-skeleton /models-skeleton /v3-store-skeleton /v3-published-skeleton
 
 FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
 
 COPY --from=builder /workspace/rust/target/release/param-update-service /param-update-service
-# The drift bounds of the V3 publication gate (V3_DRIFT_BOUNDS); the publication key is a mounted secret, never part of the image.
+# The drift bounds of the V3 publication gate (V3_DRIFT_BOUNDS), the frozen routine policy (V3_POLICY_FILE) and the three V3
+# retention reference releases (V3_RETENTION_ROOT; ids and numbers, no prompt text). The publication key is a mounted secret,
+# never part of the image, and so is the approved retention bank.
 COPY --from=builder /workspace/rust/services/param-update/config /config
 # Volumes mounted here inherit this ownership, so the non-root user can write the audit file, the receipt database, the
 # training-cycle journal and (in the model directory) the temporary file of an atomic publication.
 COPY --from=builder --chown=nonroot:nonroot /data-skeleton /data
 COPY --from=builder --chown=nonroot:nonroot /models-skeleton /models
+# The V3 checkpoint store (SQLite catalog and blobs) and the published tree; model-streaming shares both volumes.
+COPY --from=builder --chown=nonroot:nonroot /v3-store-skeleton /v3-store
+COPY --from=builder --chown=nonroot:nonroot /v3-published-skeleton /v3-published
 
 ENV PARAM_UPDATE_PORT=50052 \
     PARAM_UPDATE_STORAGE_PATH=/data/updates.jsonl \

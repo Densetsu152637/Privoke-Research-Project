@@ -148,6 +148,12 @@ fn open_checkpoint(config: &V3Config, allocations: &std::path::Path) -> Result<C
         publisher = Some(signer);
     }
     store = store.with_observer(Arc::new(ChainObserver::new(observers)));
+    // The routine root: each tier's pinned standard release, with the ORIGINAL it descends from (V3-R7).
+    for (original, release) in &config.pinned {
+        store
+            .bootstrap_pinned(original, release)
+            .map_err(|error| Error(format!("V3 pinned bootstrap of {} on {}: {error}", release.display(), original.display())))?;
+    }
     for initial in &config.initial {
         store.bootstrap(initial).map_err(|error| Error(format!("V3 checkpoint bootstrap of {}: {error}", initial.display())))?;
     }

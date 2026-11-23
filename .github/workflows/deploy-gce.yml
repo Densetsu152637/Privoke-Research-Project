@@ -68,15 +68,15 @@ jobs:
             dockerfile: rust/services/param-update/Dockerfile
             pull: --pull
             build_args: ""
-          - service: privoke-fuzzer
-            dockerfile: services/privoke-fuzzer/Dockerfile
+          # The V3 routine-training services (stage V3-R7); the V1 fuzzer and the quarantined analysis service are not deployed.
+          - service: v3-runtime-service
+            dockerfile: rust/services/v3-runtime/Dockerfile
             pull: --pull
             build_args: ""
-          # The analysis image is built on the Python runtime image, which is built first and exists only locally.
-          - service: analysis-service
-            dockerfile: rust/services/analysis/Dockerfile
-            pull: ""
-            build_args: --build-arg PYTHON_RUNTIME_IMAGE=privoke-client-runtime-base:ci
+          - service: v3-fuzzer-service
+            dockerfile: rust/services/v3-fuzzer/Dockerfile
+            pull: --pull
+            build_args: ""
     env:
       IMAGE_PREFIX: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}
       SERVICE: ${{ matrix.service }}
@@ -89,9 +89,6 @@ jobs:
         shell: bash
         run: |
           [[ "$IMAGE_PREFIX" =~ ^[a-z0-9-]+-docker.pkg.dev/[a-z0-9-]+/[a-z0-9_-]+$ ]] || { echo 'Configure the production GitHub secrets listed in docs/deployment/google-cloud.md.' >&2; exit 1; }
-      - name: Build the Python runtime base image
-        if: matrix.service == 'analysis-service'
-        run: docker build --pull --file extension/client-runtime/Dockerfile --target runtime --tag privoke-client-runtime-base:ci .
       - name: Build release image
         shell: bash
         run: |
@@ -149,7 +146,9 @@ jobs:
             deploy/gce/compose.yml deploy/gce/deploy.sh deploy/gce/pki-sync.sh deploy/gce/tests/smoke.py \
             deploy/gce/systemd/privoke-pki-sync.service deploy/gce/systemd/privoke-pki-sync.timer \
             shared/proto/privoke/v1/parameters.proto shared/proto/privoke/v1/telemetry.proto \
-            shared/python/privoke_model/standard_v3.py extension/client-runtime/src/telemetry/privacy.py
+            shared/python/privoke_model/standard_v3.py extension/client-runtime/src/telemetry/privacy.py \
+            shared/python shared/proto extension/client-runtime/src services/privoke-fuzzer/src services/pretrained-v3/src \
+            services/privoke-fuzzer/data
           gcloud compute scp "privoke-$GITHUB_SHA.tar.gz" "$GCP_INSTANCE:~/privoke-$GITHUB_SHA.tar.gz" \
             --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet
           gcloud compute ssh "$GCP_INSTANCE" --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \

@@ -13,6 +13,9 @@
 #   2. Stage the containers with both public ports published on 127.0.0.1 only. Nothing is reachable from the network.
 #   3. Smoke test on loopback (tests/smoke.py): mutual TLS required, private RPCs denied, the V3 package fetched and
 #      pinned, telemetry accepted with the reporter credential, and every image refusing to start without its CA or CRL.
+#      With the v3-training profile (the V3 routine-training stack of stage V3-R7) the stack also carries param-update, the V3
+#      fuzzer and the V3 runtime; the publication key is fetched from Secret Manager into the release's PKI directory (group
+#      readable like the TLS keys, never printed, never in an image) and the source directory is assembled per release.
 #   4. Switch: republish the public ports on 0.0.0.0:443 and 0.0.0.0:8443. Port 8443 stays closed in the firewall; the
 #      caller opens it only now (the firewall rule is created disabled, see the deployment guide), then runs the external
 #      smoke test against the public endpoints. The release is "pending" until it is confirmed.
@@ -30,7 +33,7 @@ root=/opt/privoke
 here=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
 tree=$(cd -- "$here/../.." && pwd)
 pki_group=10010
-service_names=(probe param-update fuzzer analysis)
+service_names=(probe param-update v3-fuzzer v3-runtime)
 model_publish_public=0.0.0.0:443
 telemetry_publish_public=0.0.0.0:8443
 model_publish_staging=127.0.0.1:50443
@@ -126,8 +129,31 @@ model_id=${MODEL_LATEST_ID:-privoke-v3-balanced}
 model_release_dir=$MODEL_RELEASE_DIR
 compose_profiles=${COMPOSE_PROFILES:-}
 fuzzer_prompt_count=${FUZZER_PROMPT_COUNT:-32}
-fuzzer_interval=${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}
+fuzzer_interval=${FUZZER_REQUEST_INTERVAL_SECONDS:-10800}
 fuzzer_seed=${FUZZER_REQUEST_SEED:-1337}
+# The V3 routine-training stack (profile v3-training). The directories are staged by the operator and mounted read-only; none of
+# them, and not the publication key, is part of an image. Without the profile Compose still needs a value for each variable.
+v3_original_dir=${V3_ORIGINAL_DIR:-/opt/privoke/unused}
+v3_inputs_dir=${V3_INPUTS_DIR:-}
+v3_bank_dir=${V3_RETENTION_BANK_DIR:-/opt/privoke/unused}
+v3_key_secret=${V3_PUBLICATION_KEY_SECRET:-}
+v3_key_id=${V3_PUBLICATION_KEY_ID:-privoke-v3-pub-2026-11}
+v3_tiers=${V3_TIERS:-efficient,balanced,quality}
+training=0
+[[ ,$compose_profiles, == *,v3-training,* ]] && training=1
+if (( training )); then
+  : "${V3_ORIGINAL_DIR:?Stage the ORIGINAL packages (one directory per tier) first}" "${V3_INPUTS_DIR:?Stage the pinned BC01 inputs first}"
+  : "${V3_RETENTION_BANK_DIR:?Stage the approved retention bank first}" "${V3_PUBLICATION_KEY_SECRET:?Create the publication key secret first}"
+  for dir in "$V3_ORIGINAL_DIR" "$V3_INPUTS_DIR" "$V3_RETENTION_BANK_DIR"; do
+    [[ $dir = /* && -d $dir ]] || { echo "$dir must be an existing absolute directory." >&2; exit 1; }
+  done
+  [[ -f $V3_RETENTION_BANK_DIR/approved-train-bank.json ]] || { echo 'approved-train-bank.json is missing from V3_RETENTION_BANK_DIR.' >&2; exit 1; }
+  for tier in efficient balanced quality; do
+    [[ -f $V3_ORIGINAL_DIR/$tier/manifest.json && -f $model_release_dir/privoke-v3-$tier/manifest.json ]] \
+      || { echo "The ORIGINAL and the standard release of the $tier tier must both be staged." >&2; exit 1; }
+  done
+  [[ $v3_key_id =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo 'Invalid V3_PUBLICATION_KEY_ID.' >&2; exit 1; }
+fi
 previous=$(readlink -f -- "$root/current" 2>/dev/null || true)
 release_dir=$(mktemp -d "$root/releases/${release_tag}.XXXXXX")
 touched=0
@@ -183,7 +209,7 @@ done
 openssl verify -CAfile "$pki/server-ca.pem" -purpose sslserver "$pki/server/server.crt" >/dev/null
 key_matches "$pki/server/server.crt" "$pki/server/server.key"
 openssl x509 -in "$pki/server/server.crt" -noout -checkend $((14 * 86400)) >/dev/null
-for host in "$STACK_HOST" model-streaming-service telemetry-service param-update-service privoke-fuzzer analysis-service analysis-model-streaming; do
+for host in "$STACK_HOST" model-streaming-service telemetry-service param-update-service v3-fuzzer v3-runtime; do
   openssl x509 -in "$pki/server/server.crt" -noout -checkhost "$host" | grep -q 'does match' \
     || { echo "The server certificate does not name $host." >&2; exit 1; }
 done
@@ -195,6 +221,25 @@ for name in "${service_names[@]}"; do
     || { echo "The $name certificate does not carry urn:privoke:service:$name." >&2; exit 1; }
   openssl x509 -in "$pki/svc/$name.crt" -noout -checkend $((7 * 86400)) >/dev/null
 done
+
+# The V3 publication key (Ed25519 seed, 64 hexadecimal characters). It is checked for shape only, never printed.
+if (( training )); then
+  fetch "$v3_key_secret" "$pki/v3-publication.key"
+  [[ $(tr -d '[:space:]' < "$pki/v3-publication.key") =~ ^[0-9a-f]{64}$ ]] || { echo 'The publication key secret is not 64 hexadecimal characters.' >&2; exit 1; }
+  # The source directory the evidence commits to: the operator's pinned BC01 inputs plus the tracked Python closure and the bundled
+  # audience data of this commit. One copy per release, read-only in every container that names V3_SOURCE_ROOT.
+  v3_source=$release_dir/v3-source
+  install -d -m 0750 "$v3_source"
+  cp -a -- "$v3_inputs_dir"/. "$v3_source"/
+  (cd -- "$tree" && find shared/python shared/proto extension/client-runtime/src services/privoke-fuzzer/src \
+    services/pretrained-v3/src services/privoke-fuzzer/data -type f \( -name '*.py' -o -name '*.proto' -o -name '*.json' \) \
+    -not -path '*/__pycache__/*' -exec cp --parents -t "$v3_source" {} +)
+  chgrp -R "$pki_group" "$v3_source"
+  find "$v3_source" -type d -exec chmod 0750 {} +
+  find "$v3_source" -type f -exec chmod 0640 {} +
+else
+  v3_source=/opt/privoke/unused
+fi
 
 # Shared hot-reloaded files, then the first sync. Servers refuse everything without a valid CRL, so stop here without one.
 install -d -m 0750 "$live"
@@ -230,11 +275,14 @@ write_release_env() { # model publish address, telemetry publish address
     "$image_prefix" "$release_tag" "$pki" "$live" "$model_release_dir" "$model_id" "$1" "$2" \
     "$compose_profiles" "$fuzzer_prompt_count" "$fuzzer_interval" "$fuzzer_seed" \
     > "$release_dir/release.env"
+  printf 'V3_SOURCE_DIR=%s\nV3_ORIGINAL_DIR=%s\nV3_RETENTION_BANK_DIR=%s\nV3_PUBLICATION_KEY_ID=%s\nV3_TIERS=%s\n' \
+    "$v3_source" "$v3_original_dir" "$v3_bank_dir" "$v3_key_id" "$v3_tiers" >> "$release_dir/release.env"
 }
 write_release_env "$model_publish_staging" "$telemetry_publish_staging"
 # Compose must use the saved release values, including during rollback.
 unset IMAGE_PREFIX IMAGE_TAG PRIVOKE_PKI_DIR PRIVOKE_PKI_LIVE_DIR MODEL_RELEASE_DIR MODEL_LATEST_ID MODEL_PUBLISH TELEMETRY_PUBLISH \
-  COMPOSE_PROFILES FUZZER_PROMPT_COUNT FUZZER_REQUEST_INTERVAL_SECONDS FUZZER_REQUEST_SEED
+  COMPOSE_PROFILES FUZZER_PROMPT_COUNT FUZZER_REQUEST_INTERVAL_SECONDS FUZZER_REQUEST_SEED \
+  V3_SOURCE_DIR V3_ORIGINAL_DIR V3_INPUTS_DIR V3_RETENTION_BANK_DIR V3_PUBLICATION_KEY_SECRET V3_PUBLICATION_KEY_ID V3_TIERS
 
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d)

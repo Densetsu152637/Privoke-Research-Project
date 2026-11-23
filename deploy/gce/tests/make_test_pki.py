@@ -5,7 +5,8 @@ Everything is issued at run time by the real `privoke-pki` tool into directories
 nothing here is a credential. It writes:
 
 * `--out DIR`, the layout `docker-compose.prod.yml` mounts as `PRIVOKE_PKI_DIR`:
-  `server-ca.pem`, `client-ca.pem`, `server/server.{crt,key}`, `svc/{probe,param-update,fuzzer,analysis}.{crt,key}` and
+  `server-ca.pem`, `client-ca.pem`, `server/server.{crt,key}`, `svc/{probe,param-update,v3-fuzzer,v3-runtime,analysis}.{crt,key}`,
+  `v3-publication.key` (a throwaway TEST publication seed, never the production key) and
   `live/{crl.pem,registry.toml}` (the reporter is admitted);
 * `--creds DIR`, the credential directory of `smoke.py`: `server-ca.pem`, `installation.{crt,key}` (registered),
   `reporter.{crt,key}`, `unregistered.{crt,key}` (signed by the client CA, not registered) and `foreign.{crt,key}`
@@ -19,14 +20,18 @@ from __future__ import annotations
 
 import argparse
 import re
+import secrets
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 SERVER_NAMES = ("localhost", "127.0.0.1", "model-streaming-service", "telemetry-service", "param-update-service",
-                "privoke-fuzzer", "analysis-service", "analysis-model-streaming")
-SERVICES = (("probe", "runtime"), ("param-update", "publisher"), ("fuzzer", "publisher"), ("analysis", "runtime"))
+                "v3-fuzzer", "v3-runtime", "analysis-service", "analysis-model-streaming")
+# The scheduler is the param-update identity (publisher, accepted by the fuzzer); the fuzzer commits as a trainer; the runtime reads
+# and stages checkpoints as a runtime service.
+SERVICES = (("probe", "runtime"), ("param-update", "publisher"), ("v3-fuzzer", "trainer"), ("v3-runtime", "runtime"),
+            ("analysis", "runtime"))
 
 
 class Tool:
@@ -104,6 +109,11 @@ def main() -> int:
     for name, _ in SERVICES:
         copy(work / "svc" / f"{name}.crt", out / "svc" / f"{name}.crt")
         copy(work / "svc" / f"{name}.key", out / "svc" / f"{name}.key")
+
+    # A throwaway publication seed for the stack under test: 64 hexadecimal characters, readable by the service group.
+    seed = out / "v3-publication.key"
+    seed.write_text(secrets.token_hex(32), encoding="utf-8")
+    seed.chmod(0o640)
 
     copy(server_ca / "ca.crt", creds / "server-ca.pem", 0o600)
     for label, (certificate, key) in (("installation", smoke_installation), ("unregistered", unregistered), ("foreign", foreign)):

@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use privoke_fuzzer::config::client_tls_from_lookup;
 use privoke_transport::startup::CloudTlsArgs;
 use privoke_v3_fuzzer::source::Closure;
@@ -27,6 +27,14 @@ struct Args {
     /// Seconds between credential and registry file polls.
     #[arg(long, default_value_t = 30)]
     reload_poll_secs: u64,
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    /// Probe the listener once over mutual TLS and exit 0 only when it reports ready.
+    Healthcheck(privoke_v3_runtime::healthcheck::HealthcheckArgs),
 }
 
 fn log(message: std::fmt::Arguments<'_>) {
@@ -36,7 +44,11 @@ fn log(message: std::fmt::Arguments<'_>) {
 #[tokio::main]
 async fn main() -> ExitCode {
     let args = Args::parse();
-    match serve(args).await {
+    let outcome = match args.command {
+        Some(Command::Healthcheck(probe)) => privoke_v3_runtime::healthcheck::run(probe).await,
+        None => serve(args).await,
+    };
+    match outcome {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             log(format_args!("{error}"));

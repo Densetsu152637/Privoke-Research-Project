@@ -4,7 +4,8 @@
 #
 #   export PRIVOKE_PKI_DIR=<test certificate directory, laid out as in docker-compose.prod.yml>
 #   docker compose up -d --build                         # model and telemetry
-#   docker compose --profile legacy-training up -d       # plus the update service, fuzzer and quarantined analysis
+#   docker compose --profile v3-training up -d           # plus the V3 routine-training stack (update service, V3 fuzzer, V3 runtime)
+#   docker compose --profile legacy-analysis up -d       # the quarantined V1 analysis service (oracle and W3 checks only)
 #
 # Production: docker compose -f docker-compose.prod.yml ...
 # The analysis service sits on internal-only networks and is deliberately not published; see
@@ -31,11 +32,6 @@ services:
     ports:
       - "127.0.0.1:50055:50055"
 
-  param-update-bootstrap:
-    extends:
-      file: docker-compose.prod.yml
-      service: param-update-bootstrap
-
   param-update-service:
     extends:
       file: docker-compose.prod.yml
@@ -44,13 +40,21 @@ services:
     ports:
       - "127.0.0.1:50052:50052"
 
-  privoke-fuzzer:
+  v3-fuzzer:
     extends:
       file: docker-compose.prod.yml
-      service: privoke-fuzzer
+      service: v3-fuzzer
     restart: "no"
     ports:
-      - "127.0.0.1:50053:50053"
+      - "127.0.0.1:50172:50172"
+
+  v3-runtime:
+    extends:
+      file: docker-compose.prod.yml
+      service: v3-runtime
+    restart: "no"
+    ports:
+      - "127.0.0.1:50171:50171"
 
   analysis-model-streaming:
     extends:
@@ -65,6 +69,8 @@ services:
     restart: "no"
 
 networks:
+  training:
+    internal: true
   analysis-fuzzer:
     internal: true
   analysis-models:
@@ -74,5 +80,8 @@ volumes:
   model-data:
   param-update-data:
   telemetry-data:
-  fuzzer-dumps:
+  v3-store:
+  v3-published:
+  v3-runtime-state:
+  v3-fuzzer-state:
   analysis-model-cache:

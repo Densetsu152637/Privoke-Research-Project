@@ -21,6 +21,7 @@ pub mod config;
 pub mod contract;
 pub mod cycle;
 pub mod error;
+pub mod healthcheck;
 pub mod pywire;
 pub mod server;
 pub mod service;

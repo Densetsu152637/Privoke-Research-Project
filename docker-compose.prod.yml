@@ -115,6 +115,9 @@ services:
       MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
       MODEL_RELEASE_DIR: /model-releases
+      # Published V3 versions (stage V3-R3): the authority is param-update's catalog, read-only; the tree supplies the bytes.
+      V3_STORE: /v3-store
+      V3_PUBLISH_ROOT: /v3-published
       MODEL_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
       MODEL_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
       MODEL_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
@@ -122,6 +125,10 @@ services:
     command: *tls-args
     volumes:
       - model-data:/models:ro
+      # The store directory is writable for this user only so that SQLite can keep its WAL shared-memory file for a reader;
+      # the service never writes a table. The published tree is read-only.
+      - v3-store:/v3-store
+      - v3-published:/v3-published:ro
       - type: bind
         source: ./models/standard-releases
         target: /model-releases
@@ -191,53 +198,40 @@ services:
       retries: 30
       start_period: 5s
 
-  # Prepares the mutable legacy model as a full-encoder release (idempotent) before the update service starts. The
-  # Python service did this in its start command; the Rust image has no shell, so it is its own one-shot step.
-  param-update-bootstrap:
-    profiles: [legacy-training]
-    <<: *param-update-image
-    restart: "no"
-    network_mode: none
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
-    depends_on:
-      model-seed: {condition: service_completed_successfully}
-    command: [bootstrap]
-    environment:
-      MODEL_ID: privoke-balanced
-      MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
-      PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
-      MODEL_TRAINING_MAX_TOKENS: 256
-    volumes:
-      - param-update-data:/data
-      - model-data:/models
-
+  # The V3 routine-training stack (stage V3-R7; docs/plans/v3-routine-training.md). param-update hosts the checkpoint store and the
+  # scheduler; the V3 fuzzer builds routine requests, the V3 runtime fits candidates (CPU), and param-update commits them through its
+  # gates (admission, drift, recomputed guard, retention) and signs the publication. The fuzzer and the runtime sit on the
+  # internal `training` network only (no route out, no published port); param-update also sits on the default network. model-streaming
+  # reads the store and the published tree from the volumes, never over the network.
   param-update-service:
-    profiles: [legacy-training]
+    profiles: [v3-training]
     <<: [*service-security, *param-update-image]
     container_name: param-update-service
-    depends_on:
-      param-update-bootstrap: {condition: service_completed_successfully}
-      privoke-fuzzer: {condition: service_healthy}
+    networks: [default, training]
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
-      MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
-      MODEL_ID: privoke-balanced
-      FUZZER_TRAIN_UNDERLYING: "true"
-      FUZZER_CYCLE_STATE_PATH: /data/training-cycles.sqlite3
-      FUZZER_TARGET: privoke-fuzzer:50053
-      FUZZER_TLS_SERVER_NAME: privoke-fuzzer
+      # The V3 checkpoint store, seeded with each tier's pinned standard release and the ORIGINAL it descends from.
+      V3_STORE: /v3-store
+      V3_PINNED: /v3-originals/efficient=/model-releases/privoke-v3-efficient:/v3-originals/balanced=/model-releases/privoke-v3-balanced:/v3-originals/quality=/model-releases/privoke-v3-quality
+      V3_SOURCE_ROOT: /v3-source
+      V3_DRIFT_BOUNDS: /config/v3-drift-bounds.toml
+      V3_POLICY_FILE: /config/v3-policy.json
+      V3_RETENTION_ROOT: /config/v3-retention
+      V3_RETENTION_BANK: /v3-retention-bank/approved-train-bank.json
+      V3_PUBLISH_ROOT: /v3-published
+      V3_PUBLICATION_KEY_FILE: /run/privoke/v3-publication.key
+      V3_PUBLICATION_KEY_ID: ${V3_PUBLICATION_KEY_ID:-privoke-v3-pub-2026-11}
+      V3_TIERS: ${V3_TIERS:-efficient,balanced,quality}
+      # The scheduler: the tiers by two stages (HEADS, FULL_ENCODER) per round, through the V3 fuzzer. Count 0 switches it off.
+      FUZZER_TARGET: v3-fuzzer:50172
+      FUZZER_TLS_SERVER_NAME: v3-fuzzer
       FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-32}
-      FUZZER_REQUEST_TIMEOUT_SECONDS: 60
-      FUZZER_REQUEST_MAX_ATTEMPTS: 5
-      FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}
+      FUZZER_REQUEST_TIMEOUT_SECONDS: ${FUZZER_REQUEST_TIMEOUT_SECONDS:-3600}
+      FUZZER_REQUEST_MAX_ATTEMPTS: 3
+      FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-10800}
       FUZZER_REQUEST_SEED: ${FUZZER_REQUEST_SEED:-1337}
-      FUZZER_CURRICULUM_SAMPLER_POLICY: ${FUZZER_CURRICULUM_SAMPLER_POLICY:-deterministic_v1}
-      FUZZER_CURRICULUM_SAMPLER_SEED: ${FUZZER_CURRICULUM_SAMPLER_SEED:-0}
-      # The scheduler's own identity and trust, for its mutual-TLS request to the fuzzer.
+      # The scheduler's own identity (registered, role publisher) and trust, for its mutual-TLS request to the fuzzer.
       PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
       PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/param-update.crt
       PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/param-update.key
@@ -248,7 +242,36 @@ services:
     command: *tls-args
     volumes:
       - param-update-data:/data
-      - model-data:/models
+      - v3-store:/v3-store
+      - v3-published:/v3-published
+      # Staged by the operator and never part of an image: the standard releases, the ORIGINALs, the source directory (the Python
+      # closure and the pinned BC01 inputs) and the approved retention bank (prompt text).
+      - type: bind
+        source: ./models/standard-releases
+        target: /model-releases
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_ORIGINAL_DIR:-./models/experiments/pretrained_v3_20261012/initials}
+        target: /v3-originals
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_SOURCE_DIR:-.}
+        target: /v3-source
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_RETENTION_BANK_DIR:-./evaluation/results/iterative_fuzzer_20261011/train-sensitive-retention}
+        target: /v3-retention-bank
+        read_only: true
+        bind: {create_host_path: false}
+      # The publication key: a mounted secret (64 hexadecimal characters, group-readable by 10010), never an image layer.
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/v3-publication.key
+        target: /run/privoke/v3-publication.key
+        read_only: true
+        bind: {create_host_path: false}
       - *pki-server
       - *pki-client-ca
       - *pki-server-ca
@@ -267,71 +290,142 @@ services:
       test: [CMD, /param-update-service, healthcheck]
       interval: 5s
       timeout: 3s
-      retries: 30
-      start_period: 5s
+      retries: 60
+      start_period: 30s
 
-  # The fuzzer reaches inference only through the quarantined analysis service, on a network shared with nothing else.
-  privoke-fuzzer:
-    profiles: [legacy-training]
+  v3-runtime:
+    profiles: [v3-training]
     <<: *service-security
-    image: ${PRIVOKE_FUZZER_IMAGE:-privoke-fuzzer:prod}
+    image: ${PRIVOKE_V3_RUNTIME_IMAGE:-privoke-v3-runtime-rust:prod}
     build:
       context: .
-      dockerfile: services/privoke-fuzzer/Dockerfile
-    container_name: privoke-fuzzer
-    depends_on:
-      analysis-service: {condition: service_healthy}
-    networks: [default, analysis-fuzzer]
+      dockerfile: rust/services/v3-runtime/Dockerfile
+    container_name: v3-runtime
+    networks: [training]
     environment:
-      PRIVOKE_RUNTIME_TARGET: analysis-service:50054
-      PARAM_UPDATE_TARGET: param-update-service:50052
-      PYTHONPATH: /workspace/shared/python
-      MODEL_ID: privoke-balanced
-      FUZZER_PORT: 50053
-      # The Rust update service binds `source_id` to the certificate name, so the fuzzer publishes as `fuzzer`.
-      FUZZER_ID: fuzzer
-      PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
-      FUZZ_MAX_CONCURRENT_CYCLES: 1
-      FUZZ_TRAINING_REPLAY_WEIGHT: ${FUZZ_TRAINING_REPLAY_WEIGHT:-0.35}
-      # The default sampler needs a pinned AU3 manifest that this deployment does not carry (stage W3 finding).
-      FUZZ_CONTEXTUAL_SAMPLING_STRATEGY: ${FUZZ_CONTEXTUAL_SAMPLING_STRATEGY:-legacy_random_v1}
-      # Client side: the fuzzer's service certificate, and trust in the server CA.
-      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/fuzzer.crt
-      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/fuzzer.key
+      V3_PORT: 50171
+      V3_CHECKPOINT_TARGET: param-update-service:50052
+      V3_RUNTIME_STATE: /state
+      V3_SOURCE_ROOT: /v3-source
+      V3_DEVICE: cpu
+      V3_TORCH_THREADS: ${V3_TORCH_THREADS:-8}
+      # Its own identity (registered role runtime) and trust, for the checkpoint service.
       PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
-      # Server side: mutual TLS with an allow list. The server refuses to start with TLS and no allow list.
-      PRIVOKE_SERVER_TLS_CERT_FILE: /run/privoke/server/server.crt
-      PRIVOKE_SERVER_TLS_KEY_FILE: /run/privoke/server/server.key
-      PRIVOKE_SERVER_TLS_CLIENT_CA_FILE: /run/privoke/client-ca.pem
-      PRIVOKE_SERVER_REGISTRY_FILE: /run/privoke-live/registry.toml
-      PRIVOKE_SERVER_ALLOWED_IDENTITIES: urn:privoke:service:param-update,urn:privoke:service:fuzzer
-      PRIVOKE_HEALTHCHECK_SERVER_NAME: privoke-fuzzer
+      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/v3-runtime.crt
+      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/v3-runtime.key
+      V3_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      V3_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
+      V3_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
+      V3_HEALTHCHECK_SERVER_NAME: v3-runtime
+    command: *tls-args
     volumes:
-      - fuzzer-dumps:/workspace/dumps/privoke-fuzzer
+      - v3-runtime-state:/state
+      - type: bind
+        source: ${V3_SOURCE_DIR:-.}
+        target: /v3-source
+        read_only: true
+        bind: {create_host_path: false}
       - *pki-server
       - *pki-client-ca
       - *pki-server-ca
       - *pki-live
       - type: bind
-        source: ${PRIVOKE_PKI_DIR}/svc/fuzzer.crt
-        target: /run/privoke/svc/fuzzer.crt
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-runtime.crt
+        target: /run/privoke/svc/v3-runtime.crt
         read_only: true
         bind: {create_host_path: false}
       - type: bind
-        source: ${PRIVOKE_PKI_DIR}/svc/fuzzer.key
-        target: /run/privoke/svc/fuzzer.key
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-runtime.key
+        target: /run/privoke/svc/v3-runtime.key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.crt
+        target: /run/privoke/svc/probe.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.key
+        target: /run/privoke/svc/probe.key
         read_only: true
         bind: {create_host_path: false}
     healthcheck:
-      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, privoke-fuzzer, "127.0.0.1:50053", /workspace/services/privoke-fuzzer/generated]
+      test: [CMD, /v3-runtime-service, healthcheck]
       interval: 5s
       timeout: 3s
-      retries: 30
-      start_period: 5s
+      retries: 60
+      start_period: 30s
+
+  v3-fuzzer:
+    profiles: [v3-training]
+    <<: *service-security
+    image: ${PRIVOKE_V3_FUZZER_IMAGE:-privoke-v3-fuzzer-rust:prod}
+    build:
+      context: .
+      dockerfile: rust/services/v3-fuzzer/Dockerfile
+    container_name: v3-fuzzer
+    networks: [training]
+    depends_on:
+      v3-runtime: {condition: service_healthy}
+    environment:
+      V3_MODE: routine
+      V3_PORT: 50172
+      V3_RUNTIME_TARGET: v3-runtime:50171
+      V3_CHECKPOINT_TARGET: param-update-service:50052
+      V3_FUZZER_STATE: /state
+      V3_POLICY_FILE: /config/v3-policy.json
+      V3_SOURCE_ROOT: /v3-source
+      V3_FIT_TIMEOUT: ${V3_FIT_TIMEOUT:-7200}
+      # Its own identity (registered role trainer) and trust, for the runtime and the checkpoint service.
+      PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
+      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/v3-fuzzer.crt
+      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/v3-fuzzer.key
+      V3_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      V3_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
+      V3_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
+      V3_HEALTHCHECK_SERVER_NAME: v3-fuzzer
+    command: *tls-args
+    volumes:
+      - v3-fuzzer-state:/state
+      - type: bind
+        source: ${V3_SOURCE_DIR:-.}
+        target: /v3-source
+        read_only: true
+        bind: {create_host_path: false}
+      - *pki-server
+      - *pki-client-ca
+      - *pki-server-ca
+      - *pki-live
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-fuzzer.crt
+        target: /run/privoke/svc/v3-fuzzer.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-fuzzer.key
+        target: /run/privoke/svc/v3-fuzzer.key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.crt
+        target: /run/privoke/svc/probe.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.key
+        target: /run/privoke/svc/probe.key
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, /v3-fuzzer-service, healthcheck]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
 
   # The model service of the quarantine: the analysis service may reach only this one, on an internal network.
   analysis-model-streaming:
-    profiles: [legacy-training]
+    profiles: [legacy-analysis]
     <<: [*service-security, *model-streaming-image]
     container_name: analysis-model-streaming
     depends_on:
@@ -375,7 +469,7 @@ services:
   # tmpfs for scratch; non-root; no capabilities; no-new-privileges; Docker's default seccomp profile (never
   # `unconfined`); memory, CPU and pids limits. The model cache is a named volume. Telemetry is off in the worker.
   analysis-service:
-    profiles: [legacy-training]
+    profiles: [legacy-analysis]
     <<: *service-security
     image: ${PRIVOKE_ANALYSIS_IMAGE:-privoke-analysis:prod}
     build:
@@ -435,6 +529,9 @@ services:
       start_period: 30s
 
 networks:
+  # The fuzzer and the runtime: no route out and no published port.
+  training:
+    internal: true
   analysis-fuzzer:
     internal: true
   analysis-models:
@@ -444,5 +541,8 @@ volumes:
   model-data:
   param-update-data:
   telemetry-data:
-  fuzzer-dumps:
+  v3-store:
+  v3-published:
+  v3-runtime-state:
+  v3-fuzzer-state:
   analysis-model-cache:

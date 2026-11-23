@@ -134,12 +134,16 @@ jobs:
           PRIVOKE_PKI_DIR: /tmp/privoke-ci-pki
           PRIVOKE_PKI_LIVE_DIR: /tmp/privoke-ci-pki-live
           MODEL_RELEASE_DIR: /tmp/privoke-ci-unmounted-releases
+          V3_SOURCE_DIR: /tmp/privoke-ci-v3-source
+          V3_ORIGINAL_DIR: /tmp/privoke-ci-v3-originals
+          V3_RETENTION_BANK_DIR: /tmp/privoke-ci-v3-bank
+          V3_PUBLICATION_KEY_ID: privoke-ci-key
         run: |
           docker compose -f deploy/gce/compose.yml config --quiet
-          COMPOSE_PROFILES=legacy-training docker compose -f deploy/gce/compose.yml config --quiet
-          docker compose -f docker-compose.prod.yml --profile legacy-training config --quiet
-          docker compose --profile legacy-training config --quiet
-          docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml --profile legacy-training config --quiet
+          COMPOSE_PROFILES=v3-training docker compose -f deploy/gce/compose.yml config --quiet
+          docker compose -f docker-compose.prod.yml --profile v3-training --profile legacy-analysis config --quiet
+          docker compose --profile v3-training --profile legacy-analysis config --quiet
+          docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml --profile legacy-analysis config --quiet
           docker compose -f docker-compose.legacy.yml config --quiet
           bash -n deploy/gce/bootstrap.sh deploy/gce/deploy.sh deploy/gce/pki-sync.sh
           shellcheck deploy/gce/bootstrap.sh deploy/gce/deploy.sh deploy/gce/pki-sync.sh
@@ -156,7 +160,7 @@ jobs:
       - name: Validate the stage 23 test helpers
         run: |
           python -m py_compile deploy/gce/tests/make_test_pki.py evaluation/update_security.py evaluation/update_security_report.py evaluation/check_revalidation.py
-          PRIVOKE_W3_PKI_DIR=/tmp/privoke-ci-w3 PRIVOKE_PKI_DIR=/tmp/privoke-ci-pki             docker compose -f docker-compose.prod.yml -f docker-compose.analysis-test.yml --profile legacy-training config --quiet
+          PRIVOKE_W3_PKI_DIR=/tmp/privoke-ci-w3 PRIVOKE_PKI_DIR=/tmp/privoke-ci-pki             docker compose -f docker-compose.prod.yml -f docker-compose.analysis-test.yml --profile legacy-analysis config --quiet
           python -m py_compile rust/services/analysis/tests/test_container.py
 
   container-smoke:
@@ -168,13 +172,17 @@ jobs:
       CI_ROOT: /tmp/privoke-ci
       COMPOSE_PROJECT_NAME: privoke-rust-ci-${{ github.run_id }}-${{ github.run_attempt }}
       COMPOSE_FILE: docker-compose.prod.yml
-      COMPOSE_PROFILES: legacy-training
+      # The base stack (model and telemetry) runs here. The V3 training profile needs the real standard releases, the ORIGINALs, the
+      # pinned BC01 inputs and the retention bank, none of which is in the repository; its images are built and start-up checked, and
+      # the full stack is run by the operator's local end-to-end check (docs/plans/v3-routine-training.md, stage V3-R7).
+      COMPOSE_PROFILES: ""
       PRIVOKE_PKI_DIR: /tmp/privoke-ci/pki
       # The images are named as smoke.py --images expects: <prefix>/<service>:<tag>.
       PRIVOKE_MODEL_STREAMING_IMAGE: ci/model-streaming-service:ci
       PRIVOKE_TELEMETRY_IMAGE: ci/telemetry-service:ci
       PRIVOKE_PARAM_UPDATE_IMAGE: ci/param-update-service:ci
-      PRIVOKE_FUZZER_IMAGE: ci/privoke-fuzzer:ci
+      PRIVOKE_V3_RUNTIME_IMAGE: ci/v3-runtime-service:ci
+      PRIVOKE_V3_FUZZER_IMAGE: ci/v3-fuzzer-service:ci
       PRIVOKE_ANALYSIS_IMAGE: ci/analysis-service:ci
       PRIVOKE_PYTHON_RUNTIME_IMAGE: privoke-client-runtime-base:ci
       # The standard V3 packages are ignored by Git and not available here, so the stack serves the tracked legacy catalogue
@@ -211,7 +219,7 @@ jobs:
       - name: Build the images
         run: |
           docker build --pull --file extension/client-runtime/Dockerfile --target runtime --tag privoke-client-runtime-base:ci .
-          docker compose build
+          docker compose --profile v3-training --profile legacy-analysis build
       - name: Start the stack and wait for every health check
         run: |
           mkdir -p models/standard-releases
@@ -220,7 +228,7 @@ jobs:
           docker compose ps --all
       - name: Smoke test, with the start-up refusal checks against the built images
         run: |
-          python deploy/gce/tests/smoke.py --creds "$CI_ROOT/smoke-creds"             --model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 --server-name localhost             --no-v3-package --images ci:ci --pki-dir "$PRIVOKE_PKI_DIR" --live-dir "$PRIVOKE_PKI_DIR/live"
+          python deploy/gce/tests/smoke.py --creds "$CI_ROOT/smoke-creds"             --model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 --server-name localhost             --no-v3-package --images ci:ci --also-image analysis-service --pki-dir "$PRIVOKE_PKI_DIR" --live-dir "$PRIVOKE_PKI_DIR/live"
       - name: Update-security negative rows against the Rust containers
         run: |
           mkdir -p "$CI_ROOT/out"
