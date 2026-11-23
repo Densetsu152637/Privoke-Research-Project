@@ -624,22 +624,28 @@ async fn a_published_candidate_replaces_the_cached_snapshot_after_the_interval()
     let refresher = Arc::new(Refresher::new(rig.admission(keys), rig.config()));
     rig.serve(&chain.pin, Vec::new());
 
-    let (endpoint, interval) = (rig.endpoint.clone(), Duration::from_millis(1500));
+    let (endpoint, interval) = (rig.endpoint.clone(), Duration::from_secs(4));
     let task = {
         let refresher = Arc::clone(&refresher);
         tokio::spawn(async move { refresher.run(&endpoint, &[MODEL.to_string()], interval, Duration::from_secs(10)).await })
     };
-    // The start-up refresh caches the unsigned pinned release, which is what a worker serves.
-    wait_for("the start-up refresh", || admission.current_version(MODEL).as_deref() == Some(chain.pin.sha.as_str())).await;
+    // The start-up refresh caches the unsigned pinned release, which is what a worker serves. It has finished when the server has
+    // answered both of its `GetModelPackage` calls (the second one re-reads the manifest after the downloads).
+    wait_for("the start-up refresh", || {
+        admission.current_version(MODEL).as_deref() == Some(chain.pin.sha.as_str()) && rig.serving.lock().unwrap().calls >= 2
+    })
+    .await;
 
     // The candidate is published; before the interval elapses the snapshot is unchanged ...
     let heads = statement_for(PRIMARY_ID, &chain.heads, 1);
     rig.serve(&chain.heads, heads.clone());
-    let published = std::time::Instant::now();
-    // ... and after it the signed candidate is the current version of the cache, with its statement and as the mark. The change
-    // is the next tick's: the tick is 1.5 s after the start-up refresh, which was a fraction of a second ago.
+    // ... and after it the signed candidate is the current version of the cache, with its statement and as the mark. The next tick is
+    // 4 s after the loop started: nothing is admitted in the meantime, and exactly one more fetch (the tick's) admits it.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(admission.current_version(MODEL).as_deref(), Some(chain.pin.sha.as_str()), "admitted before the interval");
+    assert_eq!(rig.serving.lock().unwrap().calls, 2);
     wait_for("the refresh after the interval", || admission.current_version(MODEL).as_deref() == Some(chain.heads.sha.as_str())).await;
-    assert!(published.elapsed() >= interval / 3, "the candidate was admitted before the interval: {:?}", published.elapsed());
+    assert_eq!(rig.serving.lock().unwrap().calls, 4, "the tick's fetch is the only one after the start-up refresh");
     assert_eq!(rig.high_water().unwrap(), heads);
     let selected = admission.cache().select(MODEL).unwrap().unwrap();
     assert_eq!(selected.statement, heads);
