@@ -499,6 +499,15 @@ impl CheckpointStore {
         replayed(conn, request_id, fingerprint)
     }
 
+    /// Whether the model has a publication of `manifest`.
+    pub fn is_published(&self, model: &str, manifest: &str) -> Result<bool, StoreError> {
+        let conn = self.connection();
+        let found: Option<i64> = conn
+            .query_row("SELECT 1 FROM publications WHERE model=?1 AND manifest=?2 LIMIT 1", params![model, manifest], |row| row.get(0))
+            .optional()?;
+        Ok(found.is_some())
+    }
+
     /// Every version the model has served, the ORIGINAL included.
     pub fn history(&self, model: &str) -> Result<Vec<String>, StoreError> {
         let conn = self.connection();
@@ -610,6 +619,11 @@ impl CheckpointStore {
         let manifest = self.manifest(&request.manifest)?;
         if text(&manifest, "model_id") != request.model_id || !self.history(&request.model_id)?.contains(&request.manifest) {
             return bad("Rollback target is not in the history of this model.");
+        }
+        // Only the ORIGINAL, which clients pin, and versions that were signed may be served again: a version that went live
+        // without a publication was never vetted by the publication gates.
+        if text(&manifest, "scope") != "original" && !self.is_published(&request.model_id, &request.manifest)? {
+            return bad("Rollback target was never published.");
         }
         let candidate = Candidate {
             store: self,

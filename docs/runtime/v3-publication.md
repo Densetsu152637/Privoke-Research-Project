@@ -2,7 +2,7 @@
 
 > Plan: [V3 routine training](../plans/v3-routine-training.md), stage V3-R2 (publication), with the client side in V3-R4a and V3-R4b. Implementation: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, `rust/crates/privoke-contracts/src/publication.rs`. Fixtures: `rust/crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json`, written by `evaluation/generate_v3_signed_chain_fixtures.py`.
 
-A trained V3 version reaches a client only with a **publication statement**: a signature by param-update's publication key over the version's identity and lineage. The signature attests param-update's own admission of the version (lineage, bytes, evidence, drift bounds and the recomputed guard), not anything the trainer reported about itself.
+A trained V3 version reaches a client only with a **publication statement**: a signature by param-update's publication key over the version's identity and lineage. The signature attests param-update's own admission of the version: lineage, bytes, the execution evidence and its source record, the drift bounds and, once the scheduler's allocation journal exists (stage V3-R6 attaches the guard gate), the guard it recomputed itself. Until V3-R6 a signature does **not** attest a recomputed guard: the guard gate is implemented and tested but not installed by the service, so a published version has passed the trainer-evidence guard of the oracle and the drift gate only. It never attests anything the trainer reported about itself beyond that.
 
 ## The statement
 
@@ -44,11 +44,11 @@ Each refusal is a durable `rejected` receipt with a reason, and changes nothing 
 | `guard_rows_differ` | the evidence guard targets are not the rows param-update rebuilt with `privoke_curriculum::v3::routine_guard_rows` from the allocated seed and commitment |
 | `guard_recomputed` | scored by the Rust V3 encoder on those rows (base, and the candidate loaded through `V3Model::with_tensors`), the candidate does not improve the joint count without harming an action |
 
-The guard gate is attached when the scheduler's allocation journal exists (stage V3-R6); until then a deployment publishes with the drift gate and the trainer-evidence gate only. `drift_exceeded` uses provisional bounds until stage V3-R5 calibrates them (`status` and `evidence_sha256` of the file say which).
+The guard gate is not installed by `main.rs` until the scheduler's allocation journal exists (stage V3-R6); until then a deployment publishes with the drift gate and the trainer-evidence gate only (see the first section). The drift gate is always on when the store is: `V3_DRIFT_BOUNDS` is required with `V3_STORE`, published or not. The allocation names the release (`sampler`) and the scope too: evidence that names another one is `allocation_mismatch`, so a trainer cannot pick the guard release (the AU3 guard ignores the seed). `drift_exceeded` uses provisional bounds until stage V3-R5 calibrates them (`status` and `evidence_sha256` of the file say which).
 
 ## Rollback
 
-`CheckpointService.RollbackModel` (publisher role only) serves an earlier version again: the target must be in the model's history (every version the model served, the ORIGINAL included). It is a new compare-and-swap with a new, higher sequence and a new signature, so a client that already accepted a later sequence accepts it. A rollback to the version already served is a `rejected` receipt (`already_current`).
+`CheckpointService.RollbackModel` (publisher role only) serves an earlier version again: the target must be in the model's history (every version the model served) and be either the ORIGINAL or a version that has a signed publication: a version that went live without one was never vetted and is refused (`Rollback target was never published.`). It is a new compare-and-swap with a new, higher sequence and a new signature, so a client that already accepted a later sequence accepts it. A rollback to the version already served is a `rejected` receipt (`already_current`).
 
 ## Key custody
 

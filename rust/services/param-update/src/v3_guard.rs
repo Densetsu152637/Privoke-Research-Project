@@ -3,14 +3,17 @@
 //! The trainer's evidence says the candidate beat the guard; that is a claim, not a control. Param-update judges the candidate
 //! itself, before the commit transaction:
 //!
-//! 1. the scheduler's allocation of the request (`seed`, `source_commitment`, `expected_base`) is looked up ([`Allocations`]):
-//!    a request the scheduler never allocated is refused;
+//! 1. the scheduler's allocation of the request (`sampler`, `scope`, `seed`, `source_commitment`, `expected_base`) is looked up
+//!    ([`Allocations`]): a request the scheduler never allocated is refused, and so is evidence that names another release or
+//!    scope than the allocation (the release is the scheduler's choice, never the trainer's);
 //! 2. the 16 guard rows are rebuilt from the frozen BC01 or AU3 release with
 //!    [`privoke_curriculum::v3::routine_guard_rows`], the one definition of the selection, never from rows the trainer
 //!    supplied; the guard targets of the evidence must be exactly those rows' targets;
 //! 3. the Rust V3 encoder scores the guard with the base model and with the candidate (loaded through
-//!    [`V3Model::with_tensors`], not through a pinned-manifest loader), and the candidate must improve the joint count without
-//!    harming any action: the rule of `publication_passes`, over rows param-update chose and predictions param-update computed.
+//!    [`V3Model::with_tensors`], not through a pinned-manifest loader) from hash-checked copies of the store's bytes, and the
+//!    candidate must improve the joint count without harming any action: the rule of `publication_passes`, over rows
+//!    param-update chose and predictions param-update computed. The scoring is behind [`GuardScorer`] so that a test can drive
+//!    every branch of the gate without a real-tier checkpoint.
 //!
 //! A failure is a `rejected` receipt with a reason; the checks run in `prepare`, before the transaction, for the one candidate
 //! of the request (nothing is cached across requests).
@@ -22,7 +25,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use privoke_contracts::json::Value;
 use privoke_contracts::v3::{action_value, harm_count};
 use privoke_curriculum::Example;
-use privoke_curriculum::v3::{AU3_SAMPLER, RoutineRelease, routine_guard_rows};
+use privoke_curriculum::v3::{AU3_SAMPLER, BC01_SAMPLER, RoutineRelease, routine_guard_rows};
 use privoke_semantic::V3Model;
 use privoke_semantic::safetensors::{self, Tensor};
 use serde_json::json;
@@ -40,9 +43,15 @@ pub const GUARD_ROWS_DIFFER: &str = "guard_rows_differ";
 /// The recomputed guard does not show the candidate better than its base.
 pub const GUARD_RECOMPUTED: &str = "guard_recomputed";
 
-/// What the scheduler allocated to one request before it called the fuzzer.
+/// What the scheduler allocated to one request before it called the fuzzer. The release and the scope are the scheduler's
+/// too: the evidence never chooses them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Allocation {
+    /// The frozen release the guard is selected from: `existing_taxonomy_benign_common_frozen_stream_v1` (BC01) or
+    /// `audience_common_frozen_stream_v1` (AU3).
+    pub sampler: String,
+    /// The scope of the fit (`heads` or `full_encoder`).
+    pub scope: String,
     /// The routine seed.
     pub seed: u64,
     /// The commitment the guard selection is bound to.
@@ -135,44 +144,76 @@ pub fn score(
     Ok((assess(&base, rows)?, assess(&candidate, rows)?))
 }
 
+/// How a candidate is scored against the guard rows: `true` when it beats its base without harming an action.
+pub trait GuardScorer: Send + Sync + std::fmt::Debug {
+    /// Score the admitted `manifest` (its parent is the base) on `rows`.
+    fn passes(&self, store: &CheckpointStore, manifest: &Value, rows: &[Example]) -> Result<bool, StoreError>;
+}
+
+/// The Rust V3 encoder over the store's own bytes.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct V3Scorer;
+
+/// A scratch directory under the store that is removed when it goes out of scope.
+struct Scratch(std::path::PathBuf);
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+impl GuardScorer for V3Scorer {
+    fn passes(&self, store: &CheckpointStore, manifest: &Value, rows: &[Example]) -> Result<bool, StoreError> {
+        let parent = store.manifest(&text(manifest, "parent"))?;
+        // Every byte the model is built from is read through the store, which hash-checks it, and the model is loaded from
+        // those verified bytes (not from a path another process could have changed since).
+        let scratch = Scratch(store.directory().join(format!("guard-{}", uuid::Uuid::new_v4().simple())));
+        std::fs::create_dir_all(&scratch.0)?;
+        let (config, vocab, checkpoint) = (scratch.0.join("config.json"), scratch.0.join("vocab.txt"), scratch.0.join("base.safetensors"));
+        std::fs::write(&config, store.read(&text(manifest, "config"))?)?;
+        std::fs::write(&vocab, store.read(&text(manifest, "vocab"))?)?;
+        std::fs::write(&checkpoint, store.read(&text(&parent, "blob"))?)?;
+        let candidate = safetensors::parse(&store.read(&text(manifest, "blob"))?).map_err(semantic)?;
+        let (base, candidate) = score(&config, &vocab, &checkpoint, candidate, rows)?;
+        Ok(passes(&base, &candidate))
+    }
+}
+
 /// The guard gate: a [`CommitObserver`] whose `prepare` recomputes the guard of a candidate.
 #[derive(Debug)]
 pub struct GuardGate {
     sources: Arc<PinnedSources>,
     allocations: Arc<dyn Allocations>,
+    scorer: Arc<dyn GuardScorer>,
 }
 
 impl GuardGate {
-    /// A gate over the frozen releases and the scheduler's allocations.
+    /// A gate over the frozen releases and the scheduler's allocations, scoring with the Rust V3 encoder.
     pub fn new(sources: Arc<PinnedSources>, allocations: Arc<dyn Allocations>) -> Self {
-        Self { sources, allocations }
+        Self { sources, allocations, scorer: Arc::new(V3Scorer) }
     }
 
-    /// The guard rows of an allocation for a sampler.
-    pub fn rows(&self, sampler: &str, allocation: &Allocation) -> Result<Vec<Example>, StoreError> {
-        let rows = if sampler == AU3_SAMPLER {
-            let release = self.sources.audience_release()?;
-            routine_guard_rows(RoutineRelease::Au3(&release), allocation.seed, &allocation.source_commitment)?
-        } else {
-            let sources = self.sources.bc01_sources()?;
-            routine_guard_rows(RoutineRelease::Bc01(&sources), allocation.seed, &allocation.source_commitment)?
-        };
-        Ok(rows)
+    /// The same gate with another scorer.
+    #[must_use]
+    pub fn with_scorer(mut self, scorer: Arc<dyn GuardScorer>) -> Self {
+        self.scorer = scorer;
+        self
     }
 
-    /// Whether the candidate beats its base on `rows`, both scored here.
-    pub fn recompute(store: &CheckpointStore, manifest: &Value, rows: &[Example]) -> Result<bool, StoreError> {
-        let parent = store.manifest(&text(manifest, "parent"))?;
-        let blobs = store.directory().join("blobs");
-        let candidate = safetensors::parse(&store.read(&text(manifest, "blob"))?).map_err(semantic)?;
-        let (base, candidate) = score(
-            &blobs.join(text(manifest, "config")),
-            &blobs.join(text(manifest, "vocab")),
-            &blobs.join(text(&parent, "blob")),
-            candidate,
-            rows,
-        )?;
-        Ok(passes(&base, &candidate))
+    /// The guard rows of an allocation, from the release the allocation names.
+    pub fn rows(&self, allocation: &Allocation) -> Result<Vec<Example>, StoreError> {
+        match allocation.sampler.as_str() {
+            AU3_SAMPLER => {
+                let release = self.sources.audience_release()?;
+                Ok(routine_guard_rows(RoutineRelease::Au3(&release), allocation.seed, &allocation.source_commitment)?)
+            }
+            BC01_SAMPLER => {
+                let sources = self.sources.bc01_sources()?;
+                Ok(routine_guard_rows(RoutineRelease::Bc01(&sources), allocation.seed, &allocation.source_commitment)?)
+            }
+            other => Err(StoreError::Invalid(format!("No frozen release is named {other}."))),
+        }
     }
 }
 
@@ -182,14 +223,20 @@ impl CommitObserver for GuardGate {
         let Some(allocation) = self.allocations.allocation(candidate.request_id, candidate.model_id) else {
             return Ok(Some(REQUEST_NOT_ALLOCATED.to_string()));
         };
-        if allocation.expected_base != candidate.expected_base {
+        // The scheduler chose the base, the release, the scope and the seed; the evidence must agree with every one of them.
+        let named = [AU3_SAMPLER, BC01_SAMPLER].contains(&allocation.sampler.as_str());
+        if allocation.expected_base != candidate.expected_base
+            || !named
+            || evidence["source"]["sampler"].as_str() != Some(allocation.sampler.as_str())
+            || evidence["scope"].as_str() != Some(allocation.scope.as_str())
+            || text(candidate.manifest, "scope") != allocation.scope
+        {
             return Ok(Some(ALLOCATION_MISMATCH.to_string()));
         }
         if evidence["source_commitment"].as_str() != Some(allocation.source_commitment.as_str()) {
             return Ok(Some(COMMITMENT_MISMATCH.to_string()));
         }
-        let sampler = evidence["source"]["sampler"].as_str().unwrap_or_default();
-        let rows = self.rows(sampler, &allocation)?;
+        let rows = self.rows(&allocation)?;
         // The rows of the evidence (the texts of its source record and the targets its guard scored) are the rebuilt rows.
         let reported_texts: Vec<Option<&str>> = evidence["source"]["guard_sidecar"]
             .as_array()
@@ -206,7 +253,7 @@ impl CommitObserver for GuardGate {
                 return Ok(Some(GUARD_ROWS_DIFFER.to_string()));
             }
         }
-        if Self::recompute(candidate.store, candidate.manifest, &rows)? { Ok(None) } else { Ok(Some(GUARD_RECOMPUTED.to_string())) }
+        if self.scorer.passes(candidate.store, candidate.manifest, &rows)? { Ok(None) } else { Ok(Some(GUARD_RECOMPUTED.to_string())) }
     }
 }
 
@@ -234,7 +281,13 @@ mod tests {
     #[test]
     fn the_allocation_table_answers_by_request_and_model() {
         let table = StaticAllocations::default();
-        let allocation = Allocation { seed: 7, source_commitment: "c".repeat(64), expected_base: "b".repeat(64) };
+        let allocation = Allocation {
+            sampler: BC01_SAMPLER.to_string(),
+            scope: "heads".to_string(),
+            seed: 7,
+            source_commitment: "c".repeat(64),
+            expected_base: "b".repeat(64),
+        };
         table.allocate("r1", "privoke-v3-efficient", allocation.clone());
         assert_eq!(table.allocation("r1", "privoke-v3-efficient"), Some(allocation));
         assert_eq!(table.allocation("r1", "privoke-v3-balanced"), None);

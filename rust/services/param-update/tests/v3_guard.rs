@@ -9,16 +9,17 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use golden_world::{World, au3_manifest, bc01_paths, perform};
+use privoke_contracts::json::Value;
 use privoke_contracts::proto::experimental_v3::Commit;
 use privoke_curriculum::Example;
 use privoke_curriculum::audience::BUNDLED_MANIFEST_SHA256;
 use privoke_curriculum::classification::Classification;
 use privoke_curriculum::v3::{self, AU3_SAMPLER, BC01_SAMPLER, RoutineRelease, routine_guard_rows};
 use privoke_param_update::v3_guard::{
-    ALLOCATION_MISMATCH, Allocation, COMMITMENT_MISMATCH, GUARD_ROWS_DIFFER, GuardGate, REQUEST_NOT_ALLOCATED, StaticAllocations, passes,
-    score,
+    ALLOCATION_MISMATCH, Allocation, COMMITMENT_MISMATCH, GUARD_RECOMPUTED, GUARD_ROWS_DIFFER, GuardGate, GuardScorer,
+    REQUEST_NOT_ALLOCATED, StaticAllocations, passes, score,
 };
-use privoke_param_update::v3_store::{AudienceSource, CheckpointStore, PinnedSources};
+use privoke_param_update::v3_store::{AudienceSource, Candidate, CheckpointStore, CommitObserver, PinnedSources, StoreError};
 use privoke_semantic::safetensors;
 use serde_json::Value as Json;
 
@@ -78,6 +79,8 @@ fn case(world: &World, allocations: &Arc<StaticAllocations>) -> Case {
 
 fn allocation(case: &Case) -> Allocation {
     Allocation {
+        sampler: case.evidence["source"]["sampler"].as_str().unwrap().to_string(),
+        scope: case.evidence["scope"].as_str().unwrap().to_string(),
         seed: case.evidence["source"]["seed"].as_u64().unwrap(),
         source_commitment: case.evidence["source_commitment"].as_str().unwrap().to_string(),
         expected_base: case.commit.expected_base.clone(),
@@ -94,8 +97,11 @@ fn a_candidate_is_refused_with_a_reason_unless_the_scheduler_allocated_it_and_th
     assert_eq!((receipt.status.as_str(), receipt.reason.as_str()), ("rejected", REQUEST_NOT_ALLOCATED));
     assert_eq!(case_none.store.resolve(MODEL).unwrap(), case_none.commit.expected_base, "nothing changed");
 
-    let mismatches: [(&str, Tamper); 2] = [
+    let mismatches: [(&str, Tamper); 4] = [
         (ALLOCATION_MISMATCH, |allocation| allocation.expected_base = "e".repeat(64)),
+        // The trainer's evidence never chooses the release or the scope: the scheduler's allocation does.
+        (ALLOCATION_MISMATCH, |allocation| allocation.sampler = AU3_SAMPLER.to_string()),
+        (ALLOCATION_MISMATCH, |allocation| allocation.scope = "full_encoder".to_string()),
         (COMMITMENT_MISMATCH, |allocation| allocation.source_commitment = "f".repeat(64)),
     ];
     for (reason, tamper) in mismatches {
@@ -123,21 +129,83 @@ fn a_candidate_is_refused_with_a_reason_unless_the_scheduler_allocated_it_and_th
 fn the_rows_param_update_rebuilds_are_the_rows_the_fuzzer_gets() {
     let sources = pinned();
     let gate = GuardGate::new(sources.clone(), Arc::new(StaticAllocations::default()));
-    let allocation = Allocation { seed: 20_261_123, source_commitment: "a".repeat(64), expected_base: "b".repeat(64) };
+    let mut allocation = Allocation {
+        sampler: BC01_SAMPLER.to_string(),
+        scope: "heads".to_string(),
+        seed: 20_261_123,
+        source_commitment: "a".repeat(64),
+        expected_base: "b".repeat(64),
+    };
     let loaded = v3::load_sources_from(&bc01_paths()).unwrap();
     let release = v3::trusted_release(Some(au3_manifest().as_path()), Some(BUNDLED_MANIFEST_SHA256)).unwrap();
     let texts = |rows: &[Example]| rows.iter().map(|row| row.text.clone()).collect::<Vec<_>>();
-    let bc01 = gate.rows(BC01_SAMPLER, &allocation).unwrap();
+    let bc01 = gate.rows(&allocation).unwrap();
     assert_eq!(
         texts(&bc01),
         texts(&routine_guard_rows(RoutineRelease::Bc01(&loaded), allocation.seed, &allocation.source_commitment).unwrap())
     );
-    let au3 = gate.rows(AU3_SAMPLER, &allocation).unwrap();
+    allocation.sampler = AU3_SAMPLER.to_string();
+    let au3 = gate.rows(&allocation).unwrap();
     assert_eq!(
         texts(&au3),
         texts(&routine_guard_rows(RoutineRelease::Au3(&release), allocation.seed, &allocation.source_commitment).unwrap())
     );
     assert_eq!((bc01.len(), au3.len()), (16, 16));
+}
+
+/// A scorer that answers what the test says, whatever the checkpoints hold.
+#[derive(Debug)]
+struct Fixed(bool);
+
+impl GuardScorer for Fixed {
+    fn passes(&self, _store: &CheckpointStore, _manifest: &Value, _rows: &[Example]) -> Result<bool, StoreError> {
+        Ok(self.0)
+    }
+}
+
+/// The evidence of a case rewritten so that its guard is the rows param-update rebuilds (the way a routine source record would
+/// carry them), whatever else it claims.
+fn evidence_with_guard(case: &Case, rows: &[Example]) -> Json {
+    let mut evidence = case.evidence.clone();
+    for (index, row) in rows.iter().enumerate() {
+        evidence["source"]["guard_sidecar"][index]["text"] = Json::String(row.text.clone());
+        for key in ["base_guard", "candidate_guard"] {
+            evidence[key]["rows"][index]["target"] = Json::from(row.packed().unwrap());
+        }
+    }
+    evidence
+}
+
+fn prepare(gate: &GuardGate, case: &Case, evidence: &Json) -> Option<String> {
+    let manifest = case.store.manifest(&case.commit.candidate).unwrap();
+    gate.prepare(&Candidate {
+        store: &case.store,
+        model_id: MODEL,
+        manifest_sha: &case.commit.candidate,
+        request_id: &case.commit.request_id,
+        expected_base: &case.commit.expected_base,
+        manifest: &manifest,
+        evidence: Some(evidence),
+    })
+    .unwrap()
+}
+
+#[test]
+fn a_candidate_whose_recomputed_guard_is_no_better_is_refused_whatever_its_evidence_claims_and_a_better_one_passes() {
+    let world = World::load();
+    let table = Arc::new(StaticAllocations::default());
+    let case = case(&world, &table);
+    let allocation = allocation(&case);
+    table.allocate(&case.commit.request_id, MODEL, allocation.clone());
+    let sources = pinned();
+    let rows = GuardGate::new(sources.clone(), table.clone()).rows(&allocation).unwrap();
+    let evidence = evidence_with_guard(&case, &rows);
+    // The evidence says the candidate beat its base: its own guard rows show a better joint count and no harm.
+    assert!(privoke_contracts::v3::publication_passes(&case.evidence).unwrap(), "the claim of the evidence is a pass");
+    let refused = GuardGate::new(sources.clone(), table.clone()).with_scorer(Arc::new(Fixed(false)));
+    assert_eq!(prepare(&refused, &case, &evidence).as_deref(), Some(GUARD_RECOMPUTED), "the recomputation refuses the claimed pass");
+    let better = GuardGate::new(sources, table).with_scorer(Arc::new(Fixed(true)));
+    assert_eq!(prepare(&better, &case, &evidence), None, "a candidate that scores better passes the gate");
 }
 
 fn repo(relative: &str) -> PathBuf {

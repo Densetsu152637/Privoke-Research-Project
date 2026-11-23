@@ -19,7 +19,9 @@ use privoke_contracts::publication::{self, KeySet};
 use privoke_curriculum::audience::BUNDLED_MANIFEST_SHA256;
 use privoke_param_update::v3_policy::{DriftBounds, DriftGate};
 use privoke_param_update::v3_publish::{CrashHook, Publisher};
-use privoke_param_update::v3_store::{AudienceSource, ChainObserver, CheckpointStore, CommitObserver, PinnedSources, StoreError};
+use privoke_param_update::v3_store::{
+    AudienceSource, Candidate, ChainObserver, CheckpointStore, CommitObserver, PinnedSources, StoreError,
+};
 use serde_json::Value as Json;
 
 const MODEL: &str = "privoke-v3-efficient";
@@ -363,4 +365,84 @@ fn an_over_budget_candidate_is_refused_before_anything_is_staged_signed_or_publi
             assert_eq!(staged_entries(&rig), 0);
         }
     }
+}
+
+/// The gate's verdict on the candidate of `label`, without committing it.
+fn drift_verdict(world: &World, rig: &Rig, label: &str, update: f64, cumulative: f64) -> Option<String> {
+    let request = commit_of(world, label);
+    let manifest = rig.store.manifest(&request.candidate).unwrap();
+    let evidence = serde_json::Value::Null;
+    DriftGate::new(bounds(update, cumulative))
+        .prepare(&Candidate {
+            store: &rig.store,
+            model_id: MODEL,
+            manifest_sha: &request.candidate,
+            request_id: &request.request_id,
+            expected_base: &request.expected_base,
+            manifest: &manifest,
+            evidence: Some(&evidence),
+        })
+        .unwrap()
+}
+
+#[test]
+fn the_cumulative_bound_measures_from_the_original_and_the_update_bound_from_the_parent() {
+    let world = World::load();
+    let rig = rig(hook(&Arc::new(AtomicBool::new(false)), "none"), Vec::new());
+    first_version(&world, &rig);
+    // `v3-life-heads-3` descends from the first version and changes only the head bias: a small step from its parent (about 2)
+    // that sits about 21 from the ORIGINAL, because the first version already moved the head weights.
+    stage(&world, &rig, "v3-life-heads-3");
+    assert_eq!(drift_verdict(&world, &rig, F3, 10.0, 25.0), None, "the step and the distance from the ORIGINAL are inside their bounds");
+    assert_eq!(
+        drift_verdict(&world, &rig, F3, 10.0, 15.0).as_deref(),
+        Some("drift_exceeded"),
+        "a small step from the parent is refused when the distance from the ORIGINAL is over its bound"
+    );
+    assert_eq!(drift_verdict(&world, &rig, F3, 1.0, 1000.0).as_deref(), Some("drift_exceeded"), "the update bound is the parent's");
+}
+
+#[test]
+fn a_rollback_may_return_only_to_the_original_or_to_a_signed_version() {
+    let world = World::load();
+    // A store that commits without a publisher (the oracle's behaviour): its versions were never signed.
+    let scratch = tempfile::tempdir().unwrap();
+    let store = CheckpointStore::open(scratch.path().join("store"), pinned()).unwrap();
+    let work = scratch.path().join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    let play = |op: &str, label: &str| perform(&world, &store, step(story(&world), op, label), &work).unwrap();
+    play("bootstrap", "efficient");
+    for version in ["v3-life-heads-1", "v3-life-heads-2"] {
+        play("stage", &format!("evidence of {version}"));
+        play("stage", &format!("candidate of {version}"));
+    }
+    store.commit(&commit_of(&world, F1)).unwrap();
+    store.commit(&commit_of(&world, F2)).unwrap();
+    let rollback = |request_id: &str, manifest: &str| Rollback {
+        request_id: request_id.to_string(),
+        model_id: MODEL.to_string(),
+        manifest: manifest.to_string(),
+    };
+    assert_eq!(
+        store.rollback(&rollback("rb-1", &commit_of(&world, F1).candidate)).unwrap_err(),
+        StoreError::Invalid("Rollback target was never published.".to_string()),
+        "a version that went live without a publication is not a rollback target"
+    );
+    assert_eq!(store.rollback(&rollback("rb-2", &original_of(&world))).unwrap().status, "applied", "the ORIGINAL always is");
+    assert_eq!(store.resolve(MODEL).unwrap(), original_of(&world));
+}
+
+#[test]
+fn a_publisher_needs_a_key_id_a_client_can_decode() {
+    let scratch = tempfile::tempdir().unwrap();
+    let seed = test_keys::seed(PRIMARY_ID);
+    let long = "k".repeat(65);
+    for key_id in ["", long.as_str()] {
+        let refused = Publisher::new(scratch.path().join("published"), key_id, seed, hook(&Arc::new(AtomicBool::new(false)), "none"));
+        assert!(refused.is_err(), "key id {key_id:?} is refused at startup");
+    }
+    assert!(
+        Publisher::new(scratch.path().join("published"), "publication-2026-1", seed, hook(&Arc::new(AtomicBool::new(false)), "none"))
+            .is_ok()
+    );
 }

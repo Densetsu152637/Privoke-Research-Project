@@ -164,7 +164,13 @@ def main():
     good = valid[0]["statement"]
     at = good.index("signature") + 12
     flipped = good[:at] + ("0" if good[at] != "0" else "1") + good[at + 1:]
+    # The same signature with S replaced by S + L: it satisfies the verification equation, and a verifier that does not require S < L
+    # accepts it as a second valid signature of the same message.
+    at_r = good.index("signature") + 12
+    original_signature = bytes.fromhex(good[at_r:at_r + 128])
+    malleable = original_signature[:32] + (int.from_bytes(original_signature[32:], "little") + Q).to_bytes(32, "little")
     forged = [
+        {"name": "malleable-signature", "manifest": "heads", "statement": good[:at_r] + malleable.hex() + good[at_r + 128:], "verify": "bad_signature"},
         {"name": "bad-signature", "manifest": "heads", "statement": flipped, "verify": "bad_signature"},
         {"name": "unknown-key", "manifest": "heads", "statement": signed(statement(heads, "test-publication-3", 1), PRIMARY), "verify": "unknown_key"},
         {"name": "not-canonical", "manifest": "heads", "statement": good.replace(',"manifest_sha"', ', "manifest_sha"'), "verify": "malformed"},

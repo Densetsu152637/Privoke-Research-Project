@@ -182,8 +182,17 @@ impl Publisher {
         let root = root.into();
         fs::create_dir_all(root.join(".staging"))?;
         fs::create_dir_all(root.join(".quarantine"))?;
-        // The key must be usable before anything is staged.
-        publication::public_key(&seed).map_err(|error| StoreError::Storage(error.to_string()))?;
+        // The key and its id must produce a statement that a client decodes, before anything is staged or signed.
+        let probe = Statement {
+            key_id: key_id.to_string(),
+            model_id: "privoke-v3-efficient".to_string(),
+            manifest_sha: "0".repeat(64),
+            parent: String::new(),
+            original: String::new(),
+            sequence: 1,
+        };
+        let wire = publication::sign(&seed, &probe).map_err(|error| StoreError::Storage(error.to_string()))?;
+        publication::decode(&wire).map_err(|error| StoreError::Invalid(format!("The publication key id is not usable: {error}")))?;
         Ok(Self { root, key_id: key_id.to_string(), seed, hook, crashed: AtomicBool::new(false), lock: Mutex::new(()) })
     }
 
