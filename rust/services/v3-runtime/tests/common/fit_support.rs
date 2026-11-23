@@ -254,7 +254,8 @@ pub async fn replay_golden(golden: &Value, package: &Path, model_id: &str, admis
         .map(|row| [0, 1, 2, 4].iter().map(|index| row[*index].as_str().unwrap().to_string()).collect())
         .collect();
     assert_eq!(rows, expected, "the fits table");
-    for row in runtime.store().rows().unwrap() {
+    let stored = runtime.store().rows().unwrap();
+    for row in stored {
         assert_eq!(runtime.fit_status(&row.id).unwrap().status, row.status);
     }
     say(&format!(
