@@ -1,5 +1,5 @@
 //! Process configuration from the environment, with the Python service's names and defaults (`config.py`) plus the
-//! listener, rate and drift-policy settings. An empty variable counts as unset.
+//! listener and rate settings. An empty variable counts as unset.
 
 use std::net::IpAddr;
 use std::path::PathBuf;
@@ -8,8 +8,7 @@ use privoke_transport::RateLimit;
 
 use crate::engine::EngineConfig;
 use crate::error::{Error, Result};
-use crate::policy::{DEFAULT_MAX_CUMULATIVE_L2, DEFAULT_MAX_UPDATE_L2, DriftPolicy};
-use crate::validate::validate_text;
+use crate::util::validate_text;
 
 /// Default listener port (`PARAM_UPDATE_PORT`).
 pub const DEFAULT_PORT: u16 = 50052;
@@ -159,14 +158,10 @@ pub struct ServiceConfig {
     pub model_artifact_path: PathBuf,
     /// The model this service updates (`MODEL_ID`).
     pub model_id: String,
-    /// The per-coordinate bound (`PARAM_UPDATE_MAX_ABS_GRADIENT`).
-    pub max_abs_gradient: f64,
     /// Largest request message (`PARAM_UPDATE_MAX_MESSAGE_BYTES`).
     pub max_message_bytes: usize,
     /// Per-identity request rate (`PARAM_UPDATE_RATE_PER_SECOND`, `PARAM_UPDATE_RATE_BURST`).
     pub rate: RateLimit,
-    /// The change bounds (`PARAM_UPDATE_DRIFT_POLICY`, `PARAM_UPDATE_MAX_UPDATE_L2`, `PARAM_UPDATE_MAX_CUMULATIVE_L2`).
-    pub drift: DriftPolicy,
     /// Context the `bootstrap` subcommand prepares (`MODEL_TRAINING_MAX_TOKENS`).
     pub bootstrap_max_tokens: i64,
     /// The V3 checkpoint store, when `V3_STORE` is set.
@@ -180,19 +175,6 @@ fn text(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: &str) -> Str
 fn integer(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: i64) -> Result<i64> {
     let Some(value) = get(key).filter(|value| !value.is_empty()) else { return Ok(fallback) };
     value.trim().parse().map_err(|_| Error(format!("{key} must be an integer.")))
-}
-
-fn number(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: f64) -> Result<f64> {
-    let Some(value) = get(key).filter(|value| !value.is_empty()) else { return Ok(fallback) };
-    value.trim().parse().map_err(|_| Error(format!("{key} must be a number.")))
-}
-
-fn positive_number(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: f64) -> Result<f64> {
-    let parsed = number(get, key, fallback)?;
-    if !parsed.is_finite() || parsed <= 0.0 {
-        return Err(Error(format!("{key} must be finite and positive.")));
-    }
-    Ok(parsed)
 }
 
 fn unsigned(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: u32) -> Result<u32> {
@@ -220,14 +202,6 @@ impl ServiceConfig {
         if rate.per_second == 0 || rate.burst == 0 {
             return Err(Error("PARAM_UPDATE_RATE_PER_SECOND and PARAM_UPDATE_RATE_BURST must be positive.".to_string()));
         }
-        let drift = match text(&get, "PARAM_UPDATE_DRIFT_POLICY", "enforce").trim().to_ascii_lowercase().as_str() {
-            "off" => DriftPolicy::Off,
-            "enforce" => DriftPolicy::Enforce {
-                max_update_l2: positive_number(&get, "PARAM_UPDATE_MAX_UPDATE_L2", DEFAULT_MAX_UPDATE_L2)?,
-                max_cumulative_l2: positive_number(&get, "PARAM_UPDATE_MAX_CUMULATIVE_L2", DEFAULT_MAX_CUMULATIVE_L2)?,
-            },
-            _ => return Err(Error("PARAM_UPDATE_DRIFT_POLICY must be enforce or off.".to_string())),
-        };
         let bootstrap_max_tokens = integer(&get, "MODEL_TRAINING_MAX_TOKENS", 256)?;
         let bind: IpAddr = text(&get, "PARAM_UPDATE_BIND", "0.0.0.0")
             .parse()
@@ -238,11 +212,9 @@ impl ServiceConfig {
             storage_path: text(&get, "PARAM_UPDATE_STORAGE_PATH", DEFAULT_STORAGE_PATH).into(),
             model_artifact_path: text(&get, "MODEL_ARTIFACT_PATH", DEFAULT_MODEL_ARTIFACT_PATH).into(),
             model_id,
-            max_abs_gradient: positive_number(&get, "PARAM_UPDATE_MAX_ABS_GRADIENT", 1.0)?,
             max_message_bytes: usize::try_from(max_message_bytes)
                 .map_err(|_| Error("PARAM_UPDATE_MAX_MESSAGE_BYTES is too large.".to_string()))?,
             rate,
-            drift,
             bootstrap_max_tokens,
             v3: V3Config::from_lookup(&get)?,
         })
@@ -259,8 +231,6 @@ impl ServiceConfig {
             storage_path: self.storage_path.clone(),
             model_artifact_path: self.model_artifact_path.clone(),
             expected_model_id: self.model_id.clone(),
-            max_abs_gradient: self.max_abs_gradient,
-            drift: self.drift,
         }
     }
 }
@@ -278,13 +248,11 @@ mod tests {
     }
 
     #[test]
-    fn defaults_match_the_python_service_and_enforce_the_bounds() {
+    fn defaults_match_the_python_service() {
         let configured = config(&[]).unwrap();
         assert_eq!(configured.port, 50052);
         assert_eq!(configured.model_id, "privoke-baseline");
-        assert_eq!(configured.max_abs_gradient, 1.0);
         assert_eq!(configured.max_message_bytes, 1_048_576);
-        assert_eq!(configured.drift, DriftPolicy::default());
         assert_eq!(configured.bootstrap_max_tokens, 256);
         assert_eq!(configured.v3, None, "the V3 store is off unless V3_STORE is set");
     }
@@ -385,21 +353,10 @@ mod tests {
         for pairs in [
             vec![("PARAM_UPDATE_PORT", "0")],
             vec![("PARAM_UPDATE_PORT", "http")],
-            vec![("PARAM_UPDATE_MAX_ABS_GRADIENT", "0")],
-            vec![("PARAM_UPDATE_MAX_ABS_GRADIENT", "inf")],
             vec![("PARAM_UPDATE_MAX_MESSAGE_BYTES", "-1")],
-            vec![("PARAM_UPDATE_DRIFT_POLICY", "maybe")],
-            vec![("PARAM_UPDATE_MAX_CUMULATIVE_L2", "0")],
             vec![("MODEL_ID", "bad\nid")],
         ] {
             assert!(config(&pairs).is_err(), "{pairs:?}");
         }
-    }
-
-    #[test]
-    fn the_drift_policy_can_be_switched_off_or_tuned() {
-        assert_eq!(config(&[("PARAM_UPDATE_DRIFT_POLICY", "off")]).unwrap().drift, DriftPolicy::Off);
-        let tuned = config(&[("PARAM_UPDATE_MAX_UPDATE_L2", "3.5"), ("PARAM_UPDATE_MAX_CUMULATIVE_L2", "40")]).unwrap();
-        assert_eq!(tuned.drift, DriftPolicy::Enforce { max_update_l2: 3.5, max_cumulative_l2: 40.0 });
     }
 }

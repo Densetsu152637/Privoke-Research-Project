@@ -7,10 +7,8 @@
 //! * [`pipeline`]: the layers and their order (`pipeline.py`) over `privoke-rules` and `privoke-ner-layer`.
 //! * [`semantic`]: the semantic layer over read-only model roots (legacy Tiny artifacts and pinned V3 packages), alone or
 //!   behind a presence gate.
-//! * [`store`]: the read-only artifact reader (`LocalModelProvider` and `load_artifact`) of the presence and gradient RPCs.
+//! * [`store`]: the read-only artifact reader (`LocalModelProvider` and `load_artifact`) of the presence model and the semantic layer.
 //! * [`presence`] and [`gate`]: the sparse presence model, `DetectAnnotationPresence` and the gate trace.
-//! * [`training`]: `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` and `ComputePresenceGradients` over the
-//!   stage 19 computations, for the request shapes it ported.
 //! * [`response`]: the combined evidence, the visibility hint, the masked text and the response bytes.
 //! * [`wire`]: the protobuf encoder that writes what Python's `SerializeToString(deterministic=True)` writes.
 //! * [`frames`]: the W1 frame codec, limits and error codes.
@@ -18,7 +16,7 @@
 //! * [`worker`]: the ready announcement, the sandbox self-check and the serve loop over the pool's framing.
 //!
 //! Served by this worker: `AnalyzePrompt` for the regex, NER and (with model roots) semantic layers, the sparse presence
-//! gate, `DetectAnnotationPresence`, the gradient methods for the shapes stage 19 ported, and `Health`. The model fetch
+//! gate, `DetectAnnotationPresence` and `Health`; the three gradient methods answer `UNKNOWN_METHOD` since stage V3-R8b. The model fetch
 //! (D11) and the pretrained contextual encoder stay elsewhere; see the stage 17 record in
 //! `docs/plans/rust-server-rewrite.md`.
 
@@ -33,7 +31,6 @@ pub mod semantic;
 pub mod service;
 pub mod snapshot;
 pub mod store;
-pub mod training;
 pub mod wire;
 pub mod worker;
 

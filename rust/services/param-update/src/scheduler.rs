@@ -37,9 +37,8 @@ use tonic::Code;
 use crate::error::{Error, Result};
 use crate::journal::{AllocationRow, Cycle, Journal, Stage, TIERS, model_of};
 use crate::pyfmt::py_int;
-use crate::util::{log, unix_seconds_f64};
+use crate::util::{log, unix_seconds_f64, validate_text};
 use crate::v3_store::{CheckpointStore, PinnedSources};
-use crate::validate::validate_text;
 
 /// What the scheduler is configured with.
 #[derive(Debug, Clone, PartialEq)]

@@ -41,3 +41,18 @@ pub fn unhex(text: &str) -> Option<Vec<u8>> {
     }
     Some(out)
 }
+
+/// `validate_text`: bounded text before storage or interpolation into logs. Limits count characters.
+pub fn validate_text(value: &str, field: &str, required: bool, limit: usize) -> Result<(), crate::error::Failure> {
+    use crate::error::Failure;
+    if required && value.is_empty() {
+        return Err(Failure::invalid(format!("{field} is required.")));
+    }
+    if value.chars().count() > limit {
+        return Err(Failure::invalid(format!("{field} exceeds {limit} characters.")));
+    }
+    if value.chars().any(|character| u32::from(character) < 32 || u32::from(character) == 127) {
+        return Err(Failure::invalid(format!("{field} must not contain control characters.")));
+    }
+    Ok(())
+}

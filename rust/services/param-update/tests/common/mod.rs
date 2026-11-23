@@ -11,7 +11,6 @@ use privoke_contracts::proto::v1::param_update_service_client::ParamUpdateServic
 use privoke_contracts::proto::v1::{Parameter, ParameterUpdateRequest};
 use privoke_param_update::artifact_io;
 use privoke_param_update::engine::{Engine, EngineConfig, no_hook, system_clock};
-use privoke_param_update::policy::DriftPolicy;
 use privoke_param_update::server::{self, ServerHandle};
 use privoke_param_update::service::ParamUpdateHandler;
 use privoke_param_update::v3_store::CheckpointHandler;
@@ -160,19 +159,17 @@ pub fn copy_model(directory: &Path, name: &str) -> PathBuf {
     target
 }
 
-pub fn config_for(directory: &Path, model: &Path, model_id: &str, drift: DriftPolicy) -> EngineConfig {
+pub fn config_for(directory: &Path, model: &Path, model_id: &str) -> EngineConfig {
     EngineConfig {
         storage_path: directory.join("updates.jsonl"),
         model_artifact_path: model.to_path_buf(),
         expected_model_id: model_id.to_string(),
-        max_abs_gradient: 1.0,
-        drift,
     }
 }
 
-/// An engine with the stage 0 policy of the Python service (per-coordinate bound only).
+/// An engine over a model copy (status, health and bootstrap only: the V1 update path was removed).
 pub fn engine(directory: &Path, model: &Path, model_id: &str) -> Engine {
-    Engine::new(config_for(directory, model, model_id, DriftPolicy::Off), system_clock(), no_hook()).unwrap()
+    Engine::new(config_for(directory, model, model_id), system_clock(), no_hook()).unwrap()
 }
 
 pub fn version_of(model: &Path) -> String {

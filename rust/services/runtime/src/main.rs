@@ -165,7 +165,6 @@ fn run() -> io::Result<i32> {
         let regex = Detector::new(RuleSetOptions::from_env()).map_err(|error| error.to_string())?;
         let ner = EntityNerDetector::new(spacy, &model_name).await.map_err(|error| error.to_string())?;
         let mut pipeline = Pipeline::new(regex, ner, PipelineOptions::from_env());
-        let mut store = None;
         if !arguments.model_roots.is_empty() {
             let roots: Vec<std::path::PathBuf> = arguments.model_roots.iter().map(std::path::PathBuf::from).collect();
             let models = Arc::new(ArtifactStore::new(roots.clone(), arguments.latest_model_id.clone()));
@@ -173,14 +172,9 @@ fn run() -> io::Result<i32> {
             if let Some(directory) = &arguments.pretrained_context_dir {
                 semantic = semantic.with_pretrained_context_dir(directory);
             }
-            pipeline = pipeline.with_semantic(semantic).with_presence(PresenceModels::new(Arc::clone(&models)));
-            store = Some(models);
+            pipeline = pipeline.with_semantic(semantic).with_presence(PresenceModels::new(models));
         }
-        let service = Service::new(pipeline, ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false });
-        Ok(match store {
-            Some(models) => service.with_training(models),
-            None => service,
-        })
+        Ok(Service::new(pipeline, ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false }))
     });
     let service = match started {
         Ok(service) => service,
