@@ -50,9 +50,17 @@ DEFAULT_EXCLUDES = [
 PLACEHOLDER_URL = "https://anonymous.invalid/repository"
 PLACEHOLDER_EMAIL = "anonymous@example.invalid"
 URL_TAIL = r"""(?:/[^\s)\]>"'}\\,;]*)?"""
+PLACEHOLDER_USER = "<user>"
+# The account segment of a user-home path: C:\Users\NAME, its JSON-escaped form with
+# doubled backslashes, C:/Users/NAME and /Users/NAME. The class must start with a letter
+# or digit, so regular expressions such as "/Users/(?i)[a-z]+" in rule files stay intact
+# and the "<user>" placeholder never matches again.
+USER_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9._-]*"
 
 # Ordered rewrite rules (pattern, replacement). Longer, more specific forms come first.
 REWRITE_RULES = [
+    (r"([A-Za-z]:(?:\\|/)+Users(?:\\|/)+)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    (r"(?<![A-Za-z0-9_.\-])(/Users/)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
     (r"\[git4san\]\(https?://github\.com/git4san\)", "the supervising professor"),
     (r"https?://github\.com/git4san" + URL_TAIL, "https://anonymous.invalid/supervisor"),
     (r"https?://(?:www\.)?github\.com/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
