@@ -189,7 +189,8 @@ mod tests {
     fn a_snapshot_that_does_not_hold_together_is_refused() {
         assert_eq!(decode("other", &response(|_| {})).unwrap_err(), "Cached snapshot model_id differs from its file name.");
         assert!(decode("m", b"\xff\xff").unwrap_err().starts_with("Could not load model snapshot"));
-        let cases: [(&str, Box<dyn Fn(&mut ModelParametersResponse)>); 5] = [
+        type Damage = Box<dyn Fn(&mut ModelParametersResponse)>;
+        let cases: [(&str, Damage); 5] = [
             ("no architecture", Box::new(|m| drop(m.metadata.remove("architecture")))),
             ("config", Box::new(|m| drop(m.metadata.insert("model_config".into(), "[1]".into())))),
             ("shape", Box::new(|m| m.parameters[0].shape = vec![3])),
