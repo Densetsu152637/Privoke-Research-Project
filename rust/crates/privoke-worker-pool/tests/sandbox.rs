@@ -80,13 +80,18 @@ async fn dropping_the_pool_kills_the_workers() {
 #[tokio::test]
 async fn a_memory_limit_kills_a_runaway_worker() {
     let _serial = SERIAL.lock().await;
+    // The limit and the runaway request are sized together: the request is 2.5 times the limit, which is enough to be
+    // refused under it and small enough that a CI runner grants the same allocation to the unlimited control worker (a
+    // 1536 MB request was refused there once, which failed the control for a reason unrelated to the limit).
+    const LIMIT_MB: u64 = 256;
+    const RUNAWAY_MB: u64 = LIMIT_MB * 5 / 2;
     let mut cfg = config(&[]);
-    cfg.sandbox.memory_limit_bytes = Some(256 << 20);
+    cfg.sandbox.memory_limit_bytes = Some(LIMIT_MB << 20);
     let pool = ready_pool(cfg).await;
     // Inside the limit it works, so the limit is not simply too small to run anything.
     assert!(call(&pool, "alloc", json!({"mb": 32})).await.is_ok());
     let pid = pool.worker_pids()[0];
-    let err = call(&pool, "alloc", json!({"mb": 1536})).await.unwrap_err();
+    let err = call(&pool, "alloc", json!({"mb": RUNAWAY_MB})).await.unwrap_err();
     assert!(matches!(err, PoolError::WorkerFailed(_)), "{err}");
     wait_dead("the runaway worker to die", pid).await;
     until("a restarted worker", || pool.starts() == 2 && pool.is_ready()).await;
@@ -94,7 +99,7 @@ async fn a_memory_limit_kills_a_runaway_worker() {
 
     // Control: the same request without a limit succeeds, so it was the limit that stopped it.
     let free = ready_pool(config(&[])).await;
-    assert!(call(&free, "alloc", json!({"mb": 1536})).await.is_ok());
+    assert!(call(&free, "alloc", json!({"mb": RUNAWAY_MB})).await.is_ok());
 }
 
 #[cfg(target_os = "linux")]
