@@ -139,8 +139,8 @@ The current trust boundaries are as follows:
 ## Component inventory and classification
 
 Classes:
-- **(a) Server/infra ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Rust.**
-- **(b) Inference/training ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ stays Python during the server rewrite (stages 0 to 10).** The approved ports (stages 11 to 22) then add Rust equivalents, and the Python code stays unchanged as the oracle.
+- **(a) Server/infra ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Rust.**
+- **(b) Inference/training ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ stays Python during the server rewrite (stages 0 to 10).** The approved ports (stages 11 to 22) then add Rust equivalents, and the Python code stays unchanged as the oracle.
 - **(a/b) Mixed:** the component is split.
 
 | Component | Path | Language now | What it does | Class | Plan |
@@ -173,7 +173,7 @@ Classes:
 | Compose stacks | `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.gpu.yml`, `evaluation/compose.*.yml` | YAML | Development, production and study stacks. | a | Stage 8a switches the service images. Study compose files stay pinned to their recorded revisions (see revalidation). |
 | Cloud deployment | `deploy/gce/{compose.yml,nginx.conf,deploy.sh,bootstrap.sh,tests/smoke.py}`, `.github/workflows/deploy-gce.yml` | YAML, shell, nginx, Python | VM stack and ingress. | a | Stage 8a cuts over with nginx kept as rollback; stage 8b removes nginx. |
 
-## PythonÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬ÂRust boundary
+## PythonÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂRust boundary
 
 The decision is a **separate process over gRPC**, using the existing contracts. The Rust processes are the network-facing servers. The Python processes are workers that the Rust side reaches through the gRPC services in `shared/proto` that they already implement:
 - `PrivokeRuntimeService` on the client runtime
@@ -202,11 +202,11 @@ nginx is removed only after every function it performs has an in-service replace
 | TLS termination (1.2/1.3) | `tonic` with `rustls`. The server config is built directly so that the client verifier can be set. | 1, 3, 4, 5 |
 | Client certificate required, one CA, depth 2 | `rustls::server::WebPkiClientVerifier`, with roots from the client CA, CRLs loaded, and anonymous clients refused. | 1 |
 | Method allowlist with 404 default | A **public listener** serves only the public RPCs. Private RPCs go on a separate **internal listener**. An authorisation interceptor maps (role, RPC) to allow, and returns `PERMISSION_DENIED` otherwise. | 3 to 5 |
-| Rate limits per IP, 20 connections | `tower` `ConcurrencyLimit`, plus a per-peer limiter (`tower_governor`), plus a connection cap. The limiter key depends on the service:<br>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **Model service:** keyed by the installation identity from the certificate.<br>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ **Telemetry service:** keyed by source IP, because every reporter shares one certificate (see the telemetry notes below), so a certificate key would put all clients in one bucket. | 1 |
+| Rate limits per IP, 20 connections | `tower` `ConcurrencyLimit`, plus a per-peer limiter (`tower_governor`), plus a connection cap. The limiter key depends on the service:<br>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ **Model service:** keyed by the installation identity from the certificate.<br>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ **Telemetry service:** keyed by source IP, because every reporter shares one certificate (see the telemetry notes below), so a certificate key would put all clients in one bucket. | 1 |
 | 1 MB body, 60 s timeouts | `max_decoding_message_size` and `tower::timeout` per service. Streaming RPCs keep their existing per-message limits. | 1 |
 | One `:443` shared by two services | Model on `:443`, telemetry on `:8443` (see the [port decision](#port-decision)). The client gets `PRIVOKE_CLOUD_MODEL_TARGET` and `PRIVOKE_CLOUD_TELEMETRY_TARGET`; an unset value falls back to `PRIVOKE_CLOUD_TARGET`, for model only. The firewall rule in section 3 of the deployment guide changes to match, at the end of the stage 8a cutover. | 6, 8 |
 | `/healthz` on 127.0.0.1:8081 | Each Rust binary has a `healthcheck` subcommand, as the Go service has now, and the gRPC `Health` RPC on the internal listener. | 3 to 5 |
-| Re-resolve upstreams after recreate | Not needed: there is no proxy hop. | ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â |
+| Re-resolve upstreams after recreate | Not needed: there is no proxy hop. | ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â |
 
 **Fail-closed construction.**
 - `privoke-transport` builds a server only from a `ServerTlsConfig`, and that type cannot be constructed without a client-CA root store and a CRL path. There is no plaintext constructor in the cloud build.
@@ -405,8 +405,8 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - `docs/deployment/google-cloud.md` (section 4)
   - Rust job in `.github/workflows/service-stack-ci.yml` (after the deadline)
 - Acceptance checks:
-  - **Enrolment is specified and tested:** a host test runs `enrol` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `privoke-pki sign` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `install-cert` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ mutual-TLS call accepted.
-  - **Renewal is specified and tested:** `renew` under the same UUID ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ old and new certificates both valid until the old one expires.
+  - **Enrolment is specified and tested:** a host test runs `enrol` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ `privoke-pki sign` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ `install-cert` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ mutual-TLS call accepted.
+  - **Renewal is specified and tested:** `renew` under the same UUID ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ old and new certificates both valid until the old one expires.
   - **Offline expiry is specified and tested:** an expired certificate is refused, and local inspection still works from the cached package.
   - **Revocation is specified and tested:** deny list plus CRL, as in the enrolment design above.
   - The documentation names who enrols (the operator with the offline CA), how the desktop receives the certificate (an out-of-band CSR and certificate exchange), and how renewal works offline (manual, 180-day validity, 30-day warning, fail-closed with local inspection unaffected).
@@ -461,7 +461,7 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - **Not done here.** No Compose, deploy or `.github/` change (stage 8a). The container rows ran on the Windows host's Docker, not on the VM. The paper claims about the three-RPC ingress stay `not claimed for the Rust build` until stage 9.
 - Handoff notes:
   - The Go source and Dockerfile stay in place (see the stage 9 retirement scope).
-  - **Deployment inputs (stage 8a).** The container reads `--cert`, `--key`, `--client-ca`, `--crl`, `--registry` (files, all reloaded in place), `/models` (legacy JSON), `/model-releases` (the prepared store) and listens on 50443 and 50051. Publish 50443 as the public model port; keep 50051 on the internal network only. A container health check runs `model-streaming-service healthcheck --server-ca ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ --client-cert ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ --client-key ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦` with a registered service identity (the Go probe was plaintext), and the server certificate must carry the name the probe passes as `--server-name`.
+  - **Deployment inputs (stage 8a).** The container reads `--cert`, `--key`, `--client-ca`, `--crl`, `--registry` (files, all reloaded in place), `/models` (legacy JSON), `/model-releases` (the prepared store) and listens on 50443 and 50051. Publish 50443 as the public model port; keep 50051 on the internal network only. A container health check runs `model-streaming-service healthcheck --server-ca ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ --client-cert ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ --client-key ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦` with a registered service identity (the Go probe was plaintext), and the server certificate must carry the name the probe passes as `--server-name`.
   - **Registry roles for stage 5 and the runtime.** `param-update`, the fuzzer and the client runtime need a registered service (`publisher`, `trainer` or `runtime`) to call `GetModelParameters` on the internal listener. `consumer_id` is a log label there, so they can keep their current values.
   - **Pins.** `standard_pin` comes from `privoke_contracts::v3`, so a new V3 release is added once, in the contracts crate and the corpus.
   - **CRL.** The service refuses every handshake once the CRL's `nextUpdate` passes (stage 1); the schedule that renews it is a stage 8a task.
@@ -793,12 +793,12 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 **Dependency order:**
 
 ```
-11 (spaCy PyO3 worker) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â
-12 (D2 rules + preprocessing) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¼ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 13 (D1 NER layer + post-filter) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 15 (D9 GLiNER)
-14 (D3 semantic inference) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â´ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 16 (D10 external classifier)
-                                      17 (Rust analysis runtime; needs 12, 13, 14, 16) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 18 (D8 reporter)
-14 ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 19 (D4 gradients and training) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â
-20 (D5 curricula, aggregation) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â´ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 21 (D6 fuzzer orchestration) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬> 22 (D7 pretrained-v3 runtime)
+11 (spaCy PyO3 worker) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â
+12 (D2 rules + preprocessing) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â¼ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 13 (D1 NER layer + post-filter) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 15 (D9 GLiNER)
+14 (D3 semantic inference) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 16 (D10 external classifier)
+                                      17 (Rust analysis runtime; needs 12, 13, 14, 16) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 18 (D8 reporter)
+14 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 19 (D4 gradients and training) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â
+20 (D5 curricula, aggregation) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒâ€šÃ‚Â´ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 21 (D6 fuzzer orchestration) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬> 22 (D7 pretrained-v3 runtime)
 ```
 
 | Stage | Item | Parity criterion (on the stage 0 corpus plus every recorded evaluation set it names) | Revalidates (new records) |
@@ -830,7 +830,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
     - **Memory.** Each worker's memory is bounded and reclaimed on restart.
   - The cost is one local pipe hop per document. It is measured in stage 17 against the current in-process Python call, and it should be small next to the measured NER-layer cost (C55, about 27 ms combined median). That figure is an estimate until measured.
 - **Worker protocol.**
-  - Request: text, plus a pipe selection ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â full pipeline, or the post-filter's tagger-only sub-pipeline (`select_pipes(enable=tok2vec, tagger, attribute_ruler, lemmatizer)`) on lowercased phrases.
+  - Request: text, plus a pipe selection ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â full pipeline, or the post-filter's tagger-only sub-pipeline (`select_pipes(enable=tok2vec, tagger, attribute_ruler, lemmatizer)`) on lowercased phrases.
   - Response, per token: `text`, `idx`, `whitespace_`, `is_alpha`, `lower_`, `tag_`, `pos_`, `lemma_`, `dep_`, `head.i`. Plus the entities (`start_char`, `end_char`, `label_`).
   - A one-time `lemma_index` word-list request, for the post-filter's lexicon.
   - Python objects never leave the worker.
@@ -963,7 +963,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
     | fuzz (seeded, 6000 fragment mixtures) | 6000 | 42000 / 42000 | 54000 / 54000 |
     | committed synthetic fixture | 125 | 875 / 875 | 1125 / 1125 |
 
-    A hit is identical when rule, span, text, packed classification (so sensitivity, visibility and categories) and confidence agree and the order of hits agrees. Python's `normalize_with_offsets` raises `KeyError` for a spelled digit written with a dotless `Ãƒâ€žÃ‚Â±` when `canonicalise_digits` is on, and the pipeline returns a layer error; the port returns the same error text. Zero differences in any cell. `final.jsonl` was not read: the locked-public final endpoint is consumed (the generator refuses any path named like `final`). The Stage 0 corpus has no regex or preprocessing surface, so the committed synthetic fixture stands in for it. Separately, all 1,112,064 scalar values and 20,000 random sequences give the same NFKC, `lower`, `upper`, class and combining-class results as Python (the full sweep is ignored; a sample is committed).
+    A hit is identical when rule, span, text, packed classification (so sensitivity, visibility and categories) and confidence agree and the order of hits agrees. Python's `normalize_with_offsets` raises `KeyError` for a spelled digit written with a dotless `ÃƒÆ’Ã¢â‚¬Å¾Ãƒâ€šÃ‚Â±` when `canonicalise_digits` is on, and the pipeline returns a layer error; the port returns the same error text. Zero differences in any cell. `final.jsonl` was not read: the locked-public final endpoint is consumed (the generator refuses any path named like `final`). The Stage 0 corpus has no regex or preprocessing surface, so the committed synthetic fixture stands in for it. Separately, all 1,112,064 scalar values and 20,000 random sequences give the same NFKC, `lower`, `upper`, class and combining-class results as Python (the full sweep is ignored; a sample is committed).
   - **`fancy-regex` list.** 17 of the 300 rules need it, and 4 preprocessing patterns; the reasons are in `docs/runtime/rust-workspace.md#patterns-that-need-fancy-regex`: `phone_us`, `social_handle`, `student_id`, `password_assignment`, `structured_identity`, `labelled_identifier_sensitive`, `labelled_identifier_generic`, `license_plate`, `location_keyword`, `bank_account`, four Presidio IP patterns, the Presidio credit-card and IBAN patterns (look-around) and the Presidio MAC pattern (back-reference); plus the preprocessing e-mail, spelled-digit and digit-chain patterns. The other 283 run on `regex`. `pcre2` is not needed. The 150 rules that end in `$` keep an exact `fancy-regex` variant, compiled on first use, for text that ends with a newline (Python's `$` also matches before a final newline); the canonical text never ends with one.
   - **Checks.** `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked` and `cargo fmt --all --check` are clean; `python -m unittest discover -s evaluation/tests -p test_generate_rules_golden.py` passes. A detector builds in about 0.3 s (release) and analyses a short prompt in about 0.3 ms.
   - **Not done here.** Wiring `privoke-rules` into a service (the NER layer is stage 13). The timings above are a single informal run, not latency evidence.
@@ -995,8 +995,8 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - **Parity (host, Windows; Python 3.11.9, spaCy 3.7.5, model 3.7.1; Rust through the real worker pool built with `--features embed`).** Each of the settings was run on every row; 248,638 rows (237,634 from the seven recorded sets of stage 11: development 502, personalized 2000, openai 1000, piimb 150,022, dolly15k 19,478, oasst2 64,592, stress 40; plus a seeded fuzz corpus of 4,000 and lower-/upper-cased variants of the three small sets). NER layer: 2,237,742 of 2,237,742 identical (results and post-filter decision logs); pattern detector: 1,491,828 of 1,491,828. On the seven recorded sets alone: 2,138,706 of 2,138,706 and 1,425,804 of 1,425,804. Per-set table in `docs/runtime/rust-workspace.md`.
   - **Checks.** `cargo test --workspace --locked`, `cargo clippy --workspace --all-targets --locked` and `cargo fmt --all --check` are clean (the new crate: 10 unit tests, the 123-prompt replay in 9 plus 6 settings, a rule-coverage test, and the same fixture through the real worker with `PRIVOKE_SPACY_BUNDLE`). `python -m unittest discover -s evaluation/tests -p test_generate_ner_golden.py` passes (12 tests).
   - **Findings and deviations.**
-    - `PyRegex` takes only ASCII in a pattern, and the NER patterns name the en dash, the em dash, the bullet and `ÃƒÆ’Ã‚Â©`. `privoke-rules` was not changed (outside this stage's owned paths); `privoke-ner-layer/src/pat.rs` relabels the dashes and the bullet with sentinel punctuation that the text and the pattern do not use (a kind the text does not hold is dropped from the class), and matches the one `ÃƒÆ’Ã‚Â©` pattern (`fianc[ÃƒÆ’Ã‚Â©e]e?`) in two passes. When a text holds a dash and every one of the 24 candidate sentinels the search returns an error instead of guessing. An upstream change that keeps those four characters in the shadow text would remove the machinery.
-    - The first full run showed the machinery's limits twice, both fixed and covered by tests: a letter or digit sentinel for `ÃƒÆ’Ã‚Â©` ran out on a pangram and on a text with every digit (so the accented branch is matched without a sentinel), and a punctuation sentinel ran out on two code-heavy oasst2 prompts (so a kind the text does not hold needs none).
+    - `PyRegex` takes only ASCII in a pattern, and the NER patterns name the en dash, the em dash, the bullet and `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©`. `privoke-rules` was not changed (outside this stage's owned paths); `privoke-ner-layer/src/pat.rs` relabels the dashes and the bullet with sentinel punctuation that the text and the pattern do not use (a kind the text does not hold is dropped from the class), and matches the one `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©` pattern (`fianc[ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e]e?`) in two passes. When a text holds a dash and every one of the 24 candidate sentinels the search returns an error instead of guessing. An upstream change that keeps those four characters in the shadow text would remove the machinery.
+    - The first full run showed the machinery's limits twice, both fixed and covered by tests: a letter or digit sentinel for `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©` ran out on a pangram and on a text with every digit (so the accented branch is matched without a sentinel), and a punctuation sentinel ran out on two code-heavy oasst2 prompts (so a kind the text does not hold needs none).
     - Python recomputes `Span.root` inside spaCy; the port derives it from the token heads, the `is_space` and `is_punct` flags of the token text and the child counts, as `spacy/tokens/span.pyx` does, and the parity runs cover it (every PERSON candidate goes through it).
     - Python reads the model name from `PRIVOKE_NER_MODEL` (default `en_core_web_sm`) for the result metadata, not from the package's own `meta["name"]` (`core_web_sm`); the Rust detector takes it as a parameter.
     - WildChat, the third F2 source, is not covered, as in stage 11. `final.jsonl` was not opened. The Linux bundle is still pending (CI/Linux stage), so this parity is Windows only.
@@ -1062,7 +1062,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - It also includes D11: model package and legacy stream fetch, with pin, shape and finite checks, into the same cache layout. Root approved this as networking work.
   - The gradient RPCs stay on the Python worker until stage 19. The supervisor routes each RPC by path to the Rust or Python worker.
 - **Runtime process model (17 Nov, stage 11b):** the Rust runtime runs inside a W2-pooled worker process and embeds spaCy in-process through the stage 11b backend. No separate spaCy process is used.
-- Depends on: stages W1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“W4, 9, 12, 13, 14 and 16
+- Depends on: stages W1ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œW4, 9, 12, 13, 14 and 16
 - Owned paths:
   - `rust/services/runtime/`
   - the supervisor routing in `rust/services/runtime-supervisor/`
@@ -1110,15 +1110,15 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 The user approved this design: **"Implement this."** One inference worker sits behind thin front ends.
 
-- **Client:** extension ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ native messaging ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Rust controller (the stage 7 supervisor) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ pipes ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ worker.
-- **Server:** fuzzer ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ gRPC with mutual TLS ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ thin Rust analysis microservice ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ pipes ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ worker, inside a quarantined container.
+- **Client:** extension ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ native messaging ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Rust controller (the stage 7 supervisor) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ pipes ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ worker.
+- **Server:** fuzzer ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ gRPC with mutual TLS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ thin Rust analysis microservice ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ pipes ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ worker, inside a quarantined container.
 
 The worker is the same binary and pipe protocol everywhere. It never opens a socket and needs no network:
 
 - **Models.** The front end fetches models over mutual TLS from model-streaming, checks the pins, writes the cache to a named volume (server) or the user cache directory (client), and passes the worker read-only model paths.
 - **Telemetry.** Telemetry is disabled in the worker. The client controller owns the reporter, which keeps the existing privacy code until stage 18. The quarantined service emits no telemetry.
-- **Scheduling.** W1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“W4 run on `feat/rust-rewrite` only and are not merged into the submission build before 11 December 2026.
-- **Recorded studies.** Legacy study Compose files and recorded studies stay pinned to the Python stack. Existing evidence rows remain Python-bridge measurements; only a rerun of the installed-browser protocol on the new transport supports any new claim. The client gets no listening ports: the gRPC-Web bridge on 8080 and the runtime ports are removed from workstation installs. This supersedes the stage 7 bridge objective and its gRPC-Web transcript replay check. Stages W1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“W4 come before stage 17, which later only swaps worker internals for Rust crates behind the same protocol.
+- **Scheduling.** W1ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œW4 run on `feat/rust-rewrite` only and are not merged into the submission build before 11 December 2026.
+- **Recorded studies.** Legacy study Compose files and recorded studies stay pinned to the Python stack. Existing evidence rows remain Python-bridge measurements; only a rerun of the installed-browser protocol on the new transport supports any new claim. The client gets no listening ports: the gRPC-Web bridge on 8080 and the runtime ports are removed from workstation installs. This supersedes the stage 7 bridge objective and its gRPC-Web transcript replay check. Stages W1ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œW4 come before stage 17, which later only swaps worker internals for Rust crates behind the same protocol.
 
 ## Stage W1: Worker pipe protocol and Python worker entrypoint
 
