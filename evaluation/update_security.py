@@ -2684,6 +2684,11 @@ LINEAGE_ROWS = {
     "LF14": ("refused", "Transient", "Fetch: model-streaming UNAVAILABLE is transient and changes neither the cache nor the mark."),
     "LF15": ("refused", "Downgrade", "Restart: a deleted high-water record is rebuilt from the cached statements; the unsigned ORIGINAL is still refused."),
     "LF16": ("refused", "Replay", "A mark under a key the client no longer compiles is a floor: a current-key statement at or below it is refused."),
+    "RB1": ("accepted", "", "Refresh (V3-R4b): a published candidate replaces the cached snapshot (the version a worker serves) after the refresh interval."),
+    "RB2": ("accepted", "", "Offline restart (V3-R4b): with the server unreachable the cache selects the version at the high-water mark, not the pin or another cached version."),
+    "RB3": ("accepted", "", "Garbage collection (V3-R4b): superseded versions are deleted; the pinned ORIGINAL, the version at the mark and a download in progress are kept."),
+    "RB4": ("refused", "Downgrade", "A client whose mark is a signed version refuses the cached unsigned pinned ORIGINAL (and a lower version), and never falls back to it."),
+    "RB5": ("accepted", "", "Two concurrent writers of the high-water mark (advisory lock, re-read under it): the mark never decreases and ends at the highest sequence."),
 }
 
 

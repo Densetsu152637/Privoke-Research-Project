@@ -13,6 +13,7 @@
 //! | [`worker`] | The W1 worker behind the W2 pool: frame codec, pool protocol, settings and sandbox policy. |
 //! | [`health`] | The model-streaming health check. |
 //! | [`channel`], [`fetch`] | Model fetch over mutual TLS with the installation certificate, pin checks, user cache. |
+//! | [`refresh`] | The refresh loop of the V3 model cache: admit a newer statement, move the high-water mark, delete what it superseded. |
 //! | [`credentials`] | `enrol`, `install-cert`, `renew` and `status`, on `privoke_pki::client`. |
 //! | [`telemetry`] | The stage 18 reporter, owned by the controller: maps each analysis result to the allowed facts and reports it. |
 //! | [`config`] | `.env` loading, cache and credential locations. |
@@ -24,6 +25,7 @@ pub mod credentials;
 pub mod fetch;
 pub mod health;
 pub mod native_host;
+pub mod refresh;
 pub mod routing;
 pub mod runtime;
 pub mod telemetry;

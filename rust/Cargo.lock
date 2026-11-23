@@ -1967,6 +1967,7 @@ dependencies = [
 name = "privoke-semantic"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "base64 0.22.1",
  "privoke-contracts",
  "privoke-rules",

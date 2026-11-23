@@ -23,7 +23,7 @@ required-features = ["test-helpers"]
 [features]
 default = []
 # Test-only helpers: the stand-in W1 worker and the worker-command override of `native-host`. Never enabled by a normal build.
-test-helpers = []
+test-helpers = ["privoke-contracts/test-keys"]
 
 [dependencies]
 privoke-contracts = { path = "../../crates/privoke-contracts" }

@@ -133,6 +133,16 @@ jobs:
             exit 1
           fi
 
+      - name: Publication test keys are absent from the worker build (V3-R4b)
+        # The worker and the semantic crate read the cache with the compiled key set; the test keys come only through their dev-dependencies.
+        run: |
+          for package in privoke-runtime privoke-semantic; do
+            if cargo tree -p "$package" -e normal,build,features --locked | grep -q 'test-keys'; then
+              echo "$package enables the test-keys feature outside its tests" >&2
+              exit 1
+            fi
+          done
+
       - name: Client lineage attack rows (V3-R4a)
         # Runs the shared signed-chain table and the Fetcher rows, then judges every row against the table of update_security.py.
         run: |

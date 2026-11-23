@@ -9,6 +9,8 @@ license.workspace = true
 
 [dev-dependencies]
 base64 = { workspace = true }
+# The deterministic publication test keys of the published-version loader tests (V3-R4b).
+privoke-contracts = { path = "../privoke-contracts", features = ["test-keys"] }
 tempfile = { workspace = true }
 
 [features]
@@ -19,6 +21,8 @@ default = ["external-classifier"]
 external-classifier = ["dep:reqwest"]
 
 [dependencies]
+# The vocabulary map type of the WordPiece builder (the version `tokenizers` uses), to build it from the hashed vocabulary bytes.
+ahash = "0.8"
 privoke-contracts = { path = "../privoke-contracts" }
 privoke-rules = { path = "../privoke-rules" }
 # Same crate version as the Python `tokenizers` wheel the reference runtime pins (0.22.2); `onig` is the regex engine of

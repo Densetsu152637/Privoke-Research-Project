@@ -42,6 +42,8 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [dev-dependencies]
 privoke-runtime = { path = ".", features = ["fake-spacy"] }
+# The deterministic publication test keys of the published-cache tests (V3-R4b); the worker build never enables them.
+privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
 base64 = { workspace = true }
 sha2 = { workspace = true }
 tempfile = { workspace = true }

@@ -3,8 +3,10 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use ahash::AHashMap;
 use privoke_contracts::digest::sha256_hex;
-use privoke_contracts::v3::admitted_manifest;
+use privoke_contracts::publication::KeySet;
+use privoke_contracts::v3::{LineageState, Manifest, admit_lineage, admitted_manifest};
 use privoke_rules::classification::Classification;
 use privoke_rules::preprocessing::normalize_with_offsets;
 use serde_json::Value;
@@ -58,10 +60,14 @@ fn read(path: &Path) -> Result<Vec<u8>, SemanticError> {
 
 /// The `BertTokenizerFast(vocab_file=..., do_lower_case=True)` pipeline: clean, lower-case and strip accents,
 /// split on whitespace and punctuation, greedy WordPiece with `[UNK]`, then `[CLS]` and `[SEP]`.
-fn build_tokenizer(vocab: &Path) -> Result<Tokenizer, SemanticError> {
+///
+/// The vocabulary is given as bytes (the ones that were hashed against the manifest), read as `WordPiece::read_file` reads a file:
+/// one token per line, its id the line number, trailing whitespace trimmed.
+fn build_tokenizer(vocab: &[u8]) -> Result<Tokenizer, SemanticError> {
     let failure = |error: tokenizers::Error| SemanticError::Tokenizer(error.to_string());
-    let path = vocab.to_str().ok_or_else(|| SemanticError::artifact("The vocabulary path is not valid UTF-8."))?;
-    let model = WordPiece::from_file(path).unk_token("[UNK]".to_string()).build().map_err(failure)?;
+    let text = std::str::from_utf8(vocab).map_err(|_| SemanticError::artifact("The vocabulary is not UTF-8."))?;
+    let tokens: AHashMap<String, u32> = text.lines().enumerate().map(|(index, line)| (line.trim_end().to_owned(), index as u32)).collect();
+    let model = WordPiece::builder().vocab(tokens).unk_token("[UNK]".to_string()).build().map_err(failure)?;
     let cls = model.token_to_id("[CLS]").ok_or_else(|| SemanticError::artifact("The vocabulary has no [CLS] token."))?;
     let sep = model.token_to_id("[SEP]").ok_or_else(|| SemanticError::artifact("The vocabulary has no [SEP] token."))?;
     if model.token_to_id("[UNK]").is_none() {
@@ -85,10 +91,10 @@ impl V3Model {
     /// use [`V3Model::load_release`]).
     pub fn from_files(config: &Path, checkpoint: &Path, vocab: &Path) -> Result<Self, SemanticError> {
         let config_text = String::from_utf8(read(config)?).map_err(|_| SemanticError::artifact("config.json is not UTF-8."))?;
-        Self::from_parts(&config_text, safetensors::parse(&read(checkpoint)?)?, vocab)
+        Self::from_parts(&config_text, safetensors::parse(&read(checkpoint)?)?, &read(vocab)?)
     }
 
-    fn from_parts(config_text: &str, mut tensors: BTreeMap<String, Tensor>, vocab: &Path) -> Result<Self, SemanticError> {
+    fn from_parts(config_text: &str, mut tensors: BTreeMap<String, Tensor>, vocab: &[u8]) -> Result<Self, SemanticError> {
         let config = BertConfig::from_json(config_text)?;
         let hidden = config.hidden_size;
         let encoder = Encoder::from_tensors(config, &mut tensors, "encoder.")?;
@@ -113,6 +119,33 @@ impl V3Model {
     pub fn load_release(dir: &Path, model_id: &str) -> Result<Self, SemanticError> {
         let manifest_bytes = read(&dir.join("manifest.json"))?;
         let manifest = admitted_manifest(&manifest_bytes, Some(model_id)).map_err(|error| SemanticError::artifact(error.to_string()))?;
+        Self::load_verified(dir, &manifest_bytes, &manifest)
+    }
+
+    /// Load a version the supervisor admitted by lineage and signature (stage V3-R4b), or the pinned release itself.
+    ///
+    /// `manifest_bytes` are the bytes of the version's `manifest.json` as the caller read them, and `statement` the statement kept
+    /// beside them (empty for the unsigned pinned release). The version is admitted here, by [`admit_lineage`], under `keys` and
+    /// the persisted high-water mark and compiled pin of `state`: a statement that does not verify, a version below the mark,
+    /// and the unsigned pin once the mark is a signed version are each refused before any asset is read. Then every asset must
+    /// hash to the admitted manifest and the checkpoint inventory must equal its tensors, as for [`V3Model::load_release`],
+    /// which stays the pin-only rule. The admitted manifest is returned with the model.
+    pub fn load_published(
+        dir: &Path,
+        model_id: &str,
+        manifest_bytes: &[u8],
+        statement: &[u8],
+        keys: &KeySet,
+        state: &dyn LineageState,
+    ) -> Result<(Self, Manifest), SemanticError> {
+        let admitted = admit_lineage(manifest_bytes, statement, Some(model_id), keys, state)
+            .map_err(|error| SemanticError::artifact(format!("The cached version is not admitted: {error}")))?;
+        let model = Self::load_verified(dir, manifest_bytes, &admitted.manifest)?;
+        Ok((model, admitted.manifest))
+    }
+
+    /// The assets of `dir` against an admitted manifest, then the model.
+    fn load_verified(dir: &Path, manifest_bytes: &[u8], manifest: &Manifest) -> Result<Self, SemanticError> {
         let config_bytes = read(&dir.join("config.json"))?;
         let checkpoint_bytes = read(&dir.join("model.safetensors"))?;
         let vocab_bytes = read(&dir.join("vocab.txt"))?;
@@ -122,10 +155,11 @@ impl V3Model {
             }
         }
         let tensors = safetensors::parse(&checkpoint_bytes)?;
-        let value: Value = serde_json::from_slice(&manifest_bytes).map_err(|error| SemanticError::artifact(error.to_string()))?;
+        let value: Value = serde_json::from_slice(manifest_bytes).map_err(|error| SemanticError::artifact(error.to_string()))?;
         verify_inventory(&tensors, value.get("tensors"))?;
         let config_text = String::from_utf8(config_bytes).map_err(|_| SemanticError::artifact("config.json is not UTF-8."))?;
-        Self::from_parts(&config_text, tensors, &dir.join("vocab.txt"))
+        // The vocabulary that was hashed against the manifest, not a second read of the file.
+        Self::from_parts(&config_text, tensors, &vocab_bytes)
     }
 
     /// The same model (tokenizer and thread count) over other weights: `tensors` holds every checkpoint tensor (`encoder.*`
