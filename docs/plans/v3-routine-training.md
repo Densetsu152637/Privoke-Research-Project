@@ -107,8 +107,8 @@ Root defaults, which the user may override:
 - Depends on: none (runs beside V3-R1).
 - Owned paths: a timing script or env-gated test and a bank-mapping check; results recorded in the V3-R5 and V3-R9 handoff notes. Calibration weights, if any are kept, go under `models/experiments/<run>/` with provenance.
 - Acceptance checks: the timings and the mapping result are recorded; if either stop condition triggers, root asks the user before V3-R2.
-- Status: in progress (23 Nov 2026).
-- Outcome:
+- Status: done (23 Nov 2026).
+- Outcome: `2453616` (merged). Neither stop condition triggers. Quality FULL_ENCODER fit 13.5 min on 8 CPUs (22% of the U5 threshold); a full 3-tier round takes about 25 min, so the scheduler interval must exceed that plus retention and publication. Bank: 200 of 200 rows map onto the V3 heads. Single-update L2 from the standard releases: HEADS up to 2.17, FULL up to 1.88; calibration weights in `models/experiments/v3p_timing_20261123/` (ignored). Details in the V3-R5 and V3-R9 handoff notes.
 - Handoff notes: V3-R5 and V3-R9 keep their checks as confirmations.
 
 ## Stage V3-R2: Signed publication, derived directory and drift bounds
