@@ -8,6 +8,8 @@ message Ref { string sha256 = 1; }
 message Model { string model_id = 1; }
 message Chunk { string sha256 = 1; uint64 offset = 2; uint64 total_bytes = 3; bytes data = 4; bytes manifest_json = 5; }
 message Commit { string request_id = 1; string model_id = 2; string expected_base = 3; string candidate = 4; string evidence = 5; }
+// Operator rollback: serve an earlier version of the model again (a new signed publication with a higher sequence).
+message Rollback { string request_id = 1; string model_id = 2; string manifest = 3; }
 message StatusRequest { string request_id = 1; }
 message Receipt { string status = 1; string request_id = 2; string model_id = 3; string base = 4; string candidate = 5; string reason = 6; }
 message HealthRequest {}
@@ -29,6 +31,7 @@ service CheckpointService {
   rpc StageCheckpoint(stream Chunk) returns (Ref);
   rpc CommitCandidate(Commit) returns (Receipt);
   rpc GetCommitStatus(StatusRequest) returns (Receipt);
+  rpc RollbackModel(Rollback) returns (Receipt);
   rpc Health(HealthRequest) returns (HealthResponse);
 }
 service TrainingService {

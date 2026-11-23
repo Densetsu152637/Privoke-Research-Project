@@ -15,6 +15,7 @@ pub mod canonical;
 pub mod digest;
 pub mod fingerprint;
 pub mod json;
+pub mod publication;
 pub mod pyfloat;
 pub mod v3;
 

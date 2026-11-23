@@ -1,0 +1,39 @@
+# Drift bounds of the V3 publication gate (stage V3-R2; see src/v3_policy.rs and docs/runtime/v3-publication.md).
+#
+# max_update_l2:     the largest L2 distance of a candidate from its parent version (all tensors).
+# max_cumulative_l2: the largest L2 distance of a candidate from the pinned ORIGINAL it descends from (all tensors).
+#
+# PROVISIONAL. The values come from the V3-P pre-flight (23 Nov 2026): single first-cycle updates from the standard releases had
+# L2 up to 2.17 (HEADS) and 1.88 (FULL_ENCODER); twice the largest is about 4.3 and 3.8. The cumulative bound is four times the
+# update bound, a deliberately generous guess because no repeated-cycle drift has been observed yet. Stage V3-R5 recalibrates
+# every tier and scope from real-weight fits (twice the largest observed L2), replaces these numbers, sets status = "calibrated"
+# and points evidence_sha256 at its own calibration record.
+
+schema = 1
+status = "provisional"
+# SHA-256 of models/experiments/v3p_timing_20261123/PROVENANCE.md (local, Git-ignored), the record of the V3-P fits.
+evidence_sha256 = "4e50896442f97fc7c07db3d2334b46937bd309d67959c9681d797dda433fcc75"
+
+[efficient.heads]
+max_update_l2 = 4.3
+max_cumulative_l2 = 17.2
+
+[efficient.full_encoder]
+max_update_l2 = 3.8
+max_cumulative_l2 = 15.2
+
+[balanced.heads]
+max_update_l2 = 4.3
+max_cumulative_l2 = 17.2
+
+[balanced.full_encoder]
+max_update_l2 = 3.8
+max_cumulative_l2 = 15.2
+
+[quality.heads]
+max_update_l2 = 4.3
+max_cumulative_l2 = 17.2
+
+[quality.full_encoder]
+max_update_l2 = 3.8
+max_cumulative_l2 = 15.2

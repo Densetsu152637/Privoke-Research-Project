@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use privoke_contracts::canonical::{self, Variant};
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::json::Value;
-use privoke_contracts::proto::experimental_v3::{Commit, Receipt};
+use privoke_contracts::proto::experimental_v3::{Commit, Receipt, Rollback};
 use privoke_contracts::v3::{self, ContractError, MAX_BLOB_BYTES, MAX_MANIFEST_BYTES, TIERS};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::Value as Serde;
@@ -130,35 +130,120 @@ fn tensor_digests(manifest: &Value) -> BTreeMap<String, String> {
     }
 }
 
-/// A compare-and-swap that every gate has passed, as [`CommitObserver::before_swap`] sees it.
+/// A candidate (or a rollback target) that has been admitted and is about to go through the commit transaction, as
+/// [`CommitObserver::prepare`] sees it. Everything an observer decides here happens before the transaction and is bound to
+/// `manifest_sha`.
+#[derive(Debug)]
+pub struct Candidate<'a> {
+    /// The store that admitted it (the observer reads blobs and manifests through it).
+    pub store: &'a CheckpointStore,
+    /// The model the version belongs to.
+    pub model_id: &'a str,
+    /// The manifest the model would serve.
+    pub manifest_sha: &'a str,
+    /// The request identity.
+    pub request_id: &'a str,
+    /// The expected base of a commit (empty for a rollback).
+    pub expected_base: &'a str,
+    /// The parsed manifest.
+    pub manifest: &'a Value,
+    /// The admitted execution evidence; `None` for a rollback to an earlier version.
+    pub evidence: Option<&'a Serde>,
+}
+
+/// A compare-and-swap that every gate has passed, as [`CommitObserver::before_swap`] and [`CommitObserver::after_commit`] see it.
 #[derive(Debug)]
 pub struct Swap<'a> {
-    /// The model whose `current` row is about to change.
+    /// The store.
+    pub store: &'a CheckpointStore,
+    /// The model whose `current` row changes.
     pub model_id: &'a str,
-    /// The manifest the model serves now (the request's `expected_base`, already compared).
+    /// The manifest the model served (a commit's `expected_base`, already compared; the previous version for a rollback).
     pub base: &'a str,
-    /// The manifest it will serve.
+    /// The manifest it serves.
     pub candidate: &'a str,
     /// The request identity.
     pub request_id: &'a str,
-    /// The admitted execution evidence of the candidate.
-    pub evidence: &'a Serde,
+    /// The admitted execution evidence of the candidate; `None` for a rollback.
+    pub evidence: Option<&'a Serde>,
+    /// Whether this is a rollback to an earlier version.
+    pub rollback: bool,
 }
 
-/// Work that belongs to the commit transaction without being part of the oracle's contract: allocating a sequence and signing a
-/// publication statement, for example. It runs after the stale-base and guard gates and before the `current` row changes.
+/// Work that belongs to the commit without being part of the oracle contract: the gates that decide before the transaction
+/// (drift bounds, the recomputed guard), the durable staging of the files a version is published from, the allocation of a
+/// sequence and the signature inside the transaction, and the publication after it. Every method has a no-op default, which is
+/// the oracle behaviour.
 pub trait CommitObserver: Send + Sync + fmt::Debug {
-    /// Called inside the `BEGIN IMMEDIATE` transaction. An error refuses the commit and rolls the transaction back.
-    fn before_swap(&self, swap: &Swap<'_>, transaction: &Connection) -> Result<(), StoreError>;
+    /// Before the transaction, after admission: judge the candidate and stage what publishing it needs. `Ok(Some(reason))` is a
+    /// refusal that becomes a `rejected` receipt with that reason (after the stale-base and trainer-guard gates); an error aborts
+    /// the commit without a receipt.
+    fn prepare(&self, _candidate: &Candidate<'_>) -> Result<Option<String>, StoreError> {
+        Ok(None)
+    }
+
+    /// Inside the `BEGIN IMMEDIATE` transaction, after every gate and before the `current` row changes. An error refuses the
+    /// commit and rolls the transaction back.
+    fn before_swap(&self, _swap: &Swap<'_>, _transaction: &Connection) -> Result<(), StoreError> {
+        Ok(())
+    }
+
+    /// After the transaction committed (and again when a replayed request finds its receipt applied). It must be idempotent: it
+    /// finishes a publication that a crash interrupted.
+    fn after_commit(&self, _swap: &Swap<'_>) -> Result<(), StoreError> {
+        Ok(())
+    }
+
+    /// The commit did not apply (a rejection, a refusal, a lost race or an error): release what [`prepare`](Self::prepare) staged.
+    fn abandon(&self, _model_id: &str, _manifest_sha: &str, _request_id: &str) {}
 }
 
-/// The oracle's behaviour: nothing happens between the gates and the swap.
+/// The oracle behaviour: nothing happens around the swap.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoObserver;
 
-impl CommitObserver for NoObserver {
-    fn before_swap(&self, _swap: &Swap<'_>, _transaction: &Connection) -> Result<(), StoreError> {
-        Ok(())
+impl CommitObserver for NoObserver {}
+
+/// Several observers in order: the gates first, then the publisher.
+#[derive(Debug, Default)]
+pub struct ChainObserver {
+    observers: Vec<Arc<dyn CommitObserver>>,
+}
+
+impl ChainObserver {
+    /// The chain of `observers`.
+    pub fn new(observers: Vec<Arc<dyn CommitObserver>>) -> Self {
+        Self { observers }
+    }
+}
+
+impl CommitObserver for ChainObserver {
+    fn prepare(&self, candidate: &Candidate<'_>) -> Result<Option<String>, StoreError> {
+        for (index, observer) in self.observers.iter().enumerate() {
+            match observer.prepare(candidate) {
+                Ok(None) => {}
+                refusal => {
+                    // What the earlier observers staged is released; the later ones never ran.
+                    for earlier in &self.observers[..index] {
+                        earlier.abandon(candidate.model_id, candidate.manifest_sha, candidate.request_id);
+                    }
+                    return refusal;
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    fn before_swap(&self, swap: &Swap<'_>, transaction: &Connection) -> Result<(), StoreError> {
+        self.observers.iter().try_for_each(|observer| observer.before_swap(swap, transaction))
+    }
+
+    fn after_commit(&self, swap: &Swap<'_>) -> Result<(), StoreError> {
+        self.observers.iter().try_for_each(|observer| observer.after_commit(swap))
+    }
+
+    fn abandon(&self, model_id: &str, manifest_sha: &str, request_id: &str) {
+        self.observers.iter().for_each(|observer| observer.abandon(model_id, manifest_sha, request_id));
     }
 }
 
@@ -190,7 +275,10 @@ impl CheckpointStore {
         db.execute_batch("PRAGMA synchronous=FULL")?;
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS current(model TEXT PRIMARY KEY, manifest TEXT NOT NULL);\
-             CREATE TABLE IF NOT EXISTS receipts(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload BLOB NOT NULL);",
+             CREATE TABLE IF NOT EXISTS receipts(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload BLOB NOT NULL);\
+             CREATE TABLE IF NOT EXISTS versions(model TEXT NOT NULL, manifest TEXT NOT NULL, PRIMARY KEY(model, manifest));\
+             CREATE TABLE IF NOT EXISTS publications(model TEXT NOT NULL, sequence INTEGER NOT NULL, manifest TEXT NOT NULL, \
+             key_id TEXT NOT NULL, statement BLOB NOT NULL, request_id TEXT NOT NULL, PRIMARY KEY(model, sequence));",
         )?;
         Ok(Self { directory, blobs, db: Mutex::new(db), put_lock: Mutex::new(()), sources, observer: Arc::new(NoObserver) })
     }
@@ -207,7 +295,7 @@ impl CheckpointStore {
         &self.directory
     }
 
-    fn connection(&self) -> std::sync::MutexGuard<'_, Connection> {
+    pub(crate) fn connection(&self) -> std::sync::MutexGuard<'_, Connection> {
         self.db.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
@@ -312,6 +400,8 @@ impl CheckpointStore {
         let sha = self.put(&payload)?;
         let conn = self.connection();
         conn.execute("INSERT OR IGNORE INTO current VALUES (?1,?2)", params![manifest.model_id, sha])?;
+        // The ORIGINAL is the first version of the model history, whether or not it was ever signed.
+        conn.execute("INSERT OR IGNORE INTO versions VALUES (?1,?2)", params![manifest.model_id, sha])?;
         Ok(())
     }
 
@@ -402,6 +492,21 @@ impl CheckpointStore {
         }
     }
 
+    /// A repeated request id answers from its receipt; a different payload under the same id is refused.
+    fn replay(&self, request_id: &str, fingerprint: &str) -> Result<Option<Receipt>, StoreError> {
+        let guard = self.connection();
+        let conn: &Connection = &guard;
+        replayed(conn, request_id, fingerprint)
+    }
+
+    /// Every version the model has served, the ORIGINAL included.
+    pub fn history(&self, model: &str) -> Result<Vec<String>, StoreError> {
+        let conn = self.connection();
+        let mut statement = conn.prepare("SELECT manifest FROM versions WHERE model=?1 ORDER BY manifest")?;
+        let rows = statement.query_map(params![model], |row| row.get::<_, String>(0))?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
     /// `commit(request)`: the compare-and-swap, with request-id idempotence.
     pub fn commit(&self, request: &Commit) -> Result<Receipt, StoreError> {
         if request.request_id.is_empty() || request.request_id.chars().count() > 200 {
@@ -417,38 +522,9 @@ impl CheckpointStore {
             ("candidate", request.candidate.as_str()),
             ("evidence", request.evidence.as_str()),
         ])?);
-        let conn = self.connection();
-        conn.execute_batch("BEGIN IMMEDIATE")?;
-        match self.commit_locked(&conn, request, &fingerprint) {
-            Ok(receipt) => {
-                if let Err(error) = conn.execute_batch("COMMIT") {
-                    if !conn.is_autocommit() {
-                        let _ = conn.execute_batch("ROLLBACK");
-                    }
-                    return Err(error.into());
-                }
-                Ok(receipt)
-            }
-            Err(error) => {
-                if !conn.is_autocommit() {
-                    let _ = conn.execute_batch("ROLLBACK");
-                }
-                Err(error)
-            }
-        }
-    }
-
-    fn commit_locked(&self, conn: &Connection, request: &Commit, fingerprint: &str) -> Result<Receipt, StoreError> {
-        let prior: Option<(String, Vec<u8>)> = conn
-            .query_row("SELECT fingerprint,payload FROM receipts WHERE id=?1", params![request.request_id], |row| {
-                Ok((row.get(0)?, row.get(1)?))
-            })
-            .optional()?;
-        if let Some((stored, payload)) = prior {
-            if stored != fingerprint {
-                return bad("Request ID reused with different commit content.");
-            }
-            return receipt_of(&payload);
+        if let Some(receipt) = self.replay(&request.request_id, &fingerprint)? {
+            self.finish(&receipt, false)?;
+            return Ok(receipt);
         }
         let manifest = self.manifest(&request.candidate)?;
         let evidence = self.admit_candidate(&manifest)?;
@@ -459,40 +535,222 @@ impl CheckpointStore {
         {
             return bad("Commit identity differs from candidate/fit evidence.");
         }
-        let current = current_of(conn, &request.model_id)?;
-        let reason = if current != request.expected_base {
-            "stale_base"
-        } else if !v3::publication_passes(&evidence)? {
-            "guard_rejected"
-        } else {
-            ""
+        let candidate = Candidate {
+            store: self,
+            model_id: &request.model_id,
+            manifest_sha: &request.candidate,
+            request_id: &request.request_id,
+            expected_base: &request.expected_base,
+            manifest: &manifest,
+            evidence: Some(&evidence),
         };
-        let receipt = Receipt {
-            status: if reason.is_empty() { "applied" } else { "rejected" }.to_string(),
-            request_id: request.request_id.clone(),
-            model_id: request.model_id.clone(),
-            base: request.expected_base.clone(),
-            candidate: request.candidate.clone(),
-            reason: reason.to_string(),
+        let gate = match self.observer.prepare(&candidate) {
+            Ok(gate) => gate,
+            Err(error) => {
+                self.observer.abandon(&request.model_id, &request.candidate, &request.request_id);
+                return Err(error);
+            }
         };
-        if reason.is_empty() {
-            self.observer.before_swap(
-                &Swap {
+        let outcome = self.transact(&request.request_id, &fingerprint, |conn| {
+            let current = current_of(conn, &request.model_id)?;
+            let reason = if current != request.expected_base {
+                "stale_base".to_string()
+            } else if !v3::publication_passes(&evidence)? {
+                "guard_rejected".to_string()
+            } else {
+                gate.clone().unwrap_or_default()
+            };
+            let receipt = Receipt {
+                status: if reason.is_empty() { "applied" } else { "rejected" }.to_string(),
+                request_id: request.request_id.clone(),
+                model_id: request.model_id.clone(),
+                base: request.expected_base.clone(),
+                candidate: request.candidate.clone(),
+                reason,
+            };
+            if receipt.status == "applied" {
+                let swap = Swap {
+                    store: self,
                     model_id: &request.model_id,
                     base: &request.expected_base,
                     candidate: &request.candidate,
                     request_id: &request.request_id,
-                    evidence: &evidence,
-                },
-                conn,
-            )?;
-            conn.execute(
-                "UPDATE current SET manifest=?1 WHERE model=?2 AND manifest=?3",
-                params![request.candidate, request.model_id, request.expected_base],
-            )?;
+                    evidence: Some(&evidence),
+                    rollback: false,
+                };
+                self.observer.before_swap(&swap, conn)?;
+                conn.execute(
+                    "UPDATE current SET manifest=?1 WHERE model=?2 AND manifest=?3",
+                    params![request.candidate, request.model_id, request.expected_base],
+                )?;
+                conn.execute("INSERT OR IGNORE INTO versions VALUES (?1,?2)", params![request.model_id, request.candidate])?;
+            }
+            Ok(receipt)
+        });
+        self.conclude(outcome, &request.model_id, &request.candidate, &request.request_id)
+    }
+
+    /// `rollback(request)`: serve an earlier version of the model again, as a new compare-and-swap that is signed with a higher
+    /// sequence like any other. The target must be in the history of the model (the ORIGINAL included).
+    pub fn rollback(&self, request: &Rollback) -> Result<Receipt, StoreError> {
+        if request.request_id.is_empty() || request.request_id.chars().count() > 200 {
+            return bad("Explicit bounded request identity required.");
         }
-        conn.execute("INSERT INTO receipts VALUES (?1,?2,?3)", params![request.request_id, fingerprint, receipt_bytes(&receipt)?])?;
-        Ok(receipt)
+        v3::check_sha(&request.manifest)?;
+        let fingerprint = digest(&canonical_strings(&[
+            ("operation", "rollback"),
+            ("request_id", request.request_id.as_str()),
+            ("model_id", request.model_id.as_str()),
+            ("manifest", request.manifest.as_str()),
+        ])?);
+        if let Some(receipt) = self.replay(&request.request_id, &fingerprint)? {
+            self.finish(&receipt, false)?;
+            return Ok(receipt);
+        }
+        let manifest = self.manifest(&request.manifest)?;
+        if text(&manifest, "model_id") != request.model_id || !self.history(&request.model_id)?.contains(&request.manifest) {
+            return bad("Rollback target is not in the history of this model.");
+        }
+        let candidate = Candidate {
+            store: self,
+            model_id: &request.model_id,
+            manifest_sha: &request.manifest,
+            request_id: &request.request_id,
+            expected_base: "",
+            manifest: &manifest,
+            evidence: None,
+        };
+        if let Err(error) = self.observer.prepare(&candidate) {
+            self.observer.abandon(&request.model_id, &request.manifest, &request.request_id);
+            return Err(error);
+        }
+        let outcome = self.transact(&request.request_id, &fingerprint, |conn| {
+            let current = current_of(conn, &request.model_id)?;
+            let unchanged = current == request.manifest;
+            let receipt = Receipt {
+                status: if unchanged { "rejected" } else { "applied" }.to_string(),
+                request_id: request.request_id.clone(),
+                model_id: request.model_id.clone(),
+                base: current.clone(),
+                candidate: request.manifest.clone(),
+                reason: if unchanged { "already_current" } else { "rollback" }.to_string(),
+            };
+            if !unchanged {
+                let swap = Swap {
+                    store: self,
+                    model_id: &request.model_id,
+                    base: &current,
+                    candidate: &request.manifest,
+                    request_id: &request.request_id,
+                    evidence: None,
+                    rollback: true,
+                };
+                self.observer.before_swap(&swap, conn)?;
+                conn.execute(
+                    "UPDATE current SET manifest=?1 WHERE model=?2 AND manifest=?3",
+                    params![request.manifest, request.model_id, current],
+                )?;
+            }
+            Ok(receipt)
+        });
+        self.conclude(outcome, &request.model_id, &request.manifest, &request.request_id)
+    }
+
+    /// The end of a commit or a rollback: finish the publication of a fresh applied receipt, release the staging of anything
+    /// else.
+    fn conclude(
+        &self,
+        outcome: Result<(Receipt, bool), StoreError>,
+        model_id: &str,
+        manifest_sha: &str,
+        request_id: &str,
+    ) -> Result<Receipt, StoreError> {
+        match outcome {
+            Ok((receipt, true)) => {
+                self.finish(&receipt, true)?;
+                Ok(receipt)
+            }
+            Ok((receipt, false)) => {
+                self.observer.abandon(model_id, manifest_sha, request_id);
+                Ok(receipt)
+            }
+            Err(error) => {
+                self.observer.abandon(model_id, manifest_sha, request_id);
+                Err(error)
+            }
+        }
+    }
+
+    /// One `BEGIN IMMEDIATE` transaction around `body`: a receipt recorded by a concurrent twin wins (and is returned as not
+    /// fresh), otherwise `body` decides, its receipt is recorded and the transaction commits. Any error rolls back, so nothing
+    /// is recorded and the request can be retried.
+    fn transact(
+        &self,
+        request_id: &str,
+        fingerprint: &str,
+        body: impl FnOnce(&Connection) -> Result<Receipt, StoreError>,
+    ) -> Result<(Receipt, bool), StoreError> {
+        let guard = self.connection();
+        let conn: &Connection = &guard;
+        conn.execute_batch("BEGIN IMMEDIATE")?;
+        let result = (|| -> Result<(Receipt, bool), StoreError> {
+            if let Some(receipt) = replayed(conn, request_id, fingerprint)? {
+                return Ok((receipt, false));
+            }
+            let receipt = body(conn)?;
+            conn.execute("INSERT INTO receipts VALUES (?1,?2,?3)", params![request_id, fingerprint, receipt_bytes(&receipt)?])?;
+            Ok((receipt, true))
+        })();
+        match result {
+            Ok(outcome) => {
+                if let Err(error) = conn.execute_batch("COMMIT") {
+                    if !conn.is_autocommit() {
+                        let _ = conn.execute_batch("ROLLBACK");
+                    }
+                    return Err(error.into());
+                }
+                Ok(outcome)
+            }
+            Err(error) => {
+                if !conn.is_autocommit() {
+                    let _ = conn.execute_batch("ROLLBACK");
+                }
+                Err(error)
+            }
+        }
+    }
+
+    /// After the receipt is durable: let the observer finish the publication of an applied version, or release the staging of a
+    /// refused one. `fresh` is false for a replayed receipt, whose staging (if any) belongs to the original request.
+    fn finish(&self, receipt: &Receipt, fresh: bool) -> Result<(), StoreError> {
+        if receipt.status == "applied" {
+            let swap = Swap {
+                store: self,
+                model_id: &receipt.model_id,
+                base: &receipt.base,
+                candidate: &receipt.candidate,
+                request_id: &receipt.request_id,
+                evidence: None,
+                rollback: receipt.reason == "rollback",
+            };
+            return self.observer.after_commit(&swap);
+        }
+        if fresh {
+            self.observer.abandon(&receipt.model_id, &receipt.candidate, &receipt.request_id);
+        }
+        Ok(())
+    }
+}
+
+/// The receipt recorded under `request_id`, if any; refused when it was recorded for different content.
+fn replayed(conn: &Connection, request_id: &str, fingerprint: &str) -> Result<Option<Receipt>, StoreError> {
+    let prior: Option<(String, Vec<u8>)> = conn
+        .query_row("SELECT fingerprint,payload FROM receipts WHERE id=?1", params![request_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .optional()?;
+    match prior {
+        None => Ok(None),
+        Some((stored, _)) if stored != fingerprint => bad("Request ID reused with different commit content."),
+        Some((_, payload)) => receipt_of(&payload).map(Some),
     }
 }
 

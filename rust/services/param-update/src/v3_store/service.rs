@@ -13,7 +13,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use privoke_contracts::proto::experimental_v3::checkpoint_service_server::CheckpointService;
-use privoke_contracts::proto::experimental_v3::{Chunk, Commit, HealthRequest, HealthResponse, Model, Receipt, Ref, StatusRequest};
+use privoke_contracts::proto::experimental_v3::{
+    Chunk, Commit, HealthRequest, HealthResponse, Model, Receipt, Ref, Rollback, StatusRequest,
+};
 use privoke_contracts::v3::{CHUNK_BYTES, MAX_BLOB_BYTES};
 use tokio_stream::Stream;
 use tonic::{Request, Response, Status, Streaming};
@@ -148,6 +150,11 @@ impl CheckpointService for CheckpointHandler {
     async fn get_commit_status(&self, request: Request<StatusRequest>) -> Result<Response<Receipt>, Status> {
         let request_id = request.into_inner().request_id;
         Ok(Response::new(self.blocking(move |store| store.status(&request_id)).await?))
+    }
+
+    async fn rollback_model(&self, request: Request<Rollback>) -> Result<Response<Receipt>, Status> {
+        let rollback = request.into_inner();
+        Ok(Response::new(self.blocking(move |store| store.rollback(&rollback)).await?))
     }
 
     async fn health(&self, _request: Request<HealthRequest>) -> Result<Response<HealthResponse>, Status> {

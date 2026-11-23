@@ -82,6 +82,7 @@ impl Script {
                     size_bytes: self.assets[*name].len() as u64,
                 })
                 .collect(),
+            publication_statement: Vec::new(),
         }
     }
 

@@ -136,7 +136,7 @@ Root defaults, which the user may override:
   - Rust CI is green.
 - Status: pending.
 - Outcome:
-- Handoff notes: the rotation overlap is tested in V3-R4a. Record in `docs/runtime/v3-publication.md` the accepted limitation that the high-water mark lives in the client cache, so a wiped cache re-admits the unsigned ORIGINAL once (trust on first use).
+- Handoff notes: R2 (23 Nov 2026, wt/rust-v3r2): `routine_guard_rows(RoutineRelease::{Bc01,Au3}, seed, source_commitment)` derives the BC01 guard seed from `sha256(domain, seed, commitment)`; the commitment must not cover the guard rows (it would be circular), so V3-R5 must pass the commitment of the TRAIN part of the source, and the source record's frozen-guard check in `validate_source_evidence_bc01` has to accept the routine guard (the AU3 guard is the release's pinned 16 rows and never varies). The guard gate needs an `Allocations` implementation from the V3-R6 journal. The shared fixtures are `rust/crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json` (the toy ORIGINAL is not the compiled pin; lineage admission takes the pin as a parameter). Publication details: `docs/runtime/v3-publication.md`. The rotation overlap is tested in V3-R4a. Record in `docs/runtime/v3-publication.md` the accepted limitation that the high-water mark lives in the client cache, so a wiped cache re-admits the unsigned ORIGINAL once (trust on first use).
 
 ## Stage V3-R3: model-streaming serves published V3 versions
 
