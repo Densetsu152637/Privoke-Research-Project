@@ -330,6 +330,14 @@ async fn refused(rig: &Rig, admission: &LineageAdmission, version: &Version, id:
     }
 }
 
+/// The statement with one hexadecimal digit of its signature changed (still a well-formed statement).
+fn with_changed_signature(mut wire: Vec<u8>) -> Vec<u8> {
+    let marker = b"\"signature\":\"";
+    let start = wire.windows(marker.len()).position(|window| window == marker).unwrap() + marker.len() + 4;
+    wire[start] = if wire[start] == b'0' { b'1' } else { b'0' };
+    wire
+}
+
 fn names(directory: &Path) -> Vec<String> {
     let mut names: Vec<String> =
         std::fs::read_dir(directory).unwrap().map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned()).collect();
@@ -422,10 +430,7 @@ async fn forged_and_replayed_versions_are_refused_and_change_nothing() {
     refused(&rig, &admission, &chain.pin, "LF7", "downgrade-to-unsigned-original", "Downgrade").await;
 
     // A bad signature, an unknown key and a statement for another manifest on a version with a higher sequence.
-    let mut bad = statement_for(PRIMARY_ID, &chain.heads_again, 9);
-    let flipped = if bad[bad.len() - 4] == b'0' { b'1' } else { b'0' };
-    let position = bad.len() - 4;
-    bad[position] = flipped;
+    let bad = with_changed_signature(statement_for(PRIMARY_ID, &chain.heads_again, 9));
     rig.serve(&chain.heads_again, bad);
     refused(&rig, &admission, &chain.heads_again, "LF8", "bad-signature", "BadSignature").await;
     rig.serve(&chain.heads_again, statement_for("test-publication-3", &chain.heads_again, 9));
@@ -474,9 +479,7 @@ async fn a_restart_reverifies_the_persisted_mark_and_the_cached_statements() {
 
     // A tampered mark does not verify: every version of the model is refused until the record is removed.
     let mark = rig.model_directory().join(HIGH_WATER_FILE);
-    let mut forged = heads.clone();
-    let position = forged.len() - 4;
-    forged[position] = if forged[position] == b'0' { b'1' } else { b'0' };
+    let forged = with_changed_signature(heads.clone());
     std::fs::write(&mark, &forged).unwrap();
     rig.serve(&chain.heads, heads.clone());
     let error = rig.fetch(&restarted).await.expect_err("a tampered mark");
