@@ -50,13 +50,37 @@ DEFAULT_EXCLUDES = [
 PLACEHOLDER_URL = "https://anonymous.invalid/repository"
 PLACEHOLDER_EMAIL = "anonymous@example.invalid"
 URL_TAIL = r"""(?:/[^\s)\]>"'}\\,;]*)?"""
+PLACEHOLDER_USER = "<user>"
+# The account segment of a user-home path: C:\Users\NAME, its JSON-escaped form with
+# doubled backslashes, C:/Users/NAME and /Users/NAME. The class must start with a letter
+# or digit, so regular expressions such as "/Users/(?i)[a-z]+" in rule files stay intact
+# and the "<user>" placeholder never matches again.
+USER_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9._-]*"
+# Local checkout paths up to and including the repository folder (and worktree folders
+# named after it, e.g. "...-wt-a-stats") become "<repo>"; the rest of the path is kept.
+# Drive-letter paths may contain spaces ("Git Repositories") and use \, \\ (JSON-escaped)
+# or /; rootless POSIX paths use / without spaces.
+PLACEHOLDER_REPO = "<repo>"
+REPO_FOLDER = r"Privoke-Research-Project[A-Za-z0-9._-]*"
+WINDOWS_SEGMENT = r"""[^\\/\r\n"'`<>|:*?]*"""
+# Export-only identifiers. Every exported file is rewritten the same way, so go.mod, Go
+# imports and the protobuf go_package stay consistent, and Compose project and image
+# names keep matching each other.
+ANONYMOUS_GO_MODULE = "anonymous.invalid/research-project"
+ANONYMOUS_PROJECT_NAME = "privoke-artifact"
 
 # Ordered rewrite rules (pattern, replacement). Longer, more specific forms come first.
 REWRITE_RULES = [
+    (r"([A-Za-z]:(?:\\|/)+Users(?:\\|/)+)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    (r"(?<![A-Za-z0-9_.\-])(/Users/)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
     (r"\[git4san\]\(https?://github\.com/git4san\)", "the supervising professor"),
     (r"https?://github\.com/git4san" + URL_TAIL, "https://anonymous.invalid/supervisor"),
     (r"https?://(?:www\.)?github\.com/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
     (r"https?://(?:www\.)?huggingface\.co/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
+    (r"[A-Za-z]:(?:(?:\\|/)+" + WINDOWS_SEGMENT + r")*?(?:\\|/)+" + REPO_FOLDER, PLACEHOLDER_REPO),
+    (r"(?<![A-Za-z0-9_.~/-])(?:~|\.{1,2})?(?:/[A-Za-z0-9_.-]+)*/" + REPO_FOLDER, PLACEHOLDER_REPO),
+    (r"github\.com/privoke/research-project", ANONYMOUS_GO_MODULE),
+    (r"Privoke-Research-Project", ANONYMOUS_PROJECT_NAME),
     (r"\\\{[^}\n]*\}@student\.monash\.edu(?:\.my)?", PLACEHOLDER_EMAIL),
     (r"[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9\-]+\.)*monash\.edu(?:\.my)?", PLACEHOLDER_EMAIL),
     (r"Monash University(?: Malaysia)?(?:,? Clayton)?(?:,? (?:Australia|Malaysia))?", "Anonymous Institution"),

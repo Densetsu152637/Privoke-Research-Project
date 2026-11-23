@@ -116,6 +116,83 @@ class ExportTests(unittest.TestCase):
         self.assertFalse(manifest["verification"]["passed"])
         self.assertIn("bad.bin", manifest["verification"]["binary_byte_scan_matches"])
 
+    def test_user_home_paths_rewritten_and_verified(self):
+        real = Path(__file__).resolve().parents[2] / exp.DEFAULT_PATTERNS
+        home = [line for line in real.read_text(encoding="utf8").splitlines() if "Users" in line and not line.startswith("#")]
+        self.assertEqual(len(home), 2)
+        self.patterns.write_text(PATTERNS + "\n".join(home) + "\n", encoding="utf8")
+        account = "Someone" + "42"
+        paths = {
+            "plain.md": f"Ran C:\\Users\\{account}\\AppData\\x.exe and c:/users/{account}/.cache\n",
+            "escaped.json": '{"command": "\\"C:\\\\Users\\\\' + account + '\\\\AppData\\\\py.exe\\""}\n',
+            "mac.txt": f"see /Users/{account}/work and (/Users/{account})\n",
+            "rule.toml": "regex = '''/Users/(?i)[a-z0-9]+'''\nurl = 'https://example.com/api/users/5'\n",
+        }
+        for rel, text in paths.items():
+            (self.repo / rel).write_text(text, encoding="utf8", newline="\n")
+        git(self.repo, "add", *paths)
+        git(self.repo, "commit", "-q", "-m", "paths")
+        dest, manifest = self.run_export()
+        self.assertTrue(manifest["verification"]["passed"], manifest["verification"])
+        for rel in ("plain.md", "escaped.json", "mac.txt"):
+            text = (dest / rel).read_text(encoding="utf8")
+            self.assertNotIn(account, text)
+            self.assertIn(exp.PLACEHOLDER_USER, text)
+        self.assertEqual(json.loads((dest / "escaped.json").read_text())["command"].count("<user>"), 1)
+        self.assertEqual((dest / "rule.toml").read_text(encoding="utf8"), paths["rule.toml"])
+
+    def test_user_home_pattern_flags_unrewritten_path(self):
+        real = Path(__file__).resolve().parents[2] / exp.DEFAULT_PATTERNS
+        patterns = [p for p in exp.load_patterns(real) if "Users" in p.pattern]
+        for text in ("C:\\Users\\abc", "C:\\\\Users\\\\abc", "C:/Users/abc", " /Users/abc"):
+            self.assertTrue(any(p.search(text) for p in patterns), text)
+        for text in ("C:\\Users\\<user>", "/Users/<user>", "/Users/(?i)[a-z]", "api/users/5"):
+            self.assertFalse(any(p.search(text) for p in patterns), text)
+
+    def test_checkout_paths_and_go_module_rewritten_consistently(self):
+        real = Path(__file__).resolve().parents[2] / exp.DEFAULT_PATTERNS
+        repo_lines = [line for line in real.read_text(encoding="utf8").splitlines()
+                      if "privoke" in line.lower() and not line.startswith("#")]
+        self.assertGreaterEqual(len(repo_lines), 3)
+        self.patterns.write_text(PATTERNS + "\n".join(repo_lines) + "\n", encoding="utf8")
+        name = "Privoke-" + "Research-Project"
+        module = "github.com/" + "privoke/research-project"
+        files = {
+            "notes.md": (f"Ran in `D:/Git Repositories/{name}/evaluation` and "
+                         f"[x](<D:\\Git Repositories\\{name}\\results\\a.json>), "
+                         f"worktree D:/Git-Worktrees/{name}/wt-a and D:/Git Repositories/{name}-wt-c/x, "
+                         f"posix ~/src/{name}/paper.\n"),
+            "rec.json": '{"path": "D:\\\\Git Worktrees\\\\paper-evidence\\\\' + name + '\\\\models\\\\m.bin"}\n',
+            "compose.yml": f"image: ${{IMG:-{name.lower()}-client-runtime}}\nname: {name.lower()}\n",
+            "svc/go.mod": f"module {module}/services/svc\n\ngo 1.22\n",
+            "svc/main.go": f'package main\n\nimport pb "{module}/services/svc/gen/v1"\n\nvar _ = pb.X\n',
+            "shared/p.proto": f'option go_package = "{module}/services/svc/gen/v1;pb";\n',
+        }
+        for rel, text in files.items():
+            path = self.repo / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf8", newline="\n")
+        git(self.repo, "add", *files)
+        git(self.repo, "commit", "-q", "-m", "paths")
+        dest, manifest = self.run_export()
+        self.assertTrue(manifest["verification"]["passed"], manifest["verification"])
+        notes = (dest / "notes.md").read_text(encoding="utf8")
+        self.assertIn("`<repo>/evaluation`", notes)
+        self.assertIn("(<<repo>\\results\\a.json>)", notes)
+        self.assertIn("worktree <repo>/wt-a and <repo>/x", notes)
+        self.assertIn("posix <repo>/paper.", notes)
+        self.assertEqual(json.loads((dest / "rec.json").read_text())["path"], "<repo>\\models\\m.bin")
+        compose = (dest / "compose.yml").read_text(encoding="utf8")
+        self.assertIn(f"{exp.ANONYMOUS_PROJECT_NAME}-client-runtime", compose)
+        self.assertIn(f"name: {exp.ANONYMOUS_PROJECT_NAME}\n", compose)
+        go_mod = (dest / "svc/go.mod").read_text(encoding="utf8")
+        self.assertIn(f"module {exp.ANONYMOUS_GO_MODULE}/services/svc\n", go_mod)
+        self.assertIn(f'"{exp.ANONYMOUS_GO_MODULE}/services/svc/gen/v1"', (dest / "svc/main.go").read_text())
+        self.assertIn(f'"{exp.ANONYMOUS_GO_MODULE}/services/svc/gen/v1;pb"', (dest / "shared/p.proto").read_text())
+        everything = "".join(p.read_text(encoding="utf8", errors="ignore") for p in dest.rglob("*") if p.is_file())
+        self.assertNotIn(module, everything)
+        self.assertNotIn(name.lower(), everything.lower())
+
     def test_main_exit_codes(self):
         argv = ["--repo", str(self.repo), "--dest", str(self.out), "--patterns", str(self.patterns)]
         self.assertEqual(exp.main(argv), 0)
