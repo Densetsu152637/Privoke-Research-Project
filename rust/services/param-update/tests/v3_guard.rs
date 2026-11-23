@@ -22,6 +22,9 @@ use privoke_param_update::v3_store::{AudienceSource, CheckpointStore, PinnedSour
 use privoke_semantic::safetensors;
 use serde_json::Value as Json;
 
+/// A way to make an allocation disagree with the commit.
+type Tamper = fn(&mut Allocation);
+
 const MODEL: &str = "privoke-v3-efficient";
 const REQUEST: &str = "commit v3-life-heads-1";
 
@@ -91,7 +94,7 @@ fn a_candidate_is_refused_with_a_reason_unless_the_scheduler_allocated_it_and_th
     assert_eq!((receipt.status.as_str(), receipt.reason.as_str()), ("rejected", REQUEST_NOT_ALLOCATED));
     assert_eq!(case_none.store.resolve(MODEL).unwrap(), case_none.commit.expected_base, "nothing changed");
 
-    let mismatches: [(&str, fn(&mut Allocation)); 2] = [
+    let mismatches: [(&str, Tamper); 2] = [
         (ALLOCATION_MISMATCH, |allocation| allocation.expected_base = "e".repeat(64)),
         (COMMITMENT_MISMATCH, |allocation| allocation.source_commitment = "f".repeat(64)),
     ];
