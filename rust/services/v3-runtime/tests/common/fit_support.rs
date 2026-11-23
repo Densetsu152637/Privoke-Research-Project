@@ -184,7 +184,9 @@ pub async fn replay_golden(golden: &Value, package: &Path, model_id: &str, admis
     for case in golden["cases"].as_array().unwrap() {
         let id = case["id"].as_str().unwrap();
         let request = v3::FitRequest::decode(b64(case["request"].as_str().unwrap()).as_slice()).unwrap();
-        assert_eq!(request.layers, vec![4], "every golden request is semantic-only");
+        if case["outcome"].get("ok").is_some() {
+            assert_eq!(request.layers, vec![4], "every accepted golden request is semantic-only");
+        }
         scripted.staged.lock().unwrap().clear();
         let mine = runtime.fit_candidate(request.clone(), Arc::new(AtomicBool::new(true))).await;
         let outcome = &case["outcome"];
