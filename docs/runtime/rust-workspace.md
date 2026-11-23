@@ -26,6 +26,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-telemetry-client` | The client telemetry reporter (stage 18): CPython-identical random draws on an injectable byte source, binary64 GRR thresholds, the persistent daily epsilon ledger, the report builder and the delivery worker over mutual TLS. See [below](#privoke-telemetry-client-stage-18). |
 | `privoke-fuzzer` (`rust/services/fuzzer`) | The fuzzer service that replaces `services/privoke-fuzzer` (stage 21, partial): one bounded training cycle per request with the stage 20 samplers in process, a mutual-TLS client of the runtime and of the parameter-update service, durable evidence and reservations, and the SQLite curriculum cursor state. See [below](#privoke-fuzzer-stage-21). |
 | `privoke-v3-fuzzer` (`rust/services/v3-fuzzer`) | The experimental V3 fuzzer service that replaces `services/pretrained-v3/src/fuzzer_server.py` (stage 21, second half): one frozen-schedule fit per request, mutual-TLS clients of the V3 runtime and the checkpoint service, the SQLite `cycles` table and the work directory of every wire message. See [below](#privoke-v3-fuzzer-stage-21). |
+| `privoke-v3-runtime` (`rust/services/v3-runtime`) | The experimental V3 runtime that replaces `services/pretrained-v3/src/runtime_server.py` (stage 22): semantic-only `AnalyzePrompt`, `FitCandidate`, `GetFitStatus` and `Health` over mutual TLS, the SQLite `fits` table and a checkpoint-service client. See [below](#privoke-v3-runtime-stage-22). |
 | `privoke-runtime` (`rust/services/runtime`) | The Rust analysis runtime (stage 17, partial): `AnalyzePrompt` for the regex and NER layers and `Health` as a W1 worker for the W2 pool, with spaCy in process, the pipeline and policy aggregation, and a response encoder that writes Python's deterministic bytes. See [below](#privoke-runtime-stage-17). |
 
 ## Build and test
@@ -1307,6 +1308,32 @@ An exception that the Python servicer does not catch (a `ValueError`, a `Runtime
 - `recorded` (LOCAL and git-ignored, `tests/local/recorded_cycles_golden.json`, 22 MB; the files hold prompt text): the 23 retained real fits, that is the work directories of the 2 audience pilots (`audience_v3_20261013`, AU3) and of the 18 pretrained cells and 3 pilots (`pretrained_v3_20261012`, BC01), answered from their recorded fit responses, manifests and receipts. The Python oracle reproduced all 23 cycles with every file (`cycle-request.pb`, `source.json`, `fit-request.pb`, `fit-response.pb`, `evidence.json`, `commit-request.pb`, `receipt.pb`) and the recorded host response byte-identical to what the retained run wrote (the `source_hashes` of the retained records are inputs, because they pin the Python bytes of the time). `tests/replay.rs` replays it when `PRIVOKE_V3_FUZZER_RECORDED_GOLDEN` names the file; otherwise it is skipped. Regenerate it with `python evaluation/generate_v3_fuzzer_golden.py recorded --models <checkout>/models/experiments --results <checkout>/evaluation/results`.
 
 The G5 normalisation (`tests/conformance/normalization.toml`) replaces timestamps and server-generated identifiers; none occurs in these records, so every comparison is exact. `tests/mtls.rs` runs the real listener: a registered publisher or trainer runs a complete cycle (the fit request has 64 training rows, 16 guard rows and exactly `[SEMANTIC]`); an unregistered certificate and a `runtime`-role certificate are `PERMISSION_DENIED` before any cycle (no call reaches a dependency, no `cycles` row, no work directory); a peer with no certificate and a server certificate from an untrusted CA are refused.
+
+## `privoke-v3-runtime` (stage 22)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-22-pretrained-v3-runtime-and-training-server-in-rust-d7). Binary: `v3-runtime-service`. RUST-S22.
+
+`rust/services/v3-runtime` replaces `services/pretrained-v3/src/runtime_server.py`. One mutual-TLS port serves `PrivokeRuntimeService.AnalyzePrompt` (V3 semantic inference, over `privoke-semantic`) and `TrainingService` (`FitCandidate` over `privoke_training::v3_fit`, `GetFitStatus`, `Health`). The Python file stays as the parity oracle. Out of scope: `checkpoint_server.py` (stage 10) and the fuzzer (`v3-fuzzer`).
+
+**LLM-layer isolation.** `AnalyzePrompt` and `FitCandidate` require `layers == [SEMANTIC]`, a model (inference) and no presence gate; an empty list is `INVALID_ARGUMENT`, never the whole pipeline. All results here are semantic-only.
+
+### Configuration
+
+`V3_CHECKPOINT_TARGET` and `V3_RUNTIME_STATE` and `V3_SOURCE_ROOT` (required), `V3_PORT` (50171), `V3_BIND` (127.0.0.1), `V3_TORCH_THREADS` (4), `V3_DEVICE` (`cpu` only; anything else is refused at startup), `V3_AUDIENCE_MANIFEST_PATH`/`_SHA256` (both or neither), `V3_REQUEST_TIMEOUT_SECONDS` (7800). Outbound: `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE`, `V3_CHECKPOINT_TLS_SERVER_NAME`. Flags: `--cert --key --client-ca --crl --registry`. Image: `rust/services/v3-runtime/Dockerfile`; study-stack override: `compose.study.yml`.
+
+### Deliberate differences from Python
+
+- No plaintext listener; roles: `AnalyzePrompt`/`Health` for publisher, trainer and runtime services, `FitCandidate`/`GetFitStatus` for publisher and trainer.
+- CPU only (CUDA is not ported). `capabilities` describe this build (no torch or transformers versions); the evidence records `device=cpu`, `torch=privoke-training-rust`.
+- `GetFitStatus` answers while a fit runs (Python waited on the lock). `PrivokeRuntimeService.Health` and the four RPCs Python never served (`ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `DetectAnnotationPresence`, `ComputePresenceGradients`) answer `UNIMPLEMENTED` naming the gap (Python's `Health` there could never serialise).
+- gRPC errors from the checkpoint service print in the `_InactiveRpcError` shape without `debug_error_string`.
+- The fit runs in its own task: a caller that gives up stops it at the next step and the row becomes `failed`, as Python's `is_active()`.
+- Cached assets are written to a temporary name and renamed.
+- `Admission::Structural` (tests only, not selectable from the binary) skips the admitted-tier pins so synthetic packages can run.
+
+### Parity with Python
+
+Oracle: `evaluation/generate_v3_runtime_golden.py` runs the real `RuntimeServer` with an in-memory checkpoint stub (environment `preflight` replaced). Committed synthetic goldens (`tests/fixtures/v3_runtime_*_golden.json`, synthetic V3 package plus the committed BC01 fixtures) are replayed in CI by `tests/analyze_replay.rs` and `tests/fit_replay.rs`; results of the pushed head are recorded in the plan. Gated real-data replays (`tests/analyze_release.rs`, `tests/fit_release.rs`) read git-ignored goldens under `tests/local/`; see the plan for their commands.
 
 ## `privoke-runtime` (stage 17)
 

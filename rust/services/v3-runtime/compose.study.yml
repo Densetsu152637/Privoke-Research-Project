@@ -1,0 +1,42 @@
+# Replaces the `runtime` service of evaluation/compose.pretrained-v3-study.yml with the Rust V3 runtime (stage 22).
+# Use it as an override, from the repository root:
+#
+#   docker compose -f evaluation/compose.pretrained-v3-study.yml -f rust/services/v3-runtime/compose.study.yml up
+#
+# The Rust runtime is mutual TLS only, so the checkpoint and fuzzer services must present registered certificates too
+# (the Python checkpoint server of the study stack has no TLS and is not reachable from this image until stage 10 or an
+# mTLS front end is in place). V3_TLS_DIR holds ca.crt (the server CA that signed the checkpoint service), client-ca.crt,
+# crl.pem, registry.toml, server.crt, server.key, service.crt and service.key. V3_REPO is a checkout of the sources
+# whose hashes the fit evidence commits to.
+services:
+  runtime:
+    image: privoke-v3-runtime-rust:study
+    build:
+      context: ../../..
+      dockerfile: rust/services/v3-runtime/Dockerfile
+    command:
+      - --cert=/tls/server.crt
+      - --key=/tls/server.key
+      - --client-ca=/tls/client-ca.crt
+      - --crl=/tls/crl.pem
+      - --registry=/tls/registry.toml
+    gpus: !reset null
+    environment:
+      V3_RUNTIME_STATE: /state/runtime
+      V3_CHECKPOINT_TARGET: checkpoint:50173
+      V3_DEVICE: cpu
+      V3_SOURCE_ROOT: /repo
+      PRIVOKE_TLS_CA_FILE: /tls/ca.crt
+      PRIVOKE_TLS_CERT_FILE: /tls/service.crt
+      PRIVOKE_TLS_KEY_FILE: /tls/service.key
+    volumes:
+      - type: bind
+        source: ${V3_TLS_DIR}
+        target: /tls
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_REPO}
+        target: /repo
+        read_only: true
+        bind: {create_host_path: false}
