@@ -190,6 +190,14 @@ impl CommitObserver for GuardGate {
         }
         let sampler = evidence["source"]["sampler"].as_str().unwrap_or_default();
         let rows = self.rows(sampler, &allocation)?;
+        // The rows of the evidence (the texts of its source record and the targets its guard scored) are the rebuilt rows.
+        let reported_texts: Vec<Option<&str>> = evidence["source"]["guard_sidecar"]
+            .as_array()
+            .map_or_else(Vec::new, |items| items.iter().map(|item| item["text"].as_str()).collect());
+        let wanted_texts: Vec<Option<&str>> = rows.iter().map(|row| Some(row.text.as_str())).collect();
+        if reported_texts != wanted_texts {
+            return Ok(Some(GUARD_ROWS_DIFFER.to_string()));
+        }
         let targets: Vec<Option<u64>> = rows.iter().map(|row| row.packed().map(u64::from)).collect();
         for key in ["base_guard", "candidate_guard"] {
             let reported: Vec<Option<u64>> =
