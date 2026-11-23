@@ -141,8 +141,9 @@ fn never_runs_an_implicit_pipeline_and_refuses_what_it_does_not_serve() {
     };
     assert_eq!(error_code(&worker.call(2, &presence.encode_to_vec())), code::UNSUPPORTED_ROUTE);
     assert_eq!(error_code(&worker.call(2, b"")), code::INVALID_LAYERS);
+    // The gradient methods were removed (stage V3-R8b): an unknown method with or without model roots.
     for method in [4, 5, 6] {
-        assert_eq!(error_code(&worker.call(method, b"")), code::UNSUPPORTED_ROUTE);
+        assert_eq!(error_code(&worker.call(method, b"")), code::UNKNOWN_METHOD);
     }
     assert_eq!(error_code(&worker.call(1, &[0xff, 0xff, 0xff])), code::INVALID_PAYLOAD);
     // A validation failure is an ordinary response with its error set, under the request's own id.
