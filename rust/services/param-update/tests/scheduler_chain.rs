@@ -514,6 +514,8 @@ async fn the_scheduler_trains_three_tiers_through_the_real_chain_and_every_versi
     });
     // One guard refusal: the balanced tier's HEADS evidence names source hashes the allocated commitment does not cover.
     shared.faults.lock().unwrap().insert((model_of("balanced"), "heads".to_string()), Fault::Commitment);
+    // The scheduler is registered before the listener starts, so that its first request never races the registry reload.
+    let scheduler = env.service("param-update", Some("publisher"));
     let transport = env.tls_args().into_config().unwrap();
     let (addr, stop) = serve_fake(transport, Handler(shared.clone())).await;
 
@@ -531,7 +533,6 @@ async fn the_scheduler_trains_three_tiers_through_the_real_chain_and_every_versi
         policy_file: directory.path().join("policy.json"),
         tiers: TIERS.iter().map(|tier| tier.name.to_string()).collect(),
     };
-    let scheduler = env.service("param-update", Some("publisher"));
     let caller = GrpcFuzzer::new(config.target.clone(), env.client_config(Some(&scheduler)));
     run(&config, &caller, store.as_ref(), &commitments).await.unwrap();
     let _ = stop.send(true);

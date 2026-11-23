@@ -212,6 +212,7 @@ async fn serve_fake(transport: CloudTransport, handler: Handler) -> (std::net::S
 
 struct Rig {
     env: Env,
+    scheduler: common::Creds,
     directory: tempfile::TempDir,
     shared: Shared,
     addr: std::net::SocketAddr,
@@ -234,9 +235,11 @@ async fn rig() -> Rig {
         served: Arc::new(AtomicUsize::new(0)),
     };
     let handler = Handler(Arc::new(FakeFuzzer { shared: shared.clone() }));
+    // Registered before the listener starts, so that the first request never races the registry reload.
+    let scheduler = env.service("param-update", Some("publisher"));
     let transport = env.tls_args().into_config().unwrap();
     let (addr, stop) = serve_fake(transport, handler).await;
-    Rig { env, directory, shared, addr, stop }
+    Rig { env, scheduler, directory, shared, addr, stop }
 }
 
 impl Rig {
@@ -258,8 +261,7 @@ impl Rig {
     }
 
     fn caller(&self, config: &FuzzerRequestConfig) -> GrpcFuzzer {
-        let scheduler = self.env.service("param-update", Some("publisher"));
-        GrpcFuzzer::new(config.target.clone(), self.env.client_config(Some(&scheduler)))
+        GrpcFuzzer::new(config.target.clone(), self.env.client_config(Some(&self.scheduler)))
     }
 
     fn start(&self) -> tokio::task::JoinHandle<UpdateResult<()>> {
