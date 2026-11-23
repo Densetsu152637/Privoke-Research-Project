@@ -110,6 +110,16 @@ async fn a_routine_cycle_records_the_commitments_and_selects_the_guard_through_t
         let schedule_seed = routine_guard_seed(u64::from(seed), &commitment).unwrap();
         assert_eq!(response.metadata["schedule_seed"], schedule_seed.to_string());
         assert_eq!(value::i64_at(&source, "seed").unwrap() as u64, schedule_seed);
+        // A verifier holding only the evidence and the journalled seed recomputes the same commitment (policy digest included).
+        let kept: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(engine.work_directory(&id).join("evidence.json")).unwrap()).unwrap();
+        let evidence_source = value::parse_bytes(kept["source"].to_string().as_bytes()).unwrap();
+        let evidence_policy = value::parse_bytes(kept["policy"].to_string().as_bytes()).unwrap();
+        assert_eq!(
+            routine_commitment_of_source(&evidence_source, &value::digest_of(&evidence_policy).unwrap(), u64::from(seed)).unwrap(),
+            commitment
+        );
+        assert_eq!(kept["source"]["seed"].as_u64(), Some(schedule_seed));
         // The guard rows are the shared function's rows.
         let release = schedules(world.inputs(), sampler);
         let rows: Vec<_> = routine_guard_rows(release.guard_release(), u64::from(seed), &commitment)

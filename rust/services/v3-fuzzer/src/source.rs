@@ -116,7 +116,7 @@ impl Schedules {
 
     /// The routine commitment of a cycle of this sampler (see [`routine_commitment`]).
     pub fn routine_commitment(&self, policy_sha256: &str, seed: u64) -> Result<String> {
-        routine_commitment(self.sampler().name(), &self.inputs(), self.source_hashes(), policy_sha256, seed)
+        Ok(routine_commitment(self.sampler().name(), &self.inputs(), self.source_hashes(), policy_sha256, seed)?)
     }
 
     /// `fuzzer_training.schedule(seed, policy, sampler=)`: the training rows, the guard rows and the source record.
@@ -132,42 +132,7 @@ impl Schedules {
     }
 }
 
-/// The domain tag of the routine commitment.
-pub const ROUTINE_COMMITMENT_DOMAIN: &str = "privoke-v3-routine-source-v1";
-
-/// The routine commitment: the SHA-256 of the canonical record `{schema, domain, sampler, inputs, source_hashes, policy_sha256,
-/// seed}`, where `seed` is the scheduler-allocated seed of the cycle.
-///
-/// This is the `source_commitment` argument of [`v3::routine_guard_rows`]. It commits to everything that identifies the cycle's
-/// frozen source (the sampler, its pinned inputs, the Python sources, the policy) and to the scheduler's seed, and to nothing
-/// that depends on the schedule or its guard, so the guard rows can be selected from it without circularity. The schedule
-/// itself is built at `routine_guard_seed(seed, commitment)`: every validator of the frozen schedule (the runtime's, and the
-/// checkpoint store's `validate_source_evidence`) then holds for a routine cycle unchanged, and the guard that the source record
-/// names is exactly `routine_guard_rows(release, seed, commitment)`.
-pub fn routine_commitment(sampler: &str, inputs: &Value, source_hashes: &Value, policy_sha256: &str, seed: u64) -> Result<String> {
-    let record = value::object(vec![
-        ("schema", value::int(1)),
-        ("domain", value::string(ROUTINE_COMMITMENT_DOMAIN)),
-        ("sampler", value::string(sampler)),
-        ("inputs", inputs.clone()),
-        ("source_hashes", source_hashes.clone()),
-        ("policy_sha256", value::string(policy_sha256)),
-        ("seed", value::uint(seed)),
-    ]);
-    Ok(value::digest_of(&record)?)
-}
-
-/// [`routine_commitment`] recomputed from a source record (the `source` of fit evidence) and the scheduler's `seed`. A verifier
-/// that holds the journalled seed and the policy digest needs nothing else from the trainer.
-pub fn routine_commitment_of_source(source: &Value, policy_sha256: &str, seed: u64) -> Result<String> {
-    routine_commitment(
-        value::str_at(source, "sampler")?,
-        value::require(source, "inputs")?,
-        value::require(source, "source_hashes")?,
-        policy_sha256,
-        seed,
-    )
-}
+pub use privoke_curriculum::v3::{ROUTINE_COMMITMENT_DOMAIN, routine_commitment, routine_commitment_of_source};
 
 /// The digests of the Python files that pin `sampler`, hashed under `root`.
 pub fn python_source_hashes(root: &Path, sampler: Sampler) -> Result<Value> {
