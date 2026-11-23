@@ -31,7 +31,9 @@ use privoke_contracts::proto::experimental_v3 as v3;
 use privoke_contracts::proto::v1::FuzzerTrainingRequest;
 use privoke_curriculum::audience::BUNDLED_MANIFEST_SHA256;
 use privoke_curriculum::v3::{AU3_SOURCE_FILES, BC01_SOURCE_FILES, INPUTS, Policy};
-use privoke_param_update::v3_store::{AudienceSource, CheckpointStore, PinnedSources};
+use privoke_param_update::v3_guard::{Allocation, GuardGate, StaticAllocations};
+use privoke_param_update::v3_policy::{DriftBounds, DriftGate};
+use privoke_param_update::v3_store::{AudienceSource, ChainObserver, CheckpointStore, PinnedSources};
 use privoke_semantic::safetensors::{Tensor, parse};
 use privoke_v3_fuzzer::backend::{CheckpointBackend, FitBackend, blob_chunks};
 use privoke_v3_fuzzer::contract::{canonical, digest};
@@ -275,6 +277,7 @@ async fn routine_cycles_on_real_weights_are_timed_and_their_drift_measured() {
         let package = if packages.join(&model).exists() { packages.join(&model) } else { packages.join(tier) };
         let state = tempfile::tempdir().unwrap();
         let memory = env("PRIVOKE_V3_ROUTINE_STORE", "store") == "memory";
+        let allocations = Arc::new(StaticAllocations::default());
         let service = if memory {
             let manifest = std::fs::read(package.join("manifest.json")).unwrap();
             let mut blobs = BTreeMap::new();
@@ -291,13 +294,25 @@ async fn routine_cycles_on_real_weights_are_timed_and_their_drift_measured() {
                 force: env("PRIVOKE_V3_ROUTINE_FORCE_APPLY", "1") == "1",
             }))
         } else {
-            let pinned = PinnedSources::new(
+            let pinned = Arc::new(PinnedSources::new(
                 INPUTS.iter().map(|(key, relative, _)| (*key, root.path().join(relative))).collect(),
                 AudienceSource::Trusted { path: audience.0.clone(), sha256: audience.1.clone() },
-            );
-            let store = Arc::new(CheckpointStore::open(state.path().join("store"), Arc::new(pinned)).unwrap());
-            store.bootstrap(&package).unwrap();
-            Arc::new(StoreService(Service::Store(store)))
+            ));
+            let mut opened = CheckpointStore::open(state.path().join("store"), pinned.clone()).unwrap();
+            if env("PRIVOKE_V3_ROUTINE_STORE", "store") == "pinned" {
+                // The deployment shape: seeded from the pinned standard release, every commit through the guard recomputation and
+                // the drift gate, the allocation made before the call.
+                let bounds =
+                    DriftBounds::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../param-update/config/v3-drift-bounds.toml")).unwrap();
+                opened = opened.with_observer(Arc::new(ChainObserver::new(vec![
+                    Arc::new(GuardGate::new(pinned, allocations.clone())),
+                    Arc::new(DriftGate::new(bounds)),
+                ])));
+                opened.bootstrap_pinned(&PathBuf::from(env("PRIVOKE_V3_ROUTINE_ORIGINALS", "/orig")).join(tier), &package).unwrap();
+            } else {
+                opened.bootstrap(&package).unwrap();
+            }
+            Arc::new(StoreService(Service::Store(Arc::new(opened))))
         };
         let store = service.clone();
         let runtime_parts = RuntimeParts {
@@ -326,6 +341,7 @@ async fn routine_cycles_on_real_weights_are_timed_and_their_drift_measured() {
             let sampler = if cycle % 2 == 0 { Sampler::Bc01 } else { Sampler::Au3 };
             let cycle_started = Instant::now();
             for (stage, scope) in [("heads", v3::Scope::Heads), ("full", v3::Scope::FullEncoder)] {
+                let full = scope == v3::Scope::FullEncoder;
                 seed += 1;
                 // The scheduler of this test: allocate the identity, the seed and the base from the store, journal, call.
                 let base = CheckpointBackend::resolve_current(service.as_ref(), &model).await.unwrap().sha256;
@@ -345,6 +361,17 @@ async fn routine_cycles_on_real_weights_are_timed_and_their_drift_measured() {
                     .map(|(key, item)| (key.to_string(), item))
                     .collect(),
                 };
+                allocations.allocate(
+                    &id,
+                    &model,
+                    Allocation {
+                        sampler: sampler.name().to_string(),
+                        scope: if full { "full_encoder" } else { "heads" }.to_string(),
+                        seed: u64::from(seed),
+                        source_commitment: schedules(sampler).routine_commitment(&policy_sha, u64::from(seed)).unwrap(),
+                        expected_base: base.clone(),
+                    },
+                );
                 let started = Instant::now();
                 let response = engine.run(request, scope).await.unwrap_or_else(|status| panic!("{id}: {status:?}"));
                 let seconds = started.elapsed().as_secs_f64();

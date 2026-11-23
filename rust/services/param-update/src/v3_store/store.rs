@@ -255,6 +255,7 @@ pub struct CheckpointStore {
     put_lock: Mutex<()>,
     sources: Arc<dyn SourceEvidence>,
     observer: Arc<dyn CommitObserver>,
+    pins: BTreeMap<String, String>,
 }
 
 impl fmt::Debug for CheckpointStore {
@@ -288,7 +289,15 @@ impl CheckpointStore {
              CREATE TABLE IF NOT EXISTS publications(model TEXT NOT NULL, sequence INTEGER NOT NULL, manifest TEXT NOT NULL, \
              key_id TEXT NOT NULL, statement BLOB NOT NULL, request_id TEXT NOT NULL, PRIMARY KEY(model, sequence));",
         )?;
-        Ok(Self { directory, blobs, db: Mutex::new(db), put_lock: Mutex::new(()), sources, observer: Arc::new(NoObserver) })
+        Ok(Self {
+            directory,
+            blobs,
+            db: Mutex::new(db),
+            put_lock: Mutex::new(()),
+            sources,
+            observer: Arc::new(NoObserver),
+            pins: BTreeMap::new(),
+        })
     }
 
     /// The same store with `observer` between the commit gates and the swap.
@@ -296,6 +305,19 @@ impl CheckpointStore {
     pub fn with_observer(mut self, observer: Arc<dyn CommitObserver>) -> Self {
         self.observer = observer;
         self
+    }
+
+    /// The same store with the pinned release of the given models replaced (a model id to a manifest SHA-256). The default is the
+    /// compiled tier pins of `privoke_contracts::v3::standard_pin`; tests with synthetic checkpoints name their own.
+    #[must_use]
+    pub fn with_pins(mut self, pins: BTreeMap<String, String>) -> Self {
+        self.pins = pins;
+        self
+    }
+
+    /// The pinned standard release of a model: the manifest the clients compile, and the root of routine training.
+    pub fn pin(&self, model_id: &str) -> Option<String> {
+        self.pins.get(model_id).cloned().or_else(|| v3::standard_pin(model_id).map(str::to_string))
     }
 
     /// The store directory.
@@ -409,6 +431,49 @@ impl CheckpointStore {
         let conn = self.connection();
         conn.execute("INSERT OR IGNORE INTO current VALUES (?1,?2)", params![manifest.model_id, sha])?;
         // The ORIGINAL is the first version of the model history, whether or not it was ever signed.
+        conn.execute("INSERT OR IGNORE INTO versions VALUES (?1,?2)", params![manifest.model_id, sha])?;
+        Ok(())
+    }
+
+    /// Seed a model with its pinned standard release: the routine root. `original` is the independently prepared ORIGINAL
+    /// directory (as for [`bootstrap`](Self::bootstrap)); `release` holds the pinned release (`manifest.json`, `model.safetensors`,
+    /// `config.json`, `vocab.txt`), a `full_encoder`-scope manifest whose bytes hash to the model's pin and whose `original` is
+    /// that ORIGINAL. The ORIGINAL is admitted and kept as the first history entry; the release becomes current (unless the model
+    /// already has a version) and is recorded in `versions`, where [`rollback`](Self::rollback) serves it as the pin. Candidates
+    /// then have the release as their parent and its `original` as their ORIGINAL, which admission already accepts.
+    pub fn bootstrap_pinned(&self, original: &Path, release: &Path) -> Result<(), StoreError> {
+        let original_payload = std::fs::read(original.join("manifest.json"))?;
+        let original_document = v3::parse(&original_payload, MAX_MANIFEST_BYTES)?;
+        let original_manifest = v3::validate_manifest(&original_document).map_err(|error| StoreError::Invalid(error.to_string()))?;
+        if original_manifest.scope != "original" {
+            return bad("Pinned bootstrap requires an independently prepared ORIGINAL.");
+        }
+        let payload = std::fs::read(release.join("manifest.json"))?;
+        let document = v3::parse(&payload, MAX_MANIFEST_BYTES)?;
+        let manifest = v3::validate_manifest(&document).map_err(|error| StoreError::Invalid(error.to_string()))?;
+        if manifest.model_id != original_manifest.model_id || manifest.scope != "full_encoder" {
+            return bad("Pinned release must be the full-encoder release of the model.");
+        }
+        if self.pin(&manifest.model_id).as_deref() != Some(digest(&payload).as_str()) {
+            return bad("Release is not the pinned standard release of the model.");
+        }
+        let original_sha = digest(&original_payload);
+        if text(&document, "original") != original_sha {
+            return bad("Pinned release does not descend from the supplied ORIGINAL.");
+        }
+        for (directory, document) in [(original, &original_document), (release, &document)] {
+            for (name, key) in [("model.safetensors", "blob"), ("config.json", "config"), ("vocab.txt", "vocab")] {
+                if self.put(&std::fs::read(directory.join(name))?)? != text(document, key) {
+                    return bad("Pinned bootstrap asset identity mismatch.");
+                }
+            }
+            self.verify_checkpoint(document)?;
+        }
+        self.put(&original_payload)?;
+        let sha = self.put(&payload)?;
+        let conn = self.connection();
+        conn.execute("INSERT OR IGNORE INTO current VALUES (?1,?2)", params![manifest.model_id, sha])?;
+        conn.execute("INSERT OR IGNORE INTO versions VALUES (?1,?2)", params![manifest.model_id, original_sha])?;
         conn.execute("INSERT OR IGNORE INTO versions VALUES (?1,?2)", params![manifest.model_id, sha])?;
         Ok(())
     }
@@ -630,7 +695,8 @@ impl CheckpointStore {
         }
         // Only the ORIGINAL, which clients pin, and versions that were signed may be served again: a version that went live
         // without a publication was never vetted by the publication gates.
-        if text(&manifest, "scope") != "original" && !self.is_published(&request.model_id, &request.manifest)? {
+        let is_pin = self.pin(&request.model_id).as_deref() == Some(request.manifest.as_str());
+        if text(&manifest, "scope") != "original" && !is_pin && !self.is_published(&request.model_id, &request.manifest)? {
             return bad("Rollback target was never published.");
         }
         let candidate = Candidate {

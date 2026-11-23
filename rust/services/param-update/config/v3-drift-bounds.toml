@@ -5,10 +5,11 @@
 #
 # CALIBRATED by stage V3-R5 (23 Nov 2026) from real-weight routine fits of every tier and scope: three routine cycles (HEADS then
 # FULL_ENCODER, BC01 / AU3 / BC01, 64 steps) per tier on the standard-release bases and on the untrained-heads ORIGINAL bases.
-# max_update_l2 is twice the largest observed per-update L2 of the tier and scope; max_cumulative_l2 is twice the largest observed
-# cumulative L2 from the base of the run (per tier, both scopes), rounded up to 0.1. Cumulative drift grew by about 1.0 to 1.9 per
-# cycle with no saturation in three cycles, so the cumulative bound is reached after roughly 6 to 10 cycles; see the V3-R5 handoff
-# notes of docs/plans/v3-routine-training.md before relying on it for a long-running deployment.
+# max_update_l2 is twice the largest observed per-update L2 of the tier and scope.
+# max_cumulative_l2 is measured from the routine root (the pinned standard release) and is 100 for every tier and scope. Rule and
+# user decision (23 Nov 2026, "raise the cap"): size the cap for about 50 routine cycles at the largest observed growth (about 1.9
+# per cycle, three-cycle runs reached 4.8 to 7.7 from the base), so a tier is not frozen after 6 to 10 cycles. The per-update bound
+# is what limits a single cycle; this cap limits the lifetime drift.
 
 schema = 1
 status = "calibrated"
@@ -17,24 +18,24 @@ evidence_sha256 = "c35c73508940d39672e5acfa2b6f408cc0e0b775378aefbb8be3f0a95d45f
 
 [efficient.heads]
 max_update_l2 = 4.2
-max_cumulative_l2 = 15.4
+max_cumulative_l2 = 100.0
 
 [efficient.full_encoder]
 max_update_l2 = 5.2
-max_cumulative_l2 = 15.4
+max_cumulative_l2 = 100.0
 
 [balanced.heads]
 max_update_l2 = 5.7
-max_cumulative_l2 = 11.3
+max_cumulative_l2 = 100.0
 
 [balanced.full_encoder]
 max_update_l2 = 7.0
-max_cumulative_l2 = 11.3
+max_cumulative_l2 = 100.0
 
 [quality.heads]
 max_update_l2 = 5.2
-max_cumulative_l2 = 12.1
+max_cumulative_l2 = 100.0
 
 [quality.full_encoder]
 max_update_l2 = 6.0
-max_cumulative_l2 = 12.1
+max_cumulative_l2 = 100.0
