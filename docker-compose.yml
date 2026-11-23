@@ -45,6 +45,8 @@ services:
       file: docker-compose.prod.yml
       service: v3-fuzzer
     restart: "no"
+    # Published for host tests, which an `internal: true` network alone would make unreachable.
+    networks: [default, training]
     ports:
       - "127.0.0.1:50172:50172"
 
@@ -53,6 +55,7 @@ services:
       file: docker-compose.prod.yml
       service: v3-runtime
     restart: "no"
+    networks: [default, training]
     ports:
       - "127.0.0.1:50171:50171"
 

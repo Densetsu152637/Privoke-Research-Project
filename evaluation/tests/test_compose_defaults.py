@@ -112,7 +112,9 @@ class ComposeDefaultsTests(unittest.TestCase):
         self.assertEqual(update["FUZZER_TARGET"], "v3-fuzzer:50172")
         self.assertEqual(config["services"]["v3-fuzzer"]["environment"]["V3_MODE"], "routine")
         streaming = config["services"]["model-streaming-service"]["environment"]
-        self.assertEqual((streaming["V3_STORE"], streaming["V3_PUBLISH_ROOT"]), ("/v3-store", "/v3-published"))
+        # Rendered without interpolation: on by default, switched off by an empty MODEL_V3_STORE (a stack without staged releases).
+        self.assertEqual((streaming["V3_STORE"], streaming["V3_PUBLISH_ROOT"]),
+                         ("${MODEL_V3_STORE-/v3-store}", "${MODEL_V3_PUBLISH_ROOT-/v3-published}"))
         for name in ("param-update-service", "v3-runtime", "v3-fuzzer"):
             for mount in config["services"][name]["volumes"]:
                 if mount["target"] in {"/v3-source", "/v3-originals", "/model-releases", "/v3-retention-bank",

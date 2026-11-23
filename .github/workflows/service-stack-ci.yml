@@ -188,6 +188,9 @@ jobs:
       # The standard V3 packages are ignored by Git and not available here, so the stack serves the tracked legacy catalogue
       # model. smoke.py --no-v3-package and update_security.py --no-v3 say so in their output; G8 is not covered in CI.
       MODEL_LATEST_ID: privoke-balanced
+      # Published V3 versions need the standard releases, which are not here (see above): the model service runs without them.
+      MODEL_V3_STORE: ""
+      MODEL_V3_PUBLISH_ROOT: ""
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6

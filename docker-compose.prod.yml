@@ -115,9 +115,10 @@ services:
       MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
       MODEL_RELEASE_DIR: /model-releases
-      # Published V3 versions (stage V3-R3): the authority is param-update's catalog, read-only; the tree supplies the bytes.
-      V3_STORE: /v3-store
-      V3_PUBLISH_ROOT: /v3-published
+      # Published V3 versions (stage V3-R3): the authority is param-update's catalog, read-only; the tree supplies the bytes. They need
+      # the standard release store, so a stack without staged releases (the container smoke job) sets both variables empty.
+      V3_STORE: ${MODEL_V3_STORE-/v3-store}
+      V3_PUBLISH_ROOT: ${MODEL_V3_PUBLISH_ROOT-/v3-published}
       MODEL_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
       MODEL_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
       MODEL_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
