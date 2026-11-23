@@ -129,7 +129,8 @@ impl Scripted {
 impl Checkpoint for Scripted {
     async fn resolve_current(&self, model_id: &str) -> Result<v3::Ref, Status> {
         self.calls.lock().unwrap().push(format!("resolve:{model_id}"));
-        match self.current.lock().unwrap().get(model_id) {
+        // The oracle's stub resolves every model to its one snapshot; the engine must then reject a mismatch itself.
+        match self.current.lock().unwrap().values().next() {
             Some(sha256) => Ok(v3::Ref { sha256: sha256.clone() }),
             None => Err(Status::not_found("no current snapshot")),
         }
