@@ -1,6 +1,6 @@
 # Plan: routine training on the V3 models
 
-Revision: 2026-11-23, revised after the plan gate (feat/rust-rewrite 505aa85; design report RUST-V3R-DESIGN; plan-gate findings D1-D12)
+Revision: 2026-11-23, revised after the plan gate (feat/rust-rewrite 505aa85; design report RUST-V3R-DESIGN; plan-gate findings D1-D12 and N1-N8)
 
 User decision, 23 November 2026, verbatim: "the routine training should train all of the V3 models, not the V1 models. The V1 models should be available for the detection pipeline, but should be removed from training."
 
@@ -105,16 +105,18 @@ Root defaults, which the user may override:
 
 - Objective:
   - **Signed statement.** A domain-separated statement `{tag, key_id, model_id, manifest_sha, parent, original, sequence}` with a per-model monotonic `sequence`. It is signed by a dedicated Ed25519 publication key. The key is not a TLS key: it is mounted as a secret and never baked into an image. The ModelPackage response proto gains a field for the statement.
-  - **Commit order.** Stage the files with fsync, then sign, then rename the directory into `<root>/<model-id>/<manifest-sha>/`, then compare-and-swap the authority, then update the derived `current` pointer. Startup reconciliation repairs the pointer from the authority. Directory fsync is a no-op on Windows.
-  - **Rollback.** An operator RPC issues a new statement, with a higher sequence, pointing at an earlier admitted manifest.
-  - **Drift bounds.** Per-update L2 and cumulative L2 from the pinned ORIGINAL, separately for HEADS and FULL_ENCODER. The bound for each tier and scope is twice the largest L2 observed across the stage 22 recorded fits and the 23 recorded v3-fuzzer fits. Record the numbers and their source in this plan.
-  - **Guard recomputation.** Param-update recomputes the 16-row guard on the candidate with the Rust V3 encoder (`privoke-semantic`), instead of trusting the trainer-reported `joint_correct` and `action_harms`. This runs before the transaction and is bound to the candidate SHA.
+  - **Commit order.** Stage the files with fsync into a private staging area. Then, inside the one `BEGIN IMMEDIATE` transaction that performs the compare-and-swap, run the stale-base and gate checks, allocate the sequence and sign. After the transaction commits, rename the staged directory into `<root>/<model-id>/<manifest-sha>/` and update the derived `current` pointer. Startup reconciliation repairs the pointer from the authority and deletes or quarantines any published directory the authority does not reference. A candidate that loses the race is never signed and never published. Directory fsync is a no-op on Windows.
+  - **Rollback.** An operator RPC, restricted to the publisher role, issues a new statement with a higher sequence pointing at a manifest from that model's authority history, the ORIGINAL included.
+  - **Drift bounds.** Per-update L2 and cumulative L2 from the pinned ORIGINAL, separately for HEADS and FULL_ENCODER. R2 ships *provisional* bounds, configurable per tier and scope, and enforces them. V3-R5 recalibrates them from real-weight fits of every tier and scope (twice the largest observed L2) and records the numbers and their source here. The existing recorded fits cannot be used: the v3-fuzzer golden is synthetic and the stage 22 fixtures use a toy checkpoint.
+  - **Guard recomputation.** Param-update rebuilds the 16 guard rows itself from the frozen BC01/AU3 releases, the scheduler-allocated seed and the `source_commitment`, never from rows the trainer supplies. It recomputes the guard on both the base and the candidate with the Rust V3 encoder, loading the candidate through `V3Model::with_tensors`, not through `admitted_manifest`. This runs before the transaction and is bound to the candidate SHA.
   - **Key custody and rotation.** Clients compile a key set indexed by `key_id`. Test keys exist only behind a `test-keys` cargo feature.
 - Depends on: V3-R1.
 - Owned paths: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, the ModelPackage proto field, `docs/runtime/v3-publication.md` (custody and rotation).
+- Note: the drift bounds are final only after V3-R5's recalibration.
 - Acceptance checks:
-  - Crash injection at each of the five boundaries leaves the old or the new version fully served after restart and reconciliation.
-  - Negative tests: a stale base, an over-budget update, a guard failure on recomputation, and forged trainer evidence claiming a pass are each refused, and nothing changes.
+  - Crash injection at each boundary (staged, transaction committed, renamed, pointer updated), plus a "candidate lost the race" case, leaves the old or the new version fully served after restart and reconciliation. No signed statement exists for a candidate that lost the race.
+  - Negative tests: a stale base, an over-budget update, a guard failure on recomputation, forged trainer evidence claiming a pass, and forged guard rows are each refused, and nothing changes.
+  - Rollback is refused for a caller without the publisher role and for a manifest outside the model's history.
   - A rollback statement is issued with a higher sequence.
   - The rotation document exists.
   - Rust CI is green.
@@ -126,7 +128,7 @@ Root defaults, which the user may override:
 
 - Objective:
   - `GetModelPackage(privoke-v3-<tier>)` returns the current published manifest with its signed statement, or the pinned ORIGINAL when nothing is published.
-  - `StreamModelAsset` accepts any manifest SHA held in the published store.
+  - `StreamModelAsset` serves only manifest SHAs that the authority references (current or in the rollback history), never anything merely present on disk.
   - A pin-addressed request still returns each ORIGINAL after publication, so historical results stay reproducible.
   - `latest` stays `privoke-v3-balanced`.
   - List the Python consumers that fetch V3 by model id, and confirm each one uses the pin-addressed path or is unaffected.
@@ -135,7 +137,7 @@ Root defaults, which the user may override:
 - Acceptance checks:
   - G4: the Go corpus is byte-identical with nothing published.
   - A published candidate is served with its statement.
-  - An unpublished SHA gets `INVALID_ARGUMENT`.
+  - An unpublished SHA, or a directory on disk that the authority does not reference, gets `INVALID_ARGUMENT`.
   - The ORIGINAL stays fetchable by pin after publication.
   - Rust CI is green.
 - Status: pending.
@@ -144,18 +146,18 @@ Root defaults, which the user may override:
 
 ## Stage V3-R4a: Client lineage and signature admission
 
-- Objective: add `LineageAdmission` to `runtime-supervisor/src/fetch.rs`. It replaces the hard refusal of non-pinned SHAs in `admitted_manifest`. A manifest is accepted when all of these hold:
-  - `validate_manifest` passes;
-  - `original` equals the compiled tier pin;
+- Objective: add a new lineage-admission function in `privoke-contracts::v3`, and use it through `LineageAdmission` in `runtime-supervisor/src/fetch.rs`. `admitted_manifest` stays pin-only, because `privoke-semantic/src/v3.rs` and `runtime/src/semantic.rs` share it. A manifest is accepted when all of these hold:
   - the signed statement verifies under a compiled `key_id`;
   - the statement names this model and this manifest;
-  - its sequence is at least the persisted high-water mark.
+  - its sequence is above the persisted high-water mark, or equal to it with the same `manifest_sha`;
+  - either `validate_manifest` passes and `original` equals the compiled tier pin, or the manifest *is* the compiled tier pin (a signed rollback to the ORIGINAL).
 
   The statement and the high-water mark are persisted in the cache and re-verified on restart.
 - Depends on: V3-R2 (statement format and keys), V3-R3.
-- Owned paths: `rust/services/runtime-supervisor/src/fetch.rs`, `rust/crates/privoke-contracts/src/v3.rs` (`admitted_manifest`), the cache layout, `evaluation/update_security.py`.
+- Owned paths: `rust/services/runtime-supervisor/src/fetch.rs`, `rust/crates/privoke-contracts/src/v3.rs` (the new lineage-admission function only), the cache layout, `evaluation/update_security.py`.
 - Acceptance checks:
-  - G2 attack rows, each refused: wrong ORIGINAL, bad signature, unknown key, a statement for another model, replay of a lower sequence, and downgrade to the unsigned ORIGINAL after a signed version.
+  - G2 attack rows, each refused: wrong ORIGINAL, bad signature, unknown key, a statement for another model, replay of a lower sequence, the same sequence with a different manifest, and downgrade to the unsigned ORIGINAL after a signed version.
+  - A signed rollback to the ORIGINAL is accepted.
   - A key-rotation overlap accepts both keys.
   - G4: `fetch_golden.rs` is unchanged.
   - Rust CI is green.
@@ -170,7 +172,7 @@ Root defaults, which the user may override:
   - At an offline start-up, select the cached version at the high-water mark.
   - Garbage-collect superseded versions, always keeping the ORIGINAL.
 - Depends on: V3-R4a.
-- Owned paths: the supervisor refresh loop, the worker snapshot reload.
+- Owned paths: the supervisor refresh loop, the worker snapshot reload, and the two loader call sites `rust/crates/privoke-semantic/src/v3.rs` (model load) and `rust/services/runtime/src/semantic.rs`, which accept a non-pinned manifest only when the supervisor has verified it.
 - Acceptance checks:
   - A published candidate replaces the cached snapshot after the interval.
   - An offline restart serves the high-water version.
@@ -185,11 +187,12 @@ Root defaults, which the user may override:
 - Objective:
   - A routine mode beside the frozen study mode, using BC01 and AU3 with a fresh seed per cycle (U2).
   - The fuzzer computes and records the `source_commitment` itself.
-  - Before calling the fit, it journals `(request_id, seed, expected_base)`. On restart it queries `GetCommitStatus` for the journalled request id before re-fitting. If the earlier fit was lost, it allocates a new request id.
+  - The scheduler (V3-R6) is the only allocator of `(request_id, seed, expected_base)`; it journals them before the call and passes them to the fuzzer, which only records them. On restart the scheduler queries `GetCommitStatus` for the journalled request id before re-requesting; if the earlier fit was lost, the scheduler allocates a new request id. Until V3-R6 lands, the R5 tests act as the scheduler.
   - It commits the candidate through the param-update store.
   - It measures the per-tier cycle time and applies the U5 threshold.
+  - It recalibrates the V3-R2 drift bounds from real-weight fits of every tier and scope, and records them in this plan.
 - Depends on: V3-R1.
-- Owned paths: `rust/services/v3-fuzzer/src/{cycle,source,config,journal}.rs`.
+- Owned paths: `rust/services/v3-fuzzer/src/{cycle,source,config}.rs`.
 - Acceptance checks:
   - The frozen-mode recorded replay (23 fits) is identical.
   - An mTLS test completes a routine HEADS-then-FULL cycle for each tier, sending `[SEMANTIC]` only.
@@ -202,7 +205,7 @@ Root defaults, which the user may override:
 
 ## Stage V3-R6: Scheduler targets V3
 
-- Objective: param-update's scheduler loops over the three V3 tiers and two stages through the `V3FuzzerService` client, taking `expected_base` from the store authority.
+- Objective: param-update's scheduler loops over the three V3 tiers and two stages through the `V3FuzzerService` client, taking `expected_base` from the store authority. It is the single allocator and journal of `(request_id, seed, expected_base)`, including the restart rule stated in V3-R5.
 - Depends on: V3-R5 and V3-R2, so that the G1 test runs through the signed, bounded commit path.
 - Owned paths: `rust/services/param-update/src/{scheduler,journal}.rs`.
 - Acceptance checks:
@@ -217,11 +220,12 @@ Root defaults, which the user may override:
 
 - Objective:
   - First move the retention constants and helpers that `reference.rs` uses into a V3-neutral module, so that V3-R8b can delete the V1 modules: `BANK_SHA256`, `BOUNDARY`, `EPSILON`, `safety_margin`, `is_sensitive`, `teacher_tensors`.
-  - Generalise `privoke_training::reference` to a V3 teacher. The approved bank is the one pinned by `BANK_SHA256` (`train-sensitive-retention/approved-train-bank.json`). Build per-tier V3 reference releases from the pinned ORIGINALs, with new pins.
+  - Generalise `privoke_training::reference` to a V3 teacher. The approved bank is the one pinned by `BANK_SHA256` (`train-sensitive-retention/approved-train-bank.json`). First check that every bank row's labels map onto the V3 heads' outputs; if they do not, stop and report to root, who names a V3 bank. Build per-tier V3 reference releases from the pinned ORIGINALs, with new pins, loading candidates through `V3Model::with_tensors`.
   - Param-update computes retention on the candidate before the commit transaction, bound to the candidate SHA; the commit only checks that result.
 - Depends on: V3-R2.
-- Owned paths: `rust/crates/privoke-training/src/{reference,retention_v3}.rs`, `rust/services/param-update/src/v3_retention.rs`, the reference-release generator.
+- Owned paths: `rust/crates/privoke-training/src/{reference,retention_v3}.rs`, `rust/crates/privoke-training/src/{retention,window}.rs` (extraction only), `rust/services/param-update/src/v3_retention.rs`, the reference-release generator.
 - Acceptance checks:
+  - Every bank row maps onto the V3 head outputs (or a V3 bank is named).
   - A regressing candidate is refused, and a non-regressing one passes.
   - The reference releases are reproducible from the pins.
   - Commit and status calls for other tiers meet their deadlines while a quality-tier retention check runs.
