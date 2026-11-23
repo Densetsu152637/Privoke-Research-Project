@@ -1,6 +1,6 @@
 # Plan: routine training on the V3 models
 
-Revision: 2026-11-23, revised after the plan gate (feat/rust-rewrite 505aa85; design report RUST-V3R-DESIGN; plan-gate findings D1-D12 and N1-N8)
+Revision: 2026-11-23, revised after the plan gate (feat/rust-rewrite 505aa85; design report RUST-V3R-DESIGN; plan-gate findings D1-D12, N1-N8 and M1-M4)
 
 User decision, 23 November 2026, verbatim: "the routine training should train all of the V3 models, not the V1 models. The V1 models should be available for the detection pipeline, but should be removed from training."
 
@@ -105,18 +105,20 @@ Root defaults, which the user may override:
 
 - Objective:
   - **Signed statement.** A domain-separated statement `{tag, key_id, model_id, manifest_sha, parent, original, sequence}` with a per-model monotonic `sequence`. It is signed by a dedicated Ed25519 publication key. The key is not a TLS key: it is mounted as a secret and never baked into an image. The ModelPackage response proto gains a field for the statement.
-  - **Commit order.** Stage the files with fsync into a private staging area. Then, inside the one `BEGIN IMMEDIATE` transaction that performs the compare-and-swap, run the stale-base and gate checks, allocate the sequence and sign. After the transaction commits, rename the staged directory into `<root>/<model-id>/<manifest-sha>/` and update the derived `current` pointer. Startup reconciliation repairs the pointer from the authority and deletes or quarantines any published directory the authority does not reference. A candidate that loses the race is never signed and never published. Directory fsync is a no-op on Windows.
+  - **Commit order.** Stage the files with fsync into a private staging area. Then, inside the one `BEGIN IMMEDIATE` transaction that performs the compare-and-swap, run the stale-base and gate checks, allocate the sequence and sign. After the transaction commits, rename the staged directory into `<root>/<model-id>/<manifest-sha>/` and update the derived `current` pointer. Staging is durable, on the same filesystem as the published root. Startup reconciliation promotes a staged directory that the authority references (an interrupted rename), repairs the pointer from the authority, and deletes or quarantines any published or staged directory the authority does not reference; staging is cleaned only after promotion. A candidate that loses the race is never signed and never published. Directory fsync is a no-op on Windows.
   - **Rollback.** An operator RPC, restricted to the publisher role, issues a new statement with a higher sequence pointing at a manifest from that model's authority history, the ORIGINAL included.
   - **Drift bounds.** Per-update L2 and cumulative L2 from the pinned ORIGINAL, separately for HEADS and FULL_ENCODER. R2 ships *provisional* bounds, configurable per tier and scope, and enforces them. V3-R5 recalibrates them from real-weight fits of every tier and scope (twice the largest observed L2) and records the numbers and their source here. The existing recorded fits cannot be used: the v3-fuzzer golden is synthetic and the stage 22 fixtures use a toy checkpoint.
+  - **Routine guard-row selection.** One shared function in `privoke-curriculum` (`v3::routine_guard_rows(release, seed, source_commitment)`), owned by this stage, defines how a routine seed selects the 16 guard rows from the frozen BC01/AU3 releases. V3-R5 calls it; nothing else re-implements it.
   - **Guard recomputation.** Param-update rebuilds the 16 guard rows itself from the frozen BC01/AU3 releases, the scheduler-allocated seed and the `source_commitment`, never from rows the trainer supplies. It recomputes the guard on both the base and the candidate with the Rust V3 encoder, loading the candidate through `V3Model::with_tensors`, not through `admitted_manifest`. This runs before the transaction and is bound to the candidate SHA.
   - **Key custody and rotation.** Clients compile a key set indexed by `key_id`. Test keys exist only behind a `test-keys` cargo feature.
 - Depends on: V3-R1.
-- Owned paths: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, the ModelPackage proto field, `docs/runtime/v3-publication.md` (custody and rotation).
+- Owned paths: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, `rust/crates/privoke-curriculum/src/v3.rs` (`routine_guard_rows`), `rust/services/param-update/config/v3-drift-bounds.toml` (format and provisional values), the ModelPackage proto field, `docs/runtime/v3-publication.md` (custody and rotation).
 - Note: the drift bounds are final only after V3-R5's recalibration.
 - Acceptance checks:
   - Crash injection at each boundary (staged, transaction committed, renamed, pointer updated), plus a "candidate lost the race" case, leaves the old or the new version fully served after restart and reconciliation. No signed statement exists for a candidate that lost the race.
   - Negative tests: a stale base, an over-budget update, a guard failure on recomputation, forged trainer evidence claiming a pass, and forged guard rows are each refused, and nothing changes.
   - Rollback is refused for a caller without the publisher role and for a manifest outside the model's history.
+  - For the same seed and commitment, the rows param-update recomputes equal the rows `routine_guard_rows` gives the fuzzer.
   - A rollback statement is issued with a higher sequence.
   - The rotation document exists.
   - Rust CI is green.
@@ -150,13 +152,16 @@ Root defaults, which the user may override:
   - the signed statement verifies under a compiled `key_id`;
   - the statement names this model and this manifest;
   - its sequence is above the persisted high-water mark, or equal to it with the same `manifest_sha`;
+  - the statement's `parent` and `original` equal the manifest's own fields;
   - either `validate_manifest` passes and `original` equals the compiled tier pin, or the manifest *is* the compiled tier pin (a signed rollback to the ORIGINAL).
+
+  An unsigned manifest is admitted only when it is the compiled tier pin and no high-water mark exists yet for that model (first start, unchanged behaviour).
 
   The statement and the high-water mark are persisted in the cache and re-verified on restart.
 - Depends on: V3-R2 (statement format and keys), V3-R3.
 - Owned paths: `rust/services/runtime-supervisor/src/fetch.rs`, `rust/crates/privoke-contracts/src/v3.rs` (the new lineage-admission function only), the cache layout, `evaluation/update_security.py`.
 - Acceptance checks:
-  - G2 attack rows, each refused: wrong ORIGINAL, bad signature, unknown key, a statement for another model, replay of a lower sequence, the same sequence with a different manifest, and downgrade to the unsigned ORIGINAL after a signed version.
+  - G2 attack rows, each refused: wrong ORIGINAL, bad signature, unknown key, a statement for another model, replay of a lower sequence, the same sequence with a different manifest, a statement whose parent or original differs from the manifest, and downgrade to the unsigned ORIGINAL after a signed version.
   - A signed rollback to the ORIGINAL is accepted.
   - A key-rotation overlap accepts both keys.
   - G4: `fetch_golden.rs` is unchanged.
@@ -186,12 +191,12 @@ Root defaults, which the user may override:
 
 - Objective:
   - A routine mode beside the frozen study mode, using BC01 and AU3 with a fresh seed per cycle (U2).
-  - The fuzzer computes and records the `source_commitment` itself.
+  - The fuzzer computes and records the `source_commitment` itself, and selects guard rows only through `privoke-curriculum::v3::routine_guard_rows` (V3-R2).
   - The scheduler (V3-R6) is the only allocator of `(request_id, seed, expected_base)`; it journals them before the call and passes them to the fuzzer, which only records them. On restart the scheduler queries `GetCommitStatus` for the journalled request id before re-requesting; if the earlier fit was lost, the scheduler allocates a new request id. Until V3-R6 lands, the R5 tests act as the scheduler.
   - It commits the candidate through the param-update store.
   - It measures the per-tier cycle time and applies the U5 threshold.
-  - It recalibrates the V3-R2 drift bounds from real-weight fits of every tier and scope, and records them in this plan.
-- Depends on: V3-R1.
+  - It recalibrates the V3-R2 drift bounds from real-weight fits of every tier and scope, writes the values into `rust/services/param-update/config/v3-drift-bounds.toml` (this stage owns the values; V3-R2 owns the format), and records them in this plan.
+- Depends on: V3-R1, and V3-R2's `routine_guard_rows` (which V3-R2 lands first).
 - Owned paths: `rust/services/v3-fuzzer/src/{cycle,source,config}.rs`.
 - Acceptance checks:
   - The frozen-mode recorded replay (23 fits) is identical.
@@ -237,13 +242,14 @@ Root defaults, which the user may override:
 ## Stage V3-R7: Deployment cutover
 
 - Objective:
-  - Add v3-runtime and v3-fuzzer, with their certificates, and the publication key secret to `deploy/gce/compose.yml` and `docker-compose.prod.yml`.
+  - Add v3-runtime and v3-fuzzer, with their certificates, to `deploy/gce/compose.yml` and `docker-compose.prod.yml`. Give param-update the publication key secret, a read-only mount of the frozen BC01/AU3 releases (for guard rows), the V3 reference releases (for retention) and the drift-bounds config.
   - Remove `privoke-fuzzer` and the V1 `MODEL_ID` and `FUZZER_TARGET`.
 - Depends on: V3-R4b, V3-R6, V3-R9, and the U5 threshold being met.
 - Owned paths: those compose files and the stage 23 smoke CI.
 - Acceptance checks:
   - The container smoke CI is green.
   - One end-to-end efficient cycle publishes, and a client refreshes to the new version.
+  - The deployed `v3-drift-bounds.toml` holds V3-R5's recalibrated values, not the provisional ones.
 - Status: pending.
 - Outcome:
 - Handoff notes:
@@ -285,4 +291,4 @@ Root defaults, which the user may override:
 - Outcome:
 - Handoff notes: the Python oracles and goldens for the deleted code stay.
 
-Order: R1 → (R2, R5) → (R3, R9, R6) → R4a → R4b → R7 → R8a → R8b.
+Order: R1 → R2 (lands `routine_guard_rows` first) → (R5, R3, R9) → R6 → R4a → R4b → R7 → R8a → R8b.
