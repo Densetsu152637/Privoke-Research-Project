@@ -253,6 +253,7 @@ impl Rig {
             seed: 1337,
             state_path: self.directory.path().join("cycles.sqlite3"),
             policy_file: self.directory.path().join("policy.json"),
+            tiers: TIERS.iter().map(|tier| (*tier).to_string()).collect(),
         }
     }
 

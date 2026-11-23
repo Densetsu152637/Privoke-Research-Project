@@ -64,6 +64,8 @@ pub struct FuzzerRequestConfig {
     pub seed: i64,
     /// The journal (`FUZZER_CYCLE_STATE_PATH`).
     pub state_path: PathBuf,
+    /// The tiers a round trains, in order (`V3_TIERS`, comma separated; default all three).
+    pub tiers: Vec<String>,
     /// The frozen policy file of the fuzzer (`V3_POLICY_FILE`), whose digest the fuzzer requires in every routine request.
     pub policy_file: PathBuf,
 }
@@ -82,6 +84,7 @@ impl FuzzerRequestConfig {
             max_attempts: 3,
             seed: 1337,
             state_path: PathBuf::from("/data/training-cycles.sqlite3"),
+            tiers: TIERS.iter().map(|tier| (*tier).to_string()).collect(),
             policy_file: PathBuf::from("/config/v3-policy.json"),
         }
     }
@@ -118,6 +121,7 @@ impl FuzzerRequestConfig {
             seed: integer("FUZZER_REQUEST_SEED", defaults.seed)?,
             state_path: PathBuf::from(text("FUZZER_CYCLE_STATE_PATH", &defaults.state_path.to_string_lossy())),
             policy_file: PathBuf::from(text("V3_POLICY_FILE", &defaults.policy_file.to_string_lossy())),
+            tiers: text("V3_TIERS", &defaults.tiers.join(",")).split(',').map(|tier| tier.trim().to_string()).collect(),
         };
         config.validate()?;
         Ok(config)
@@ -139,6 +143,9 @@ impl FuzzerRequestConfig {
         text(&self.source_id, "PARAM_UPDATE_SOURCE_ID", 128)?;
         if !(0..=i64::from(u32::MAX)).contains(&self.prompt_count) {
             return Err(Error("FUZZER_PROMPT_COUNT must not be negative.".to_string()));
+        }
+        if self.tiers.is_empty() || self.tiers.iter().any(|tier| !TIERS.contains(&tier.as_str())) {
+            return Err(Error("V3_TIERS must name tiers among efficient, balanced and quality.".to_string()));
         }
         if self.max_attempts <= 0 {
             return Err(Error("FUZZER_REQUEST_MAX_ATTEMPTS must be positive.".to_string()));
@@ -416,7 +423,7 @@ pub async fn run<C: FuzzerCaller, S: StoreView>(
             continue;
         }
         let mut settled = true;
-        for tier in TIERS {
+        for tier in &config.tiers {
             for stage in [Stage::Heads, Stage::FullEncoder] {
                 settled &= run_stage(config, caller, store, commitments, &mut journal, &cycle, &model_of(tier), stage).await?;
             }
