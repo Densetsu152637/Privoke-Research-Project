@@ -10,7 +10,6 @@
 //! (`UNSUPPORTED_LAYERS`, or `UNSUPPORTED_ROUTE` before anything has run), never answered wrongly; the controller sends
 //! the same call to the Python worker.
 
-use std::sync::Arc;
 use std::time::Instant;
 
 use privoke_contracts::proto::v1::{AnalyzePromptRequest, DetectAnnotationPresenceRequest, RuntimeHealthRequest};
@@ -23,8 +22,6 @@ use crate::pipeline::Pipeline;
 use crate::presence;
 use crate::request::{DEFAULT_MAX_TEXT_CHARS, Layer, is_gate_model, parse_prompt_request, regex_first, requested_layers};
 use crate::response::{Elapsed, decide, encode_analysis, error_response, health_response};
-use crate::store::ArtifactStore;
-use crate::training::Trainer;
 
 /// The semantic model a presence gate requires (`ORIGINAL_SEMANTIC_MODEL_ID`).
 const GATE_SEMANTIC_MODEL_ID: &str = "privoke-balanced";
@@ -49,35 +46,12 @@ impl Default for ServiceOptions {
 pub struct Service<A> {
     pipeline: Pipeline<A>,
     options: ServiceOptions,
-    trainer: Option<Trainer>,
 }
 
 impl<A: SpacyBackend> Service<A> {
     /// A service over a pipeline.
     pub fn new(pipeline: Pipeline<A>, options: ServiceOptions) -> Self {
-        Self { pipeline, options, trainer: None }
-    }
-
-    /// Adds the gradient RPCs over the model store (the same roots the pipeline's models are read from).
-    #[must_use]
-    pub fn with_training(mut self, store: Arc<ArtifactStore>) -> Self {
-        self.trainer = Some(Trainer::new(store, self.options.max_text_chars));
-        self
-    }
-
-    /// Sets the window route's trusted configuration on the gradient RPCs (`None` declines that route to Python). A service
-    /// without `with_training` has none to set.
-    #[must_use]
-    pub fn with_window_config(mut self, config: Option<crate::training::WindowConfig>) -> Self {
-        self.trainer = self.trainer.map(|trainer| trainer.with_window(config));
-        self
-    }
-
-    /// Sets the retention route's trusted configuration on the gradient RPCs (`None` declines that route to Python).
-    #[must_use]
-    pub fn with_retention_config(mut self, config: Option<crate::training::RetentionConfig>) -> Self {
-        self.trainer = self.trainer.map(|trainer| trainer.with_retention(config));
-        self
+        Self { pipeline, options }
     }
 
     /// The pipeline.
@@ -184,15 +158,13 @@ impl<A: SpacyBackend> Service<A> {
         Ok(presence::detect(models, &message, self.options.max_text_chars, self.options.clear_elapsed))
     }
 
+    /// The three gradient methods were removed with V1 training (stage V3-R8b): V1 models are served for detection only.
     fn compute_gradients(&self, request: &Request) -> Result<Vec<u8>, FrameError> {
-        match &self.trainer {
-            Some(trainer) => trainer.handle(request),
-            None => Err(FrameError::new(
-                code::UNSUPPORTED_ROUTE,
-                "This worker was given no model roots, so the Python worker serves the gradient RPCs.",
-                request.request_id,
-            )),
-        }
+        Err(FrameError::new(
+            code::UNKNOWN_METHOD,
+            format!("{} was removed: V1 models are not trained.", request.method.name()),
+            request.request_id,
+        ))
     }
 
     async fn analyse(&self, message: &AnalyzePromptRequest) -> Result<Vec<u8>, String> {

@@ -198,7 +198,7 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Resu
         Duration::from_secs(poll_secs.max(1)),
     )
     .await?;
-    log(format_args!("{SERVICE_NAME} listening port={} drift_policy={:?}", handle.addr.port(), config.drift));
+    log(format_args!("{SERVICE_NAME} listening port={}", handle.addr.port()));
     let scheduler_task = match (scheduler_client, opened, config.v3.as_ref()) {
         (Some(client), Some(opened), Some(v3)) => {
             let policy = std::fs::read(&fuzzer.policy_file).map_err(|error| Error(format!("V3_POLICY_FILE: {error}")))?;

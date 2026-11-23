@@ -141,16 +141,15 @@ jobs:
         run: |
           docker compose -f deploy/gce/compose.yml config --quiet
           COMPOSE_PROFILES=v3-training docker compose -f deploy/gce/compose.yml config --quiet
-          docker compose -f docker-compose.prod.yml --profile v3-training --profile legacy-analysis config --quiet
-          docker compose --profile v3-training --profile legacy-analysis config --quiet
-          docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml --profile legacy-analysis config --quiet
+          docker compose -f docker-compose.prod.yml --profile v3-training config --quiet
+          docker compose --profile v3-training config --quiet
           docker compose -f docker-compose.legacy.yml config --quiet
           bash -n deploy/gce/bootstrap.sh deploy/gce/deploy.sh deploy/gce/pki-sync.sh
           shellcheck deploy/gce/bootstrap.sh deploy/gce/deploy.sh deploy/gce/pki-sync.sh
           python -m py_compile deploy/gce/tests/smoke.py
       - name: No reverse proxy remains in any deployment path
         run: |
-          if git grep -n -i 'ngin[x]' -- deploy .github docker-compose.yml docker-compose.prod.yml docker-compose.gpu.yml; then
+          if git grep -n -i 'ngin[x]' -- deploy .github docker-compose.yml docker-compose.prod.yml; then
             echo 'A reverse proxy is referenced in a deployment path.' >&2
             exit 1
           fi
@@ -160,8 +159,6 @@ jobs:
       - name: Validate the stage 23 test helpers
         run: |
           python -m py_compile deploy/gce/tests/make_test_pki.py evaluation/update_security.py evaluation/update_security_report.py evaluation/check_revalidation.py
-          PRIVOKE_W3_PKI_DIR=/tmp/privoke-ci-w3 PRIVOKE_PKI_DIR=/tmp/privoke-ci-pki             docker compose -f docker-compose.prod.yml -f docker-compose.analysis-test.yml --profile legacy-analysis config --quiet
-          python -m py_compile rust/services/analysis/tests/test_container.py
 
   container-smoke:
     name: Rust container smoke test and update-security rows
@@ -183,7 +180,6 @@ jobs:
       PRIVOKE_PARAM_UPDATE_IMAGE: ci/param-update-service:ci
       PRIVOKE_V3_RUNTIME_IMAGE: ci/v3-runtime-service:ci
       PRIVOKE_V3_FUZZER_IMAGE: ci/v3-fuzzer-service:ci
-      PRIVOKE_ANALYSIS_IMAGE: ci/analysis-service:ci
       PRIVOKE_PYTHON_RUNTIME_IMAGE: privoke-client-runtime-base:ci
       # The standard V3 packages are ignored by Git and not available here, so the stack serves the tracked legacy catalogue
       # model. smoke.py --no-v3-package and update_security.py --no-v3 say so in their output; G8 is not covered in CI.
@@ -222,7 +218,7 @@ jobs:
       - name: Build the images
         run: |
           docker build --pull --file extension/client-runtime/Dockerfile --target runtime --tag privoke-client-runtime-base:ci .
-          docker compose --profile v3-training --profile legacy-analysis build
+          docker compose --profile v3-training build
       - name: Start the stack and wait for every health check
         run: |
           mkdir -p models/standard-releases
@@ -231,11 +227,11 @@ jobs:
           docker compose ps --all
       - name: Smoke test, with the start-up refusal checks against the built images
         run: |
-          python deploy/gce/tests/smoke.py --creds "$CI_ROOT/smoke-creds"             --model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 --server-name localhost             --no-v3-package --images ci:ci --also-image analysis-service --pki-dir "$PRIVOKE_PKI_DIR" --live-dir "$PRIVOKE_PKI_DIR/live"
+          python deploy/gce/tests/smoke.py --creds "$CI_ROOT/smoke-creds"             --model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 --server-name localhost             --no-v3-package --images ci:ci --pki-dir "$PRIVOKE_PKI_DIR" --live-dir "$PRIVOKE_PKI_DIR/live"
       - name: Update-security negative rows against the Rust containers
         run: |
           mkdir -p "$CI_ROOT/out"
-          python evaluation/update_security.py --target rust --rust-service all --no-v3             --rust-image "$PRIVOKE_MODEL_STREAMING_IMAGE" --rust-update-image "$PRIVOKE_PARAM_UPDATE_IMAGE"             --rust-telemetry-image "$PRIVOKE_TELEMETRY_IMAGE" --rust-analysis-image "$PRIVOKE_ANALYSIS_IMAGE"             --output "$CI_ROOT/out/update-security-rust.json"
+          python evaluation/update_security.py --target rust --rust-service all --no-v3             --rust-image "$PRIVOKE_MODEL_STREAMING_IMAGE" --rust-update-image "$PRIVOKE_PARAM_UPDATE_IMAGE"             --rust-telemetry-image "$PRIVOKE_TELEMETRY_IMAGE"             --output "$CI_ROOT/out/update-security-rust.json"
       - name: Show the stack state and logs
         if: always()
         run: |

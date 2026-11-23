@@ -5,11 +5,8 @@
 #   export PRIVOKE_PKI_DIR=<test certificate directory, laid out as in docker-compose.prod.yml>
 #   docker compose up -d --build                         # model and telemetry
 #   docker compose --profile v3-training up -d           # plus the V3 routine-training stack (update service, V3 fuzzer, V3 runtime)
-#   docker compose --profile legacy-analysis up -d       # the quarantined V1 analysis service (oracle and W3 checks only)
 #
 # Production: docker compose -f docker-compose.prod.yml ...
-# The analysis service sits on internal-only networks and is deliberately not published; see
-# rust/services/analysis/tests/ for the gateway the stage W3 checks use.
 services:
   model-seed:
     extends:
@@ -59,24 +56,8 @@ services:
     ports:
       - "127.0.0.1:50171:50171"
 
-  analysis-model-streaming:
-    extends:
-      file: docker-compose.prod.yml
-      service: analysis-model-streaming
-    restart: "no"
-
-  analysis-service:
-    extends:
-      file: docker-compose.prod.yml
-      service: analysis-service
-    restart: "no"
-
 networks:
   training:
-    internal: true
-  analysis-fuzzer:
-    internal: true
-  analysis-models:
     internal: true
 
 volumes:
@@ -87,4 +68,3 @@ volumes:
   v3-published:
   v3-runtime-state:
   v3-fuzzer-state:
-  analysis-model-cache:

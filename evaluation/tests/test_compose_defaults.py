@@ -17,7 +17,6 @@ ONE_SHOT = {"model-seed"}
 PUBLIC = {"model-streaming-service": 50443, "telemetry-service": 58443}
 INTERNAL = {50051, 50052, 50055, 50171, 50172}
 V3_TRAINING = {"param-update-service", "v3-runtime", "v3-fuzzer"}
-ANALYSIS = {"analysis-service", "analysis-model-streaming"}
 
 
 def bindings(service: dict) -> list[tuple[str, int]]:
@@ -60,16 +59,12 @@ class ComposeDefaultsTests(unittest.TestCase):
                 self.assertEqual({target for _, target in published}, ports)
                 for host, _ in published:
                     self.assertRegex(host, LOOPBACK_DEFAULT)
-        for name in ("analysis-service", "analysis-model-streaming"):
-            with self.subTest(service=name):
-                self.assertEqual(bindings(config["services"][name]), [])
 
     def test_explicit_production_is_hardened_mutual_tls_with_two_public_ports(self) -> None:
         config = self.render("docker-compose.prod.yml")
         self.assertEqual(
             set(config["services"]),
-            {"model-seed", "model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime", "v3-fuzzer",
-             "analysis-model-streaming", "analysis-service"},
+            {"model-seed", "model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime", "v3-fuzzer"},
         )
         for name, service in config["services"].items():
             with self.subTest(service=name):
@@ -86,20 +81,17 @@ class ComposeDefaultsTests(unittest.TestCase):
                 else:
                     self.assertEqual(published, [])
                 self.assertFalse(INTERNAL & {target for _, target in published})
-                if name in {"model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime", "v3-fuzzer",
-                            "analysis-model-streaming", "analysis-service"}:
+                if name in {"model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime", "v3-fuzzer"}:
                     command = service["command"]
                     for flag in TLS_FLAGS:
                         self.assertTrue(any(item.startswith(flag) for item in command), (name, flag))
-        for network in ("training", "analysis-fuzzer", "analysis-models"):
-            self.assertTrue(config["networks"][network]["internal"])
+        self.assertTrue(config["networks"]["training"]["internal"])
+        self.assertNotIn("analysis-service", config["services"], "the V1 analysis service is gone (stage V3-R8b)")
         # The V3 routine-training stack (stage V3-R7): behind the V3 profile only, the fuzzer and the runtime on the internal
         # network alone (no route out, no published port), V1 training and the V1 fuzzer gone, the store and the published tree
         # shared with model-streaming, and every secret or staged input a mount rather than an image layer.
         for name in V3_TRAINING:
             self.assertEqual(config["services"][name]["profiles"], ["v3-training"], name)
-        for name in ANALYSIS:
-            self.assertEqual(config["services"][name]["profiles"], ["legacy-analysis"], name)
         for name in ("v3-runtime", "v3-fuzzer"):
             self.assertEqual(set(config["services"][name]["networks"]), {"training"}, name)
         self.assertEqual(set(config["services"]["param-update-service"]["networks"]), {"default", "training"})
@@ -120,24 +112,18 @@ class ComposeDefaultsTests(unittest.TestCase):
                 if mount["target"] in {"/v3-source", "/v3-originals", "/model-releases", "/v3-retention-bank",
                                        "/run/privoke/v3-publication.key"}:
                     self.assertTrue(mount["read_only"], (name, mount["target"]))
-        # The quarantined analysis service has no route out: only internal networks, no capabilities, bounded resources.
-        analysis = config["services"]["analysis-service"]
-        self.assertEqual(set(analysis["networks"]), {"analysis-fuzzer", "analysis-models"})
-        for limit in ("mem_limit", "pids_limit", "cpus"):
-            self.assertIn(limit, analysis)
 
     def test_no_deployment_file_has_a_proxy_or_a_plaintext_opt_out(self) -> None:
         self.assertFalse((ROOT / "deploy/gce/nginx.conf").exists())
-        for file in ("docker-compose.yml", "docker-compose.prod.yml", "docker-compose.gpu.yml", "deploy/gce/compose.yml"):
+        for file in ("docker-compose.yml", "docker-compose.prod.yml", "deploy/gce/compose.yml"):
             with self.subTest(file=file):
                 text = (ROOT / file).read_text(encoding="utf-8").lower()
                 self.assertNotIn("nginx", text)
                 self.assertNotIn("allow_insecure", text)
         deploy = self.render("deploy/gce/compose.yml")
         self.assertNotIn("ingress", deploy["services"])
-        # The deployment carries the same services except the quarantined V1 analysis service, which only the oracle checks use.
-        self.assertEqual(set(deploy["services"]), set(self.render("docker-compose.prod.yml")["services"]) - ANALYSIS)
-        self.assertFalse(ANALYSIS & set(deploy["services"]))
+        # The deployment carries the same services as the production file.
+        self.assertEqual(set(deploy["services"]), set(self.render("docker-compose.prod.yml")["services"]))
         self.assertTrue(deploy["networks"]["training"]["internal"])
         for name, service in deploy["services"].items():
             with self.subTest(service=name):

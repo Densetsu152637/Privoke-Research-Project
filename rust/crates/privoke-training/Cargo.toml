@@ -1,6 +1,6 @@
 [package]
 name = "privoke-training"
-description = "Gradients and local training of the Tiny transformer in Rust: reverse-mode kernels, objectives and the FULL projected Adam fit (stage 19)"
+description = "The V3 encoder fit and retention reference, and the V1 presence model (inference only), in Rust"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

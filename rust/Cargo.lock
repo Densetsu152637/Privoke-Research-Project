@@ -1788,27 +1788,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "privoke-fuzzer"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "clap",
- "privoke-contracts",
- "privoke-curriculum",
- "privoke-param-update",
- "privoke-pki",
- "privoke-training",
- "privoke-transport",
- "prost",
- "rusqlite",
- "serde_json",
- "tempfile",
- "time",
- "tokio",
- "tonic",
-]
-
-[[package]]
 name = "privoke-model-streaming"
 version = "0.1.0"
 dependencies = [

@@ -1,7 +1,7 @@
 //! The V3 ORIGINAL TRAIN retention (stage V3-R9 of the routine-training plan, decision U3).
 //!
 //! A routine candidate must keep what the pinned standard release of its tier already gets right on the approved ORIGINAL
-//! TRAIN bank ([`BANK_SHA256`], 200 positive rows in 20 groups). The V1 retention of [`crate::retention`] audited a Tiny fit; this
+//! TRAIN bank ([`BANK_SHA256`], 200 positive rows in 20 groups). The V1 retention (deleted in stage V3-R8b) audited a Tiny fit; this
 //! module is the same idea for the three V3 heads, and it never trains: it freezes a teacher into a *reference release* and
 //! judges candidates against it.
 //!

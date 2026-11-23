@@ -1,10 +1,8 @@
 //! The gRPC handlers.
 //!
-//! Authorisation has already happened in `privoke-transport`'s layer: only a registered `publisher` reaches
-//! `SubmitParameterUpdate`, and only a `publisher` or `trainer` reaches `GetParameterUpdateStatus`. What is left here is
-//! identity binding: `source_id` is recorded as the artifact's `last_update_source` and keys the request's receipt, so a
-//! value the certificate does not vouch for would let one publisher write another's provenance. A non-empty claim must
-//! therefore be the caller's own service name (or URN); the update and status RPCs both enforce it.
+//! Authorisation has already happened in `privoke-transport`'s layer: only a `publisher` or `trainer` reaches
+//! `GetParameterUpdateStatus`. `SubmitParameterUpdate` was removed in stage V3-R8b (`UNIMPLEMENTED`). What is left here is
+//! identity binding: a non-empty `source_id` claim of the status RPC must be the caller's own service name (or URN).
 //!
 //! The engine does blocking file and SQLite work, so each call runs on the blocking pool.
 
@@ -18,7 +16,6 @@ use privoke_transport::Principal;
 use tonic::{Request, Response, Status};
 
 use crate::engine::Engine;
-use crate::error::PERSISTENCE_FAILED;
 use crate::util::log;
 
 /// The handlers over a shared engine.
@@ -40,32 +37,10 @@ fn caller<T>(request: &Request<T>) -> Result<Principal, Status> {
 
 #[tonic::async_trait]
 impl ParamUpdateService for ParamUpdateHandler {
-    async fn submit_parameter_update(&self, request: Request<ParameterUpdateRequest>) -> Result<Response<ParameterUpdateAck>, Status> {
-        let principal = caller(&request)?;
-        let message = request.into_inner();
-        principal.check_claim(&message.source_id)?;
-        let engine = self.engine.clone();
-        let outcome = tokio::task::spawn_blocking(move || {
-            let result = engine.submit(&message);
-            (message, result)
-        })
-        .await;
-        match outcome {
-            Ok((message, Ok(ack))) => {
-                log(format_args!(
-                    "accepted parameter update source={:?} model={:?} gradients={}",
-                    message.source_id,
-                    message.model_id,
-                    message.gradients.len()
-                ));
-                Ok(Response::new(ack))
-            }
-            Ok((_, Err(failure))) => Err(failure.to_status()),
-            Err(error) => {
-                log(format_args!("parameter update task failed: {error}"));
-                Err(Status::internal(PERSISTENCE_FAILED))
-            }
-        }
+    /// Removed in stage V3-R8b: V1 models are served for detection and no longer trained. The transport policy does not list
+    /// the path either, so this is only reached by a caller that bypasses it.
+    async fn submit_parameter_update(&self, _request: Request<ParameterUpdateRequest>) -> Result<Response<ParameterUpdateAck>, Status> {
+        Err(Status::unimplemented("SubmitParameterUpdate was removed: V1 models are not trained."))
     }
 
     async fn get_parameter_update_status(

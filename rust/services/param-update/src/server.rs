@@ -1,7 +1,7 @@
 //! The listener: one mutual-TLS port on the internal network, built from the same fail-closed
 //! [`privoke_transport`] configuration as the other Rust services.
 //!
-//! * `SubmitParameterUpdate`: registered `publisher` services only.
+//! * `SubmitParameterUpdate`: removed in stage V3-R8b (`UNIMPLEMENTED`, not in the policy).
 //! * `GetParameterUpdateStatus`: `publisher` and `trainer` services.
 //! * `Health`: `publisher`, `trainer` and `runtime` services (the container probe and the operator).
 //! * `CheckpointService` (when a V3 store is configured, stage V3-R1): `CommitCandidate` for `publisher` and `trainer` services
@@ -28,7 +28,6 @@ use crate::service::ParamUpdateHandler;
 use crate::v3_store::CheckpointHandler;
 use crate::v3_store::service::MESSAGE_LIMIT as CHECKPOINT_MESSAGE_LIMIT;
 
-const SUBMIT: &str = "/privoke.v1.ParamUpdateService/SubmitParameterUpdate";
 const STATUS: &str = "/privoke.v1.ParamUpdateService/GetParameterUpdateStatus";
 const HEALTH: &str = "/privoke.v1.ParamUpdateService/Health";
 const CHECKPOINT_RESOLVE: &str = "/privoke.experimental.v3.CheckpointService/ResolveCurrent";
@@ -42,7 +41,6 @@ const CHECKPOINT_HEALTH: &str = "/privoke.experimental.v3.CheckpointService/Heal
 /// Which roles may call which RPC.
 pub fn policy() -> Policy {
     Policy::new()
-        .allow(SUBMIT, &[Role::Publisher], LimiterKey::Identity)
         .allow(STATUS, &[Role::Publisher, Role::Trainer], LimiterKey::Identity)
         .allow(HEALTH, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
         .allow(CHECKPOINT_RESOLVE, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)

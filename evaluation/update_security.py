@@ -1805,12 +1805,14 @@ class RustUpdateClient:
 
 
 def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
-    """Every row of the stage 5 gate against the running Rust update service. Each row is a live call; the E6 and R5 groups run
-    on their own fresh service instance so that one exhausted budget cannot affect another row."""
+    """Every row of the stage 5 gate against the running Rust update service. Each row is a live call. Stage V3-R8b removed the
+    V1 update path: `SubmitParameterUpdate` is `UNIMPLEMENTED` for every certificate holder (it is not in the transport policy), so
+    each row that submits expects that refusal with the model unchanged; a peer without a certificate still fails the handshake.
+    The bound, receipt and budget rows keep their ids and now show that nothing can reach them."""
     rows: list[dict] = []
     bias = ("head.sensitivity.bias", (4,), [0.01] * 4)
     refused, denied = ("UNAVAILABLE",), ("PERMISSION_DENIED",)
-    rejected_args = ("INVALID_ARGUMENT",)
+    rejected_args = unimplemented = ("UNIMPLEMENTED",)
     current: list[RustUpdateService] = []
 
     def group(name: str, environment: dict[str, str] | None = None) -> RustUpdateService:
@@ -1847,8 +1849,8 @@ def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
     # ---- group 1: authentication, identity binding, malformed and over-bound updates (product defaults)
     service = group("default")
     try:
-        row(service, "C1", "control", "A registered publisher submits a small update naming itself (positive control).", "positive_control", "publisher",
-            submit([bias]))
+        row(service, "C1", "control", "A registered publisher submits a small update naming itself (the removed V1 update path).", "rejected_unchanged", "publisher",
+            submit([bias]), codes=unimplemented)
         row(service, "A1", "unauthorized_publication", "Valid update from a peer with no client certificate.", "rejected_unchanged", None,
             submit([bias], source="updsec-unregistered-peer"), codes=refused, gap="GAP-NO-PUBLISHER-AUTH")
         row(service, "A2", "impersonation", "Update from a peer with no certificate that claims the trainer's source_id.", "rejected_unchanged", None,
@@ -1861,13 +1863,13 @@ def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
             lambda client: client.updates.GetParameterUpdateStatus(client.pb.ParameterUpdateStatusRequest(
                 source_id="updsec-unknown", request_id="never-issued", model_id=LEGACY_MODEL), timeout=30), codes=refused, gap="GAP-NO-PUBLISHER-AUTH")
         row(service, "R1", "unauthorized_publication", "A valid consumer installation certificate submits an update.", "rejected_unchanged", "registered",
-            submit([bias], source="updsec-consumer"), codes=denied, gap="GAP-NO-PUBLISHER-AUTH")
+            submit([bias], source="updsec-consumer"), codes=unimplemented, gap="GAP-NO-PUBLISHER-AUTH")
         row(service, "R1-trainer", "unauthorized_publication", "A registered trainer service submits an update.", "rejected_unchanged", "trainer",
-            submit([bias], source="trainer"), codes=denied, gap="GAP-NO-PUBLISHER-AUTH")
+            submit([bias], source="trainer"), codes=unimplemented, gap="GAP-NO-PUBLISHER-AUTH")
         row(service, "R1-unregistered", "unauthorized_publication", "A service certificate signed by the client CA but not registered submits an update.",
-            "rejected_unchanged", "stranger", submit([bias], source="stranger"), codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+            "rejected_unchanged", "stranger", submit([bias], source="stranger"), codes=unimplemented, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
         row(service, "R2", "impersonation", "A registered publisher (test-trainer) claims source_id=server-fuzzer.", "rejected_unchanged", "impostor",
-            submit([bias], source=SOURCE_FUZZER), codes=denied, gap="GAP-IDENTITY-SELF-ASSERTED")
+            submit([bias], source=SOURCE_FUZZER), codes=unimplemented, gap="GAP-IDENTITY-SELF-ASSERTED")
         rows.append(plaintext_row("R6-update", "A plaintext (non-TLS) call to the update service port, as a peer on the Compose network could make.",
                                   "rust-update", service.port, "update"))
         for row_id, text, values in (("E1", "One coordinate at 1.0000001 (just above the 1.0 per-coordinate bound).", [1.0000001, 0, 0, 0]),
@@ -1876,8 +1878,8 @@ def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
                                      ("E4", "Negative coordinate -2.0.", [-2.0, 0, 0, 0])):
             row(service, row_id, "excessive_change", text, "rejected_unchanged", "publisher", submit([("head.sensitivity.bias", (4,), values)]),
                 codes=rejected_args)
-        row(service, "E5", "excessive_change", "Update with every coordinate exactly at the 1.0 bound (boundary value, norm 2.0; positive control).",
-            "positive_control", "publisher", submit([("head.sensitivity.bias", (4,), [1.0, -1.0, 1.0, -1.0])]))
+        row(service, "E5", "excessive_change", "Update with every coordinate exactly at the 1.0 bound (boundary value, norm 2.0).",
+            "rejected_unchanged", "publisher", submit([("head.sensitivity.bias", (4,), [1.0, -1.0, 1.0, -1.0])]), codes=unimplemented)
 
         parameters = json.loads(service.artifact.read_text(encoding="utf-8"))["parameters"]
         widest, total = [], 0
@@ -1888,86 +1890,44 @@ def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
                 total += count
         row(service, "E7", "excessive_change",
             f"Single update moving every trainable coordinate ({total} values, L2 norm {math.sqrt(total):.1f}) by the 1.0 bound.", "rejected_unchanged",
-            "publisher", submit(widest), codes=rejected_args, gap="GAP-NO-CUMULATIVE-BOUND", check=lambda result: "per-update bound" in result["message"])
+            "publisher", submit(widest), codes=rejected_args, gap="GAP-NO-CUMULATIVE-BOUND")
     finally:
         service.stop()
 
-    # ---- group 2: E6, twenty-five valid updates at the per-coordinate bound against a cumulative budget
-    service = group("e6", {"PARAM_UPDATE_MAX_CUMULATIVE_L2": str(RUST_UPDATE_E6_BUDGET)})
+    # ---- groups 2 and 3: the cumulative budget and the replay rows. There is no budget and no receipt to reach any more: every
+    # submission is `UNIMPLEMENTED`, a replay and a conflicting reuse of a request id included, and the model never changes.
+    service = group("budget")
     try:
         started = time.time()
         client = RustUpdateClient(service, "publisher")
-        accepted, first_refusal, digest_at_refusal, first_request = 0, None, None, None
         try:
-            for index in range(25):
-                request = client.request(service.version(), [("head.sensitivity.bias", (4,), [1.0, 1.0, 1.0, 1.0])],
-                                         metadata={"request_id": f"updsec-drift-{index}"})
-                first_request = request if first_request is None else first_request
-                result = client.outcome(lambda: client.updates.SubmitParameterUpdate(request, timeout=30))
-                if result["observed"] == "accepted":
-                    accepted += 1
-                elif first_refusal is None:
-                    first_refusal, digest_at_refusal = result, service.digest()
+            first = client.request(service.version(), [("head.sensitivity.bias", (4,), [1.0, 1.0, 1.0, 1.0])], metadata={"request_id": "updsec-drift-0"})
+            changed = client.request(first.base_version, [("head.sensitivity.bias", (4,), [0.5, 0.5, 0.5, 0.5])], metadata={"request_id": "updsec-drift-0"})
+            digest = service.digest()
+            outcomes = [client.outcome(lambda request=request: client.updates.SubmitParameterUpdate(request, timeout=30)) for request in (first, first, changed)]
         finally:
             client.close()
-        held = first_refusal is not None and service.digest() == digest_at_refusal
-        rows.append({"id": "E6", "class": "excessive_change", "path": "rust-update", "expected": "bounded_cumulative", "identity": "publisher",
-                     "description": f"Twenty-five successive valid updates (norm 2.0 each) against a cumulative budget of {RUST_UPDATE_E6_BUDGET}.",
-                     "observed": "accepted" if accepted == 25 else "rejected", "code": first_refusal["code"] if first_refusal else "OK",
-                     "message": f"{accepted}/25 accepted; first refusal: {first_refusal['message'] if first_refusal else 'none'}",
-                     "accepted_updates": accepted, "model_unchanged": held, "expected_codes": ["FAILED_PRECONDITION"],
-                     "property_met": bool(accepted == RUST_UPDATE_E6_BUDGET // 2 and first_refusal and first_refusal["code"] == "FAILED_PRECONDITION" and held),
-                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": round(time.time() - started, 3)})
-        # After exhaustion, an exact replay of the first update is still answered from its receipt (no bound is re-applied to a
-        # committed request id), and the same id with a different payload is refused. Neither changes the model.
-        replay_client = RustUpdateClient(service, "publisher")
-        try:
-            digest_before = service.digest()
-            replayed = replay_client.outcome(lambda: replay_client.updates.SubmitParameterUpdate(first_request, timeout=30))
-            changed = replay_client.request(first_request.base_version, [("head.sensitivity.bias", (4,), [0.5, 0.5, 0.5, 0.5])],
-                                            metadata={"request_id": "updsec-drift-0"})
-            conflict = replay_client.outcome(lambda: replay_client.updates.SubmitParameterUpdate(changed, timeout=30))
-        finally:
-            replay_client.close()
-        unchanged = service.digest() == digest_before
-        rows.append({"id": "R5-replay", "class": "replayed", "path": "rust-update", "expected": "idempotent_noop_unchanged", "identity": "publisher",
-                     "description": "After the budget is exhausted, an exact replay of an accepted request is answered from its receipt and changes nothing.",
-                     "observed": "idempotent_noop" if replayed["observed"] == "accepted" else "rejected", "code": replayed["code"], "message": replayed["message"],
-                     "model_unchanged": unchanged, "expected_codes": None, "property_met": replayed["observed"] == "accepted" and unchanged,
-                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": 0.0})
-        rows.append({"id": "R5-conflict", "class": "replayed", "path": "rust-update", "expected": "rejected_unchanged", "identity": "publisher",
-                     "description": "After the budget is exhausted, a request id reused with a different payload is refused and changes nothing.",
-                     "observed": conflict["observed"], "code": conflict["code"], "message": conflict["message"], "model_unchanged": unchanged,
-                     "expected_codes": ["INVALID_ARGUMENT"],
-                     "property_met": conflict["observed"] == "rejected" and conflict["code"] == "INVALID_ARGUMENT" and unchanged,
-                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": 0.0})
-    finally:
-        service.stop()
-
-    # ---- group 3: R5, drift spread over many small updates, each under the per-update bound
-    service = group("r5", {"PARAM_UPDATE_MAX_CUMULATIVE_L2": str(RUST_UPDATE_R5_BUDGET)})
-    try:
+        unchanged = service.digest() == digest
+        for row_id, klass, expected, outcome, text in (
+                ("E6", "excessive_change", "bounded_cumulative", outcomes[0],
+                 "A valid update against the (removed) cumulative budget."),
+                ("R5-replay", "replayed", "idempotent_noop_unchanged", outcomes[1], "An exact replay of a request id."),
+                ("R5-conflict", "replayed", "rejected_unchanged", outcomes[2], "A request id reused with a different payload.")):
+            rows.append({"id": row_id, "class": klass, "path": "rust-update", "expected": expected, "identity": "publisher", "description": text,
+                         "observed": outcome["observed"], "code": outcome["code"], "message": outcome["message"], "model_unchanged": unchanged,
+                         "expected_codes": ["UNIMPLEMENTED"], "property_met": outcome["observed"] == "rejected" and outcome["code"] == "UNIMPLEMENTED" and unchanged,
+                         "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": round(time.time() - started, 3)})
         started = time.time()
         client = RustUpdateClient(service, "publisher")
-        accepted, refusal, held = 0, None, None
         try:
-            for index in range(RUST_UPDATE_R5_BUDGET * 3):
-                request = client.request(service.version(), [("head.sensitivity.bias", (4,), [0.5, 0.5, 0.5, 0.5])], metadata={"request_id": f"updsec-r5-{index}"})
-                before = service.digest()
-                result = client.outcome(lambda: client.updates.SubmitParameterUpdate(request, timeout=30))
-                if result["observed"] == "accepted":
-                    accepted += 1
-                else:
-                    refusal, held = result, service.digest() == before
-                    break
+            result = client.outcome(lambda: client.updates.SubmitParameterUpdate(
+                client.request(service.version(), [("head.sensitivity.bias", (4,), [0.5, 0.5, 0.5, 0.5])], metadata={"request_id": "updsec-r5-0"}), timeout=30))
         finally:
             client.close()
         rows.append({"id": "R5", "class": "excessive_change", "path": "rust-update", "expected": "rejected_at_budget", "identity": "publisher",
-                     "description": f"Updates of norm 1.0 (each far under the per-update bound) are refused once their sum passes the budget of {RUST_UPDATE_R5_BUDGET}.",
-                     "observed": "rejected" if refusal else "accepted", "code": refusal["code"] if refusal else "OK",
-                     "message": f"{accepted} accepted before the refusal: {refusal['message'] if refusal else 'none'}", "accepted_updates": accepted,
-                     "model_unchanged": held, "expected_codes": ["FAILED_PRECONDITION"],
-                     "property_met": bool(refusal and refusal["code"] == "FAILED_PRECONDITION" and accepted == RUST_UPDATE_R5_BUDGET and held),
+                     "description": "A small update (norm 1.0) against the (removed) cumulative budget.", "observed": result["observed"], "code": result["code"],
+                     "message": result["message"], "model_unchanged": service.digest() == digest, "expected_codes": ["UNIMPLEMENTED"],
+                     "property_met": result["observed"] == "rejected" and result["code"] == "UNIMPLEMENTED" and service.digest() == digest,
                      "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": round(time.time() - started, 3)})
     finally:
         service.stop()
@@ -2062,7 +2022,7 @@ X13_DEADLINE_SECONDS = 45
 PRIVACY_MODULE = ROOT / "extension/client-runtime/src/telemetry/privacy.py"
 DEPLOYMENT_COMPOSE_FILES = ("docker-compose.prod.yml", "deploy/gce/compose.yml", "docker-compose.yml")
 TLS_FLAGS = ("--cert=", "--key=", "--client-ca=", "--crl=", "--registry=")
-STACK_TLS_SERVICES = ("model-streaming-service", "telemetry-service", "param-update-service", "analysis-model-streaming", "analysis-service")
+STACK_TLS_SERVICES = ("model-streaming-service", "telemetry-service", "param-update-service")
 STACK_PUBLIC_PORTS = {"model-streaming-service": 50443, "telemetry-service": 58443}
 STACK_INTERNAL_PORTS = {50051, 50052, 50053, 50054, 50055}
 LOOPBACK_DEFAULT = re.compile(r"127\.0\.0\.1:\d+|\$\{[A-Z_]+:-127\.0\.0\.1:\d+\}")
@@ -2471,8 +2431,8 @@ def rust_static_evidence() -> list[dict]:
     add("ST1", "Every Rust server in the production and deployment Compose files starts with the five TLS flags (--cert, --key, --client-ca, --crl, --registry), "
         "passes no plaintext or insecure flag and sets no plaintext opt-out variable.", problems["ST1"])
     add("ST2", "The only published ports are the two public listeners, 50443 and 58443, on loopback unless the operator overrides them.", problems["ST2"])
-    add("ST3", "No internal listener (50051, 50052, 50053, 50054, 50055) is published, and the quarantined analysis services publish nothing.", problems["ST3"])
-    grep = subprocess.run(["git", "grep", "-n", "-i", "ngin[x]", "--", "deploy", ".github", "docker-compose.yml", "docker-compose.prod.yml", "docker-compose.gpu.yml"],
+    add("ST3", "No internal listener (50051, 50052, 50053, 50054, 50055) is published.", problems["ST3"])
+    grep = subprocess.run(["git", "grep", "-n", "-i", "ngin[x]", "--", "deploy", ".github", "docker-compose.yml", "docker-compose.prod.yml"],
                           cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     proxy = grep.stdout.splitlines() + (["a proxy configuration file exists under deploy/gce"] if list((ROOT / "deploy/gce").glob("ngin*.conf")) else [])
     add("ST4", "No reverse proxy is referenced in any deployment path (G1).", proxy)

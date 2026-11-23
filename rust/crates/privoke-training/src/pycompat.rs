@@ -1,8 +1,7 @@
-//! Python's `math.fsum` and `training_text_key`, shared by the V1 presence inference and the V3 fit.
+//! Python's `math.fsum` and `training_text_key`, shared by the presence inference and the V3 fit.
 //!
-//! These lived in [`crate::objective`] and [`crate::rpc`] (V1 gradient modules, retired by stage V3-R8). They moved here,
-//! unchanged in behaviour, so that deleting those modules leaves the presence gate's inference intact; both modules re-export
-//! them for the code that still imports them there.
+//! These lived in the V1 `objective` and `rpc` gradient modules (deleted in stage V3-R8b). They moved here,
+//! unchanged in behaviour, so that deleting those modules left the presence gate's inference intact.
 
 use privoke_rules::pyunicode;
 

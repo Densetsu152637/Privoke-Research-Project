@@ -10,8 +10,8 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use privoke_contracts::proto::v1::{
-    AnalyzePromptRequest, AnalyzePromptResponse, ComputeSemanticGradientsResponse, DetectAnnotationPresenceRequest,
-    DetectAnnotationPresenceResponse, RuntimeHealthRequest, RuntimeHealthResponse,
+    AnalyzePromptRequest, AnalyzePromptResponse, DetectAnnotationPresenceRequest, DetectAnnotationPresenceResponse, RuntimeHealthRequest,
+    RuntimeHealthResponse,
 };
 use privoke_runtime::frames::{self, HEADER_LEN, Kind, code};
 use privoke_worker_pool::{read_frame_sync, write_frame_sync};
@@ -141,8 +141,9 @@ fn never_runs_an_implicit_pipeline_and_refuses_what_it_does_not_serve() {
     };
     assert_eq!(error_code(&worker.call(2, &presence.encode_to_vec())), code::UNSUPPORTED_ROUTE);
     assert_eq!(error_code(&worker.call(2, b"")), code::INVALID_LAYERS);
+    // The gradient methods were removed (stage V3-R8b): an unknown method with or without model roots.
     for method in [4, 5, 6] {
-        assert_eq!(error_code(&worker.call(method, b"")), code::UNSUPPORTED_ROUTE);
+        assert_eq!(error_code(&worker.call(method, b"")), code::UNKNOWN_METHOD);
     }
     assert_eq!(error_code(&worker.call(1, &[0xff, 0xff, 0xff])), code::INVALID_PAYLOAD);
     // A validation failure is an ordinary response with its error set, under the request's own id.
@@ -276,7 +277,7 @@ impl Worker {
 }
 
 #[test]
-fn with_model_roots_the_worker_serves_presence_and_gradients_and_declines_the_rest() {
+fn with_model_roots_the_worker_serves_presence_and_refuses_the_gradient_methods() {
     let models = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/worker_models");
     let models = models.to_string_lossy().into_owned();
     let mut worker = spawn(&["--model-root", &models], &[]);
@@ -290,19 +291,10 @@ fn with_model_roots_the_worker_serves_presence_and_gradients_and_declines_the_re
     assert!(presence.probability > 0.0 && presence.elapsed_ms > 0.0, "{presence:?}");
     assert_eq!(presence.executions.len(), 1);
 
-    // A gradient request with its admission header in the metadata block, over the pool's framing.
+    // The gradient methods are removed (stage V3-R8b): a recorded gradient request, with its admission header in the
+    // metadata block, is refused as an unknown method, and the worker survives.
     let gradients = worker.replay(&golden_case("synthetic-legacy-sum/full_encoder"));
-    assert_eq!(gradients.kind, Kind::Response as u8, "{}", String::from_utf8_lossy(&gradients.payload));
-    let gradients = ComputeSemanticGradientsResponse::decode(gradients.payload.as_slice()).unwrap();
-    assert_eq!(gradients.error, "");
-    assert_eq!(gradients.metadata.get("training_scope").map(String::as_str), Some("full_encoder"));
-    assert!(!gradients.gradients.is_empty() && !gradients.metrics.is_empty());
-
-    // The same request without its header is Python's refusal, as a response.
-    let mut without = golden_case("synthetic-legacy-sum/full_encoder");
-    without["metadata"] = serde_json::json!([]);
-    let refused = ComputeSemanticGradientsResponse::decode(worker.replay(&without).payload.as_slice()).unwrap();
-    assert_eq!(refused.error, "Summed-category decision-margin training requires explicit objective admission.");
+    assert_eq!(error_code(&gradients), code::UNKNOWN_METHOD);
 
     // A malformed metadata block is a protocol fault: an error frame, and the worker survives.
     let mut bad = frames::encode_frame(Kind::Request, 4, 5, &[0, 1, 0]);

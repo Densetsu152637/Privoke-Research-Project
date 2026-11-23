@@ -19,7 +19,6 @@ members = [
     "crates/privoke-curriculum",
     "crates/privoke-training",
     "crates/privoke-telemetry-client",
-    "services/fuzzer",
     "services/runtime",
     "services/v3-fuzzer",
     "services/v3-runtime",

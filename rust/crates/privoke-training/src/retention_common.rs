@@ -1,9 +1,7 @@
-//! What the ORIGINAL TRAIN retention shares between the V1 loops and the V3 gate: the approved bank's pin, the strict
+//! What the ORIGINAL TRAIN retention shares between the reference and the V3 gate: the approved bank's pin, the strict
 //! eligibility boundary, the float32 union margin, the sensitivity predicate and the teacher tensor reader.
 //!
-//! These items used to live in [`crate::retention`] (V1 loops) and [`crate::window`] (V1 window); they moved here, unchanged in
-//! behaviour, so that the V3 retention ([`crate::retention_v3`], [`crate::reference`]) does not depend on a V1 training module and
-//! stage V3-R8b can delete those. The V1 modules re-use them from here.
+//! These items used to live in the V1 retention and window loops, which stage V3-R8b deleted.
 
 use std::collections::BTreeMap;
 

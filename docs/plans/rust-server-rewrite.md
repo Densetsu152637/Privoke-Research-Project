@@ -1289,6 +1289,8 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
 
 ## Stage 19: Gradients and local training in Rust (D4)
 
+> **Retired (23 Nov 2026 decision, stages V3-R8a and V3-R8b of [the V3 routine-training plan](v3-routine-training.md)).** V1 models are served for detection and no longer trained, so the V1 training ports of this stage were deleted: the gradient RPCs are `UNIMPLEMENTED` (V3-R8a), and the `privoke-training` modules `net`, `objective`, `adam`, `trace`, `window`, `retention`, `routes`, `rpc` and `admission`, the runtime worker's gradient dispatch and the `compute_presence_gradients` port are gone (V3-R8b). What stays: presence inference (`presence`, with `pycompat`), the V3 modules (`adamw`, `bert_backward`, `v3_model`, `v3_fit`, `reference`, `retention_common`, `retention_v3`). The Python code and the generators of the golden fixtures stay as frozen oracles. The record below is historical.
+
 - Objective: port the gradient RPCs and the local training paths to Rust (`tch-rs` recommended for parity):
   - `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`
   - `training.py`, `full_adam_training.py`, `window_training.py`, `supervised_training.py`, `presence_training.py`, `sensitive_retention_training.py`, `reference_preparation.py`, `v3/training.py`
@@ -1361,6 +1363,8 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
 - Handoff notes: stage 21 owns the gRPC and SQLite side (`CursorState`) and the model-bound training contracts. Pinned inputs are committed byte-exact under `tests/fixtures` (`-text`). The AU3 manifest pins CRLF catalogs and LF manifest/guard, which fails the Python check on any single checkout; recorded `source_hashes` are inputs. Python `str.format` specs are not supported (plain fields only).
 
 ## Stage 21: Fuzzer orchestration in Rust (D6)
+
+> **Retired for V1 (23 Nov 2026 decision, stage V3-R8b of [the V3 routine-training plan](v3-routine-training.md)).** `rust/services/fuzzer` (the V1 fuzzer port and its scheduler cycles, FULL Adam, window and retention evidence) was deleted, with param-update's V1 `SubmitParameterUpdate` path (`apply`, `validate`, `window` and the float-delta drift policy). `rust/services/v3-fuzzer`, the second half of this stage, is the live fuzzer. The shared helpers moved to `privoke_contracts::pywire` and `privoke_transport::startup::client_tls_from_lookup` (V3-R8a). The record below is historical.
 
 - Objective: replace `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py` and `services/pretrained-v3/src/fuzzer_server.py` with Rust services that use stages 19 and 20 in-process, with stage 1 transport.
 - Depends on: stages 19 and 20, and stage 10 if it ran
