@@ -94,11 +94,22 @@ impl Refresher {
 
     /// Ask for `model_id` once over `channel`, admit what the server serves, make it current and delete what it superseded.
     pub async fn refresh(&self, channel: Channel, target: &str, model_id: &str) -> Refreshed {
-        let before = self.admission.current_version(model_id);
+        // The cache reads, the advisory lock and the deletions are blocking file work: they run off the async threads.
+        let before = {
+            let (admission, model) = (self.admission.clone(), model_id.to_string());
+            tokio::task::spawn_blocking(move || admission.current_version(&model)).await.ok().flatten()
+        };
         match self.fetcher.fetch(channel, target, model_id, &self.admission, &self.config).await {
             Ok(Some(package)) => {
                 // The mark has moved (or the pin is current); what it superseded is no longer needed.
-                let removed = self.admission.collect_garbage(&package.model_id).unwrap_or_default();
+                let removed = {
+                    let (admission, model) = (self.admission.clone(), package.model_id.clone());
+                    tokio::task::spawn_blocking(move || admission.collect_garbage(&model))
+                        .await
+                        .ok()
+                        .and_then(Result::ok)
+                        .unwrap_or_default()
+                };
                 if before.as_deref() == Some(package.pin.as_str()) {
                     Refreshed::Unchanged { manifest_sha: package.pin }
                 } else {

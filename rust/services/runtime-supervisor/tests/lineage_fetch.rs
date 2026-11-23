@@ -531,6 +531,10 @@ async fn a_mark_under_a_dropped_key_is_a_floor_that_a_current_key_must_clear() {
 
     // The client now compiles only the second key. The old mark is a floor, not a brick.
     let current = rig.admission(new_keys);
+    // A deleted mark is rebuilt as a floor from the cached statement even though its key is gone (it cannot be verified, so it only
+    // raises the floor): the model does not fall back to trust on first use.
+    std::fs::remove_file(rig.model_directory().join(HIGH_WATER_FILE)).unwrap();
+    assert_eq!(current.cache().read_high_water(MODEL).unwrap().unwrap().sequence, 3);
     // The version signed under the dropped key is refused (unknown key) ...
     let error = rig.fetch(&current).await.expect_err("the dropped key");
     assert_eq!(lineage_reason(&error), "UnknownKey", "{error}");
@@ -620,7 +624,7 @@ async fn a_published_candidate_replaces_the_cached_snapshot_after_the_interval()
     let refresher = Arc::new(Refresher::new(rig.admission(keys), rig.config()));
     rig.serve(&chain.pin, Vec::new());
 
-    let (endpoint, interval) = (rig.endpoint.clone(), Duration::from_millis(900));
+    let (endpoint, interval) = (rig.endpoint.clone(), Duration::from_millis(1500));
     let task = {
         let refresher = Arc::clone(&refresher);
         tokio::spawn(async move { refresher.run(&endpoint, &[MODEL.to_string()], interval, Duration::from_secs(10)).await })
@@ -631,9 +635,11 @@ async fn a_published_candidate_replaces_the_cached_snapshot_after_the_interval()
     // The candidate is published; before the interval elapses the snapshot is unchanged ...
     let heads = statement_for(PRIMARY_ID, &chain.heads, 1);
     rig.serve(&chain.heads, heads.clone());
-    assert_eq!(admission.current_version(MODEL).as_deref(), Some(chain.pin.sha.as_str()));
-    // ... and after it the signed candidate is the current version of the cache, with its statement and as the mark.
+    let published = std::time::Instant::now();
+    // ... and after it the signed candidate is the current version of the cache, with its statement and as the mark. The change
+    // is the next tick's: the tick is 1.5 s after the start-up refresh, which was a fraction of a second ago.
     wait_for("the refresh after the interval", || admission.current_version(MODEL).as_deref() == Some(chain.heads.sha.as_str())).await;
+    assert!(published.elapsed() >= interval / 3, "the candidate was admitted before the interval: {:?}", published.elapsed());
     assert_eq!(rig.high_water().unwrap(), heads);
     let selected = admission.cache().select(MODEL).unwrap().unwrap();
     assert_eq!(selected.statement, heads);
@@ -802,34 +808,66 @@ fn synthetic_writes(count: u64) -> Vec<(AdmittedManifest, Vec<u8>)> {
         .collect()
 }
 
-#[test]
-fn the_writer_of_the_mark_waits_for_the_advisory_lock() {
-    let cache = tempfile::tempdir().unwrap();
-    let admission = LineageAdmission::new(test_keys::key_set(), cache.path());
-    std::fs::create_dir_all(cache.path().join(MODEL)).unwrap();
-    let writes = synthetic_writes(1);
-    let guard = admission.cache().lock(MODEL).unwrap();
-    let (done, finished) = std::sync::mpsc::channel();
-    let writer = admission.clone();
-    let handle = std::thread::spawn(move || {
-        writer.accepted(&writes[0].0, &writes[0].1).unwrap();
-        done.send(()).unwrap();
-    });
-    assert!(finished.recv_timeout(Duration::from_millis(600)).is_err(), "the writer must wait for the lock");
-    assert!(!cache.path().join(MODEL).join(HIGH_WATER_FILE).exists());
-    drop(guard);
-    finished.recv_timeout(Duration::from_secs(20)).unwrap();
-    handle.join().unwrap();
-    assert!(cache.path().join(MODEL).join(HIGH_WATER_FILE).is_file());
+/// The version directories of the synthetic writes (a writer of the mark requires the version to be in the cache).
+fn stage(root: &Path, writes: &[(AdmittedManifest, Vec<u8>)]) {
+    for (admitted, _) in writes {
+        let directory = root.join(MODEL).join(&admitted.pin);
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("manifest.json"), b"{}").unwrap();
+    }
 }
 
 #[test]
-fn two_concurrent_writers_cannot_lower_the_mark() {
+fn the_writer_of_the_mark_waits_for_the_advisory_lock_and_reads_the_mark_again_under_it() {
+    let cache = tempfile::tempdir().unwrap();
+    let admission = LineageAdmission::new(test_keys::key_set(), cache.path());
+    let writes = synthetic_writes(7);
+    stage(cache.path(), &writes);
+    let mark = cache.path().join(MODEL).join(HIGH_WATER_FILE);
+    let guard = admission.cache().lock(MODEL).unwrap();
+    let (done, finished) = std::sync::mpsc::channel();
+    let writer = admission.clone();
+    let low = writes[2].clone();
+    let handle = std::thread::spawn(move || {
+        let outcome = writer.accepted(&low.0, &low.1);
+        done.send(()).unwrap();
+        outcome
+    });
+    assert!(finished.recv_timeout(Duration::from_millis(600)).is_err(), "the writer must wait for the lock");
+    assert!(!mark.exists());
+    // Meanwhile the holder of the lock (another process) moves the mark to sequence 7.
+    std::fs::write(&mark, &writes[6].1).unwrap();
+    drop(guard);
+    finished.recv_timeout(Duration::from_secs(20)).unwrap();
+    let outcome = handle.join().unwrap();
+    assert!(matches!(outcome, Err(FetchError::Lineage(LineageError::Replay { seen: 7, got: 3 }))), "{outcome:?}");
+    assert_eq!(std::fs::read(&mark).unwrap(), writes[6].1, "the mark was lowered");
+    assert!(!cache.path().join(MODEL).join(&writes[2].0.pin).join(STATEMENT_FILE).exists(), "a refused statement is not kept");
+    record("RB5", "concurrent-writers-cannot-lower-the-mark", "accepted", "accepted", "");
+}
+
+#[test]
+fn a_version_that_left_the_cache_is_not_recorded() {
+    let cache = tempfile::tempdir().unwrap();
+    let admission = LineageAdmission::new(test_keys::key_set(), cache.path());
+    let writes = synthetic_writes(2);
+    stage(cache.path(), &writes);
+    // Another process's garbage collection removed the version between this fetch's verification and the record.
+    std::fs::remove_dir_all(cache.path().join(MODEL).join(&writes[1].0.pin)).unwrap();
+    let error = admission.accepted(&writes[1].0, &writes[1].1).unwrap_err();
+    assert!(error.to_string().contains("no longer in the cache"), "{error}");
+    assert!(!cache.path().join(MODEL).join(HIGH_WATER_FILE).exists());
+    admission.accepted(&writes[0].0, &writes[0].1).unwrap();
+}
+
+#[test]
+fn many_concurrent_writers_never_lower_the_mark() {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     let cache = tempfile::tempdir().unwrap();
     let keys = test_keys::key_set();
     let writes = synthetic_writes(60);
+    stage(cache.path(), &writes);
     let acknowledged = AtomicU64::new(0);
     let barrier = std::sync::Barrier::new(3);
     std::thread::scope(|scope| {
@@ -863,5 +901,36 @@ fn two_concurrent_writers_cannot_lower_the_mark() {
     let view = ModelCache::new(cache.path(), CacheRules::new(keys));
     let last = view.read_high_water(MODEL).unwrap().unwrap().sequence;
     assert!(last >= acknowledged.load(Ordering::SeqCst) && last == 60, "mark {last}");
-    record("RB5", "concurrent-writers-cannot-lower-the-mark", "accepted", "accepted", "");
+}
+
+#[tokio::test]
+async fn a_version_served_again_under_a_higher_sequence_stays_selectable() {
+    let mut rig = rig().await;
+    let chain = chain();
+    let keys = test_keys::key_set();
+    let refresher = Refresher::new(rig.admission(keys.clone()), rig.config());
+    let admission = rig.admission(keys);
+    rig.serve(&chain.full, statement_for(PRIMARY_ID, &chain.full, 2));
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Updated { .. }));
+    let selectable = || admission.cache().select(MODEL).unwrap().unwrap().manifest_sha == chain.full.sha;
+    assert!(selectable());
+
+    // The window of the record: the statement of the new sequence is beside the version, the mark is not yet there.
+    let higher = statement_for(PRIMARY_ID, &chain.full, 3);
+    std::fs::write(rig.version_directory(&chain.full).join(STATEMENT_FILE), &higher).unwrap();
+    assert!(selectable(), "a statement above the mark for the same manifest keeps the version selectable");
+    verify_package(&rig.version_directory(&chain.full), MODEL, &admission).unwrap();
+
+    // The whole refresh: the same version under sequence 3 (the statement is written, then the mark).
+    rig.serve(&chain.full, higher.clone());
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Unchanged { .. }));
+    assert!(selectable());
+    assert_eq!(rig.high_water().unwrap(), higher);
+
+    // A refused re-serve (a lower sequence) leaves the statement and the selection as they were.
+    rig.serve(&chain.full, statement_for(PRIMARY_ID, &chain.full, 2));
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Refused(_)));
+    assert!(selectable());
+    assert_eq!(std::fs::read(rig.version_directory(&chain.full).join(STATEMENT_FILE)).unwrap(), higher);
+    rig.stop();
 }

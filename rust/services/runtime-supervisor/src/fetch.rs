@@ -269,6 +269,12 @@ impl Admission for LineageAdmission {
         // The refresh loop, a `fetch-model` command and another controller can write the mark at the same moment: the writers
         // take the advisory lock of the model directory, read the mark again under it and never lower it.
         let _lock = self.cache.lock(&admitted.model_id)?;
+        // The version must still be in the cache: another process's garbage collection may have removed it since this fetch
+        // verified it (it was below that process's mark). Then nothing is recorded and the next refresh fetches it again.
+        let version = directory.join(&admitted.pin);
+        if safe_file(&version, "manifest.json").is_err() {
+            return Err(invalid("The admitted version is no longer in the cache; it is fetched again on the next refresh"));
+        }
         if let Some(current) = self.read_high_water(&admitted.model_id)? {
             if verified.sequence < current.sequence {
                 return Err(LineageError::Replay { seen: current.sequence, got: verified.sequence }.into());
@@ -281,6 +287,10 @@ impl Admission for LineageAdmission {
         if is_link(&path)? {
             return Err(invalid("High-water record must be a regular non-symlink file"));
         }
+        // The statement of the version first, then the mark, both under the lock: a reader that selects the version in between
+        // finds a statement at or above the mark for the same manifest, which it accepts. (A version served again under a higher
+        // sequence is such a case; a rollback to a version the cache holds is another.)
+        store_statement(&version, statement)?;
         let temporary = directory.join(format!(".high-water-{}", uuid::Uuid::new_v4().simple()));
         let outcome = (|| -> Result<(), FetchError> {
             write_new(&temporary, statement)?;
@@ -376,7 +386,6 @@ impl Fetcher {
             if digest_file(&safe_file(&directory, "manifest.json")?)? != manifest.pin {
                 return Err(invalid("Cached manifest was corrupted"));
             }
-            store_statement(&directory, &package.publication_statement)?;
             admission.accepted(&manifest, &package.publication_statement)?;
             return Ok(Some(done));
         }
@@ -418,8 +427,8 @@ impl Fetcher {
             let _ = fs::remove_file(&temporary);
             outcome?;
         }
-        store_statement(&directory, &package.publication_statement)?;
-        verify_package(&directory, model_id, admission)?;
+        // The statement is kept beside the version by `accepted`, under the lock and just before the mark moves.
+        verify_directory(&directory, model_id, admission, &package.publication_statement)?;
         admission.accepted(&manifest, &package.publication_statement)?;
         verified.insert(identity);
         Ok(Some(done))
@@ -498,9 +507,14 @@ async fn download(
 
 /// `verify_package`: the manifest on disk is admitted and every asset's size and hash match it.
 pub fn verify_package(directory: &Path, model_id: &str, admission: &dyn Admission) -> Result<AdmittedManifest, FetchError> {
-    let bytes = fs::read(safe_file(directory, "manifest.json")?).map_err(io_at(directory))?;
     let statement = read_statement(directory)?;
-    let manifest = admission.admit_published(&bytes, &statement, model_id)?;
+    verify_directory(directory, model_id, admission, &statement)
+}
+
+/// `verify_package` with the statement given (the one the server sent, before it is kept beside the version).
+fn verify_directory(directory: &Path, model_id: &str, admission: &dyn Admission, statement: &[u8]) -> Result<AdmittedManifest, FetchError> {
+    let bytes = fs::read(safe_file(directory, "manifest.json")?).map_err(io_at(directory))?;
+    let manifest = admission.admit_published(&bytes, statement, model_id)?;
     for (name, _) in ASSETS {
         let path = safe_file(directory, name)?;
         let size = fs::metadata(&path).map_err(io_at(&path))?.len();

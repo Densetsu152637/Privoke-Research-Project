@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::fingerprint::parameter_fingerprint;
-use privoke_contracts::model_cache::{CacheRules, HIGH_WATER_FILE, ModelCache};
+use privoke_contracts::model_cache::{CacheRules, ModelCache};
 use privoke_contracts::pyfloat;
 use privoke_contracts::v3::{self, Manifest, admitted_manifest};
 use privoke_semantic::bert::BertConfig;
@@ -169,28 +169,32 @@ impl SemanticLayer {
     }
 
     fn locate(&self, model_id: &str) -> Result<Source, String> {
-        // A cached snapshot comes first, in any root, as in the Python worker's shim.
+        let standard = v3::standard_pin(model_id).is_some();
+        // A cached snapshot comes first, in any root, as in the Python worker's shim; a standard V3 model is never loaded from one
+        // (it is a V3 package, which the snapshot loader does not read, and it would be a way around the cache's admission).
         for root in &self.roots {
             let cached = crate::snapshot::path(root, model_id);
-            if cached.is_file() {
+            if !standard && cached.is_file() {
                 return Ok(Source::Snapshot(cached));
             }
         }
         for root in &self.roots {
             let package = root.join(model_id);
-            // A release directory (`<root>/<model_id>/manifest.json`) is the pin-only layout. A model directory that holds a high-water
-            // mark is a cache directory, whose only loadable version is the one the mark names, never a manifest dropped beside it.
-            if package.join("manifest.json").is_file() && !package.join(HIGH_WATER_FILE).exists() {
-                return Ok(Source::Package(package));
-            }
-            if package.is_dir() && v3::standard_pin(model_id).is_some() {
-                // The controller's cache layout of a standard V3 model: the version the cache's high-water mark names, which the
-                // supervisor moves when it admits a newer statement (it is selected again on every call, so a newer version is
-                // loaded without a restart). No other directory is a candidate: the unsigned pin is not one once the mark is signed.
+            if standard && package.is_dir() {
+                // The controller's cache layout of a standard V3 model: the version the cache's high-water mark names (or, with no
+                // signed version cached, the pinned release). The cache is asked first and always, so a deleted mark or a
+                // manifest dropped beside it cannot make the unsigned pin loadable once a signed version is cached. The version is
+                // selected again on every call, so a newer one is loaded without a restart.
                 let cache = ModelCache::new(root, self.rules.clone());
                 if let Some(selected) = cache.select(model_id).map_err(|error| error.to_string())? {
                     return Ok(Source::Published(selected.directory, selected.statement, cache));
                 }
+                // Nothing of the cache layout: a release directory (`<root>/<model_id>/manifest.json`), the pin-only layout.
+                if package.join("manifest.json").is_file() {
+                    return Ok(Source::Package(package));
+                }
+            } else if package.join("manifest.json").is_file() {
+                return Ok(Source::Package(package));
             } else if package.is_dir() {
                 let mut pinned: Vec<PathBuf> = std::fs::read_dir(&package)
                     .map(|entries| {

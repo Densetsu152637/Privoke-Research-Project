@@ -81,17 +81,24 @@ fn the_first_start_loads_the_pinned_release_only() {
     let (chain, root) = (Chain::load(), tempfile::tempdir().unwrap());
     let pin = chain.pin();
     put(root.path(), &pin, None);
-    // A signed version that the mark does not name is not a candidate.
+    // No mark and nothing signed cached: the pinned release is selected, admitted, and fails only at its first missing asset.
+    let error = refusal(&layer(root.path(), &pin));
+    assert!(admitted_but_incomplete(&error, &sha256_hex(&pin)), "{error}");
+}
+
+#[test]
+fn a_deleted_mark_and_a_dropped_pin_do_not_reopen_the_unsigned_pin() {
+    let (chain, root) = (Chain::load(), tempfile::tempdir().unwrap());
+    let pin = chain.pin();
+    put(root.path(), &pin, None);
     let (heads, statement) = chain.version(0);
     put(root.path(), &heads, Some(&statement));
-    // Without a mark the floor is rebuilt from the cached statement that verifies, so the selection is HEADS, not the pinned release.
+    // No mark file, and the pinned release's manifest dropped beside the versions (the release layout): the floor is rebuilt from
+    // the cached statement that verifies, so the selection is HEADS, and the pin is not loaded by either route.
+    std::fs::write(root.path().join(MODEL).join("manifest.json"), &pin).unwrap();
     let error = refusal(&layer(root.path(), &pin));
-    assert!(!admitted_but_incomplete(&error, &sha256_hex(&pin)), "{error}");
-
-    let empty = tempfile::tempdir().unwrap();
-    put(empty.path(), &pin, None);
-    let error = refusal(&layer(empty.path(), &pin));
-    assert!(admitted_but_incomplete(&error, &sha256_hex(&pin)), "{error}");
+    assert!(admitted_but_incomplete(&error, &sha256_hex(&heads)), "{error}");
+    assert!(!error.contains(&sha256_hex(&pin)), "{error}");
 }
 
 #[test]

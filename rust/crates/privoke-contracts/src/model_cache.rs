@@ -103,6 +103,9 @@ pub struct CachedVersion {
     pub directory: PathBuf,
     /// The verified statement of `statement.json`; `None` when there is none or it does not verify.
     pub statement: Option<Statement>,
+    /// The statement of `statement.json` when it names a key this build no longer compiles: it cannot be verified, so it only
+    /// counts as a floor (like a mark under a dropped key), never as admission.
+    pub unverified: Option<Statement>,
 }
 
 /// The version a loader may load now.
@@ -203,7 +206,7 @@ impl ModelCache {
     fn cached_floor(&self, model_id: &str) -> Result<Option<Statement>, CacheError> {
         let mut floor: Option<Statement> = None;
         for version in self.versions(model_id)? {
-            if let Some(statement) = version.statement
+            if let Some(statement) = version.statement.or(version.unverified)
                 && floor.as_ref().is_none_or(|best| statement.sequence > best.sequence)
             {
                 floor = Some(statement);
@@ -226,12 +229,19 @@ impl ModelCache {
             if !v3::is_sha_text(&name) || is_link(&version)? || !version.is_dir() {
                 continue;
             }
-            let statement = read_statement(&version)
-                .ok()
-                .filter(|bytes| !bytes.is_empty())
-                .and_then(|bytes| publication::verify(&self.rules.keys, &bytes).ok())
-                .filter(|statement| statement.model_id == model_id && statement.manifest_sha == name);
-            found.push(CachedVersion { manifest_sha: name, directory: version, statement });
+            let bytes = read_statement(&version).ok().filter(|bytes| !bytes.is_empty());
+            let named = |statement: &Statement| statement.model_id == model_id && statement.manifest_sha == name;
+            let (mut statement, mut unverified) = (None, None);
+            if let Some(bytes) = bytes {
+                match publication::verify(&self.rules.keys, &bytes) {
+                    Ok(verified) if named(&verified) => statement = Some(verified),
+                    Err(PublicationError::UnknownKey) => {
+                        unverified = publication::decode(&bytes).ok().map(|(decoded, _)| decoded).filter(named)
+                    }
+                    _ => {}
+                }
+            }
+            found.push(CachedVersion { manifest_sha: name, directory: version, statement, unverified });
         }
         found.sort_by(|left, right| left.manifest_sha.cmp(&right.manifest_sha));
         Ok(found)
@@ -253,7 +263,7 @@ impl ModelCache {
         let Some(mark) = mark else {
             let pin = self.rules.tier_pin(model_id).ok_or_else(|| invalid("Model is not a pinned standard AU3 release"))?;
             let version = directory.join(&pin.manifest_sha);
-            if !version.join("manifest.json").is_file() {
+            if is_link(&version)? || !version.join("manifest.json").is_file() {
                 return Ok(None);
             }
             let statement = read_statement(&version)?;
@@ -273,7 +283,9 @@ impl ModelCache {
         let kept = publication::verify(&self.rules.keys, &bytes).map_err(|error| {
             CacheError::Invalid(format!("The statement of the version at the high-water mark of {model_id} does not verify ({error})"))
         })?;
-        if kept.model_id != model_id || kept.manifest_sha != mark.manifest_sha || kept.sequence != mark.sequence {
+        // The statement kept beside the version may be newer than the mark for the same manifest: a version that is served again
+        // under a higher sequence gets its statement before the mark moves. Anything below the mark, or for another manifest, is not.
+        if kept.model_id != model_id || kept.manifest_sha != mark.manifest_sha || kept.sequence < mark.sequence {
             return Err(invalid("The cached version does not carry the statement of the high-water mark"));
         }
         Ok(Some(Selected { directory: version, manifest_sha: mark.manifest_sha, statement: bytes }))

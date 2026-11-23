@@ -1,6 +1,6 @@
 //! The V3 model: native pretrained BERT with affine task heads (`v3/model.py::PretrainedV3`).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 use privoke_contracts::digest::sha256_hex;
@@ -59,10 +59,14 @@ fn read(path: &Path) -> Result<Vec<u8>, SemanticError> {
 
 /// The `BertTokenizerFast(vocab_file=..., do_lower_case=True)` pipeline: clean, lower-case and strip accents,
 /// split on whitespace and punctuation, greedy WordPiece with `[UNK]`, then `[CLS]` and `[SEP]`.
-fn build_tokenizer(vocab: &Path) -> Result<Tokenizer, SemanticError> {
+///
+/// The vocabulary is given as bytes (the ones that were hashed against the manifest), read as `WordPiece::read_file` reads a file:
+/// one token per line, its id the line number, trailing whitespace trimmed.
+fn build_tokenizer(vocab: &[u8]) -> Result<Tokenizer, SemanticError> {
     let failure = |error: tokenizers::Error| SemanticError::Tokenizer(error.to_string());
-    let path = vocab.to_str().ok_or_else(|| SemanticError::artifact("The vocabulary path is not valid UTF-8."))?;
-    let model = WordPiece::from_file(path).unk_token("[UNK]".to_string()).build().map_err(failure)?;
+    let text = std::str::from_utf8(vocab).map_err(|_| SemanticError::artifact("The vocabulary is not UTF-8."))?;
+    let tokens: HashMap<String, u32> = text.lines().enumerate().map(|(index, line)| (line.trim_end().to_owned(), index as u32)).collect();
+    let model = WordPiece::builder().vocab(tokens).unk_token("[UNK]".to_string()).build().map_err(failure)?;
     let cls = model.token_to_id("[CLS]").ok_or_else(|| SemanticError::artifact("The vocabulary has no [CLS] token."))?;
     let sep = model.token_to_id("[SEP]").ok_or_else(|| SemanticError::artifact("The vocabulary has no [SEP] token."))?;
     if model.token_to_id("[UNK]").is_none() {
@@ -86,10 +90,10 @@ impl V3Model {
     /// use [`V3Model::load_release`]).
     pub fn from_files(config: &Path, checkpoint: &Path, vocab: &Path) -> Result<Self, SemanticError> {
         let config_text = String::from_utf8(read(config)?).map_err(|_| SemanticError::artifact("config.json is not UTF-8."))?;
-        Self::from_parts(&config_text, safetensors::parse(&read(checkpoint)?)?, vocab)
+        Self::from_parts(&config_text, safetensors::parse(&read(checkpoint)?)?, &read(vocab)?)
     }
 
-    fn from_parts(config_text: &str, mut tensors: BTreeMap<String, Tensor>, vocab: &Path) -> Result<Self, SemanticError> {
+    fn from_parts(config_text: &str, mut tensors: BTreeMap<String, Tensor>, vocab: &[u8]) -> Result<Self, SemanticError> {
         let config = BertConfig::from_json(config_text)?;
         let hidden = config.hidden_size;
         let encoder = Encoder::from_tensors(config, &mut tensors, "encoder.")?;
@@ -153,7 +157,8 @@ impl V3Model {
         let value: Value = serde_json::from_slice(manifest_bytes).map_err(|error| SemanticError::artifact(error.to_string()))?;
         verify_inventory(&tensors, value.get("tensors"))?;
         let config_text = String::from_utf8(config_bytes).map_err(|_| SemanticError::artifact("config.json is not UTF-8."))?;
-        Self::from_parts(&config_text, tensors, &dir.join("vocab.txt"))
+        // The vocabulary that was hashed against the manifest, not a second read of the file.
+        Self::from_parts(&config_text, tensors, &vocab_bytes)
     }
 
     /// The same model (tokenizer and thread count) over other weights: `tensors` holds every checkpoint tensor (`encoder.*`
