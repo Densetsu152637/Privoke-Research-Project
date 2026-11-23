@@ -8,16 +8,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
-use privoke_model_streaming::contextual::{FULL_ENCODER_STRATEGY, STRATEGY_KEY};
-use privoke_param_update::artifact_io;
 use privoke_param_update::bootstrap::bootstrap_model;
 use privoke_param_update::config::{ServiceConfig, V3Config};
 use privoke_param_update::engine::{Engine, no_hook, system_clock};
 use privoke_param_update::healthcheck::{self, HealthcheckArgs};
-use privoke_param_update::scheduler::{self, FuzzerRequestConfig, GrpcFuzzer};
+use privoke_param_update::journal::JournalAllocations;
+use privoke_param_update::scheduler::{self, FuzzerRequestConfig, GrpcFuzzer, PinnedCommitments};
 use privoke_param_update::server;
 use privoke_param_update::service::ParamUpdateHandler;
 use privoke_param_update::util::log;
+use privoke_param_update::v3_guard::GuardGate;
 use privoke_param_update::v3_policy::{DriftBounds, DriftGate};
 use privoke_param_update::v3_publish::{Publisher, no_crash};
 use privoke_param_update::v3_retention::{RetentionGate, RetentionReleases};
@@ -111,16 +111,26 @@ fn read_seed(path: &std::path::Path) -> Result<[u8; 32]> {
         .ok_or_else(|| Error("V3 publication key file must hold 64 hexadecimal characters.".to_string()))
 }
 
+/// The V3 checkpoint store and what the scheduler shares with it.
+struct Checkpoint {
+    store: Arc<CheckpointStore>,
+    sources: Arc<PinnedSources>,
+}
+
 /// Open the V3 checkpoint store and admit the configured ORIGINAL packages (the oracle's `CheckpointStore(V3_STORE, V3_INITIAL)`).
-fn open_checkpoint(config: &V3Config) -> Result<CheckpointHandler> {
-    let sources = PinnedSources::from_root(&config.source_root, config.audience.clone());
+/// The gates run in this order before the transaction, cheapest first: admission (inside the store), the drift bounds, the
+/// recomputed guard over the scheduler's journalled allocations, the retention check, and last the publisher that stages the files.
+fn open_checkpoint(config: &V3Config, allocations: &std::path::Path) -> Result<Checkpoint> {
+    let sources = Arc::new(PinnedSources::from_root(&config.source_root, config.audience.clone()));
     let mut store =
-        CheckpointStore::open(&config.store, Arc::new(sources)).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
+        CheckpointStore::open(&config.store, sources.clone()).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
     let mut publisher = None;
     // Every commit is bounded, published or not.
     let bounds = DriftBounds::load(&config.drift_bounds).map_err(|error| Error(format!("V3 drift bounds: {error}")))?;
     log(format_args!("V3 drift bounds status={} evidence={}", bounds.status, bounds.evidence_sha256));
     let mut observers: Vec<Arc<dyn CommitObserver>> = vec![Arc::new(DriftGate::new(bounds))];
+    // The guard is recomputed from the rows param-update rebuilds, for requests the scheduler allocated (its journal is the table).
+    observers.push(Arc::new(GuardGate::new(sources.clone(), Arc::new(JournalAllocations::new(allocations)))));
     // The retention check is the costliest gate, so it follows the cheap ones; like them it runs before the transaction.
     if let Some(retention) = &config.retention {
         let releases =
@@ -146,7 +156,7 @@ fn open_checkpoint(config: &V3Config) -> Result<CheckpointHandler> {
         log(format_args!("V3 publication reconciled {report:?}"));
     }
     log(format_args!("{SERVICE_NAME} V3 checkpoint store ready directory={}", config.store.display()));
-    Ok(CheckpointHandler::new(Arc::new(store)))
+    Ok(Checkpoint { store: Arc::new(store), sources })
 }
 
 async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Result<()> {
@@ -154,22 +164,14 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Resu
     let transport = tls.into_config().map_err(|error| Error(error.to_string()))?;
     let fuzzer = FuzzerRequestConfig::from_env()?;
     let scheduler_client = if fuzzer.prompt_count > 0 {
+        if config.v3.is_none() {
+            return Err(Error("Routine V3 training (FUZZER_PROMPT_COUNT > 0) requires the V3 checkpoint store (V3_STORE).".to_string()));
+        }
         let spec = scheduler::client_tls_from_lookup(&fuzzer, |key| std::env::var(key).ok())?;
         Some(GrpcFuzzer::new(fuzzer.target.clone(), spec))
     } else {
         None
     };
-    if fuzzer.prompt_count > 0 && fuzzer.train_underlying {
-        let loaded = artifact_io::load(&config.model_artifact_path).map_err(|failure| Error(failure.detail()))?;
-        if loaded.typed.model_id != config.model_id
-            || loaded.typed.metadata().get(STRATEGY_KEY).map(String::as_str) != Some(FULL_ENCODER_STRATEGY)
-        {
-            return Err(Error(
-                "Automatic dual training requires the selected full-capable Tiny artifact; run model bootstrap before readiness."
-                    .to_string(),
-            ));
-        }
-    }
     let engine = Arc::new(Engine::with_system_clock(config.engine_config()).map_err(|failure| Error(failure.detail()))?);
     let limits = Limits {
         max_message_bytes: config.max_message_bytes,
@@ -177,7 +179,8 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Resu
         ..Limits::default()
     };
     let listen = SocketAddr::new(config.bind, config.port);
-    let checkpoint = config.v3.as_ref().map(open_checkpoint).transpose()?;
+    let opened = config.v3.as_ref().map(|v3| open_checkpoint(v3, &fuzzer.state_path)).transpose()?;
+    let checkpoint = opened.as_ref().map(|opened| CheckpointHandler::new(opened.store.clone()));
     let mut handle = server::start_with_checkpoint(
         listen,
         ParamUpdateHandler::new(engine),
@@ -188,13 +191,18 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Resu
     )
     .await?;
     log(format_args!("{SERVICE_NAME} listening port={} drift_policy={:?}", handle.addr.port(), config.drift));
-    let scheduler_task = scheduler_client.map(|client| {
-        tokio::spawn(async move {
-            if let Err(error) = scheduler::run(&fuzzer, &client).await {
-                log(format_args!("training scheduler stopped: {error}"));
-            }
-        })
-    });
+    let scheduler_task = match (scheduler_client, opened, config.v3.as_ref()) {
+        (Some(client), Some(opened), Some(v3)) => {
+            let policy = std::fs::read(&fuzzer.policy_file).map_err(|error| Error(format!("V3_POLICY_FILE: {error}")))?;
+            let commitments = PinnedCommitments::new(&opened.sources, &v3.source_root, &policy)?;
+            Some(tokio::spawn(async move {
+                if let Err(error) = scheduler::run(&fuzzer, &client, opened.store.as_ref(), &commitments).await {
+                    log(format_args!("training scheduler stopped: {error}"));
+                }
+            }))
+        }
+        _ => None,
+    };
     let outcome = tokio::select! {
         result = handle.wait() => result,
         () = stop_signal() => handle.shutdown().await,

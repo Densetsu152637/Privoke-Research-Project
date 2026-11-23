@@ -222,6 +222,45 @@ fn a_candidate_whose_recomputed_guard_is_no_better_is_refused_whatever_its_evide
     assert_eq!(prepare(&better, &case, &chosen).as_deref(), Some(COMMITMENT_MISMATCH), "the schedule seed must be the derived one");
 }
 
+/// The guard gate reads the scheduler's journal (stage V3-R6): a request the journal holds passes the allocation checks, one it does
+/// not hold is `request_not_allocated`, and one whose journalled base is not the commit's is `allocation_mismatch`.
+#[test]
+fn the_guard_gate_over_the_schedulers_journal_allocates_by_request_model_base_and_scope() {
+    use privoke_param_update::journal::{AllocationRow, Journal, JournalAllocations, Stage};
+    let world = World::load();
+    let case = case(&world, &Arc::new(StaticAllocations::default()));
+    let allocation = allocation(&case);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("cycles.sqlite3");
+    let sources = pinned();
+    let gate = GuardGate::new(sources.clone(), Arc::new(JournalAllocations::new(&path))).with_scorer(Arc::new(Fixed(true)));
+    let rows = gate.rows(&allocation).unwrap();
+    let evidence = evidence_with_guard(&case, &allocation, &rows);
+    assert_eq!(prepare(&gate, &case, &evidence).as_deref(), Some(REQUEST_NOT_ALLOCATED), "an empty journal allocates nothing");
+    let mut journal = Journal::open(&path).unwrap();
+    let row = AllocationRow {
+        request_id: case.commit.request_id.clone(),
+        cycle: 0,
+        model_id: MODEL.to_string(),
+        stage: Stage::of(&allocation.scope).unwrap(),
+        attempt: 0,
+        sampler: allocation.sampler.clone(),
+        seed: u32::try_from(allocation.seed).unwrap(),
+        expected_base: allocation.expected_base.clone(),
+        source_commitment: allocation.source_commitment.clone(),
+        state: "allocated".to_string(),
+        candidate: None,
+        reason: None,
+    };
+    let other = AllocationRow { request_id: "other-request".to_string(), expected_base: "e".repeat(64), ..row.clone() };
+    journal.allocate(&other).unwrap();
+    assert_eq!(prepare(&gate, &case, &evidence).as_deref(), Some(REQUEST_NOT_ALLOCATED), "another request's row is not this request's");
+    journal.allocate(&row).unwrap();
+    assert_eq!(prepare(&gate, &case, &evidence), None, "the journalled allocation passes every check and the scorer");
+    journal.settle(&row.request_id, "accepted", Some("c"), None).unwrap();
+    assert_eq!(prepare(&gate, &case, &evidence), None, "the journal answers whatever the state of the request");
+}
+
 fn repo(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates").join(relative)
 }

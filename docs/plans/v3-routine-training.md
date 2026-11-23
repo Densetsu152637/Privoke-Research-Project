@@ -261,9 +261,12 @@ Root defaults, which the user may override:
   - G1: 3 tiers × 2 stages are journalled and restart-safe.
   - No V1 `FuzzerService` call remains in `scheduler.rs`.
   - Rust CI is green.
-- Status: pending.
-- Outcome:
-- Handoff notes: re-run the G1 test after V3-R9 lands.
+- Status: done (RUST-V3R6, 24 Nov 2026), pending merge.
+- Outcome: branch `wt/rust-v3r6`. `scheduler.rs` and `journal.rs` rewritten for V3 (no V1 `FuzzerService` call); `main.rs` installs admission, drift, guard (over the journal), retention, publisher. G1 is covered by `tests/scheduler.rs` over mutual TLS with a fake fuzzer and store table (kills at every boundary), with the real `GuardGate` over the journal in `tests/v3_guard.rs`; there is no CI test that commits real candidates for all three tiers (needs real weights), and no Docker real-weight round was run.
+- Handoff notes: V3-R6 (24 Nov 2026, wt/rust-v3r6; details in `docs/runtime/rust-workspace.md`, routine scheduler bullet):
+  - Deviation: the allocation's `source_commitment` is computed by the scheduler (`PinnedCommitments`), not journalled from the fuzzer's response, because the fuzzer commits inside the call and the guard gate reads the allocation then. The fuzzer's `routine_commitment` is compared afterwards and a difference is logged. The scheduler needs the same `V3_SOURCE_ROOT` checkout and `V3_POLICY_FILE` as the fuzzer; a mismatch makes the guard refuse (`commitment_mismatch`), never publish.
+  - The V1 scheduler and its tests, and `fuzzer/tests/scheduler_mtls.rs`, are gone; the V1 `train_underlying`/Tiny-artifact startup check too. Environment: `FUZZER_TARGET` is now the V3 fuzzer, `FUZZER_REQUEST_TIMEOUT_SECONDS` defaults to 3600 (a quality FULL fit is 25 min), the interval to 10800 s; `FUZZER_CURRICULUM_*`, `MODEL_ID` and `FUZZER_TRAIN_UNDERLYING` no longer apply. V3-R7 must set `V3_STORE` (with the guard and retention mounts), `V3_POLICY_FILE` and the scheduler's TLS files for param-update, and drop the V1 variables.
+  - A rejection (for example `retention_regressed`) settles that stage `rejected` and the round continues to the next stage; a stage left in flight (fuzzer unreachable) resumes next pass. Re-run the G1 test after any scheduler change.
 
 ## Stage V3-R9: V3 retention gate (U3)
 
