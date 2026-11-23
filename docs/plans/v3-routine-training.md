@@ -154,8 +154,8 @@ Root defaults, which the user may override:
   - An unpublished SHA, or a directory on disk that the authority does not reference, gets `INVALID_ARGUMENT`.
   - The ORIGINAL stays fetchable by pin after publication.
   - Rust CI is green.
-- Status: pending.
-- Outcome:
+- Status: done (RUST-V3R3, 23 Nov 2026).
+- Outcome: `aade7fe` (merged). Rust CI run 45149588550 green. Serves only the pin or manifests with a `publications` row, read from param-update's catalog read-only; pin-addressed fetch is `privoke-v3-<tier>@<manifest-sha>`. Root ran `go_standard_v3` with the real pinned releases in Docker: 3 passed (G4 holds with nothing published). Open: the frozen Python `v3_package.py` sends the plain id and fails closed after the first publication; historical Python runs that fetch over the wire need `@pin` (decide if needed). V3-R7 must mount the store so SQLite can keep its WAL `-shm`.
 - Handoff notes: the Go-parity claim ends at the pinned set.
   R3 (23 Nov 2026, wt/rust-v3r3; details in `docs/runtime/v3-publication.md#serving`):
   - Authority read: model-streaming opens `<V3_STORE>/catalog.sqlite` read-only on every request (`current`, `publications`); `V3_PUBLISH_ROOT` and `V3_STORE` are set together or not at all. Servable = the compiled pin, or any manifest with a publication row. The published tree only supplies bytes. The store directory needs a mount where SQLite can keep its WAL `-shm` file for a reader (V3-R7 compose: same user as param-update, or read-write on that directory only).
