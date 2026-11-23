@@ -165,6 +165,7 @@ impl StandardReleases {
             manifest_sha256: pin,
             manifest_json: raw,
             assets: Vec::new(),
+            publication_statement: Vec::new(),
         };
         let mut names: Vec<(&str, &str)> = ASSET_KEYS.to_vec();
         names.sort_unstable();

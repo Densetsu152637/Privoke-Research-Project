@@ -61,6 +61,9 @@ message ModelPackageResponse {
   string manifest_sha256 = 3;
   bytes manifest_json = 4;
   repeated ModelPackageAsset assets = 5;
+  // V3 only: the signed publication statement of a version that was trained and published (empty for a pinned ORIGINAL and for
+  // every other architecture). See docs/runtime/v3-publication.md; the format is privoke_contracts::publication.
+  bytes publication_statement = 6;
 }
 
 message ModelAssetRequest {

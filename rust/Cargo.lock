@@ -1768,6 +1768,7 @@ dependencies = [
  "base64 0.22.1",
  "privoke-proto",
  "prost",
+ "ring",
  "serde_json",
  "sha2",
  "thiserror",
