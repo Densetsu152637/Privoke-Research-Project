@@ -634,3 +634,48 @@ pub fn trusted_release(manifest_path: Option<&Path>, manifest_sha256: Option<&st
     }
     audience::load_release(manifest_path, manifest_sha256)
 }
+
+/// The domain tag of the routine guard-row selection.
+pub const ROUTINE_GUARD_DOMAIN: &str = "privoke-v3-routine-guard-v1";
+
+/// The frozen release a routine cycle selects its guard rows from.
+#[derive(Debug, Clone, Copy)]
+pub enum RoutineRelease<'a> {
+    /// BC01: the taxonomy dataset and the benign release.
+    Bc01(&'a Sources),
+    /// AU3: the trusted audience release.
+    Au3(&'a AudienceRelease),
+}
+
+/// The seed a routine cycle selects its BC01 guard rows with: the first four bytes of the SHA-256 of the domain tag, the
+/// scheduler-allocated seed and the commitment, so that neither the trainer nor the scheduler alone picks the rows.
+pub fn routine_guard_seed(seed: u64, source_commitment: &str) -> Result<u64> {
+    if source_commitment.len() != 64 || !source_commitment.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f')) {
+        return invalid("Expected a lowercase SHA-256 identity.");
+    }
+    let digest = value::sha256(format!("{ROUTINE_GUARD_DOMAIN}\n{seed}\n{source_commitment}\n").as_bytes());
+    u64::from_str_radix(&digest[..8], 16).map_err(|_| Error::Invalid("Routine guard seed is not hexadecimal.".to_string()))
+}
+
+/// `routine_guard_rows(release, seed, source_commitment)`: the 16 guard rows of a routine cycle.
+///
+/// This is the one definition of how a routine seed selects the guard from the frozen releases. The fuzzer calls it to build the
+/// fit request and param-update calls it again to recompute the guard it judges a candidate with; nothing else re-implements it.
+///
+/// * BC01: the guard of the frozen sampler at [`routine_guard_seed`]. Guard rows come from the permanent `guard` source groups
+///   whatever the seed, so they never share a group with the TRAIN rows of any seed.
+/// * AU3: the release's pinned, ordered 16 guard rows (the release fixes them; the seed and the commitment do not change them).
+///
+/// `source_commitment` must be a commitment that does not itself cover the guard rows (it would be circular); the caller names it.
+pub fn routine_guard_rows(release: RoutineRelease<'_>, seed: u64, source_commitment: &str) -> Result<Vec<Example>> {
+    // The seed is validated for both releases, though only BC01 selects with it.
+    let derived = routine_guard_seed(seed, source_commitment)?;
+    let guard = match release {
+        RoutineRelease::Bc01(sources) => benign::generate_partition(&sources.dataset, &sources.release, derived)?.1,
+        RoutineRelease::Au3(release) => release.guard.iter().map(|row| audience::example(row, None)).collect::<Result<Vec<_>>>()?,
+    };
+    if guard.len() != 16 {
+        return invalid("Routine guard must have 16 rows.");
+    }
+    Ok(guard)
+}
