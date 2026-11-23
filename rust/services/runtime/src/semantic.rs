@@ -76,6 +76,8 @@ impl std::fmt::Debug for Loaded {
 }
 
 enum Source {
+    /// A cached `<id>.snapshot.pb` of the analysis service.
+    Snapshot(PathBuf),
     Tiny(PathBuf),
     Package(PathBuf),
 }
@@ -153,6 +155,13 @@ impl SemanticLayer {
     }
 
     fn locate(&self, model_id: &str) -> Result<Source, String> {
+        // A cached snapshot comes first, in any root, as in the Python worker's shim.
+        for root in &self.roots {
+            let cached = crate::snapshot::path(root, model_id);
+            if cached.is_file() {
+                return Ok(Source::Snapshot(cached));
+            }
+        }
         for root in &self.roots {
             let package = root.join(model_id);
             if package.join("manifest.json").is_file() {
@@ -187,9 +196,10 @@ impl SemanticLayer {
         if !valid_model_id(&model_id) {
             return Err("model_id is not a valid model identifier.".to_string());
         }
-        let (bytes, path_for_package) = match self.locate(&model_id)? {
-            Source::Tiny(path) => (read(&path)?, None),
-            Source::Package(directory) => (read(&directory.join("manifest.json"))?, Some(directory)),
+        let (bytes, path_for_package, cached) = match self.locate(&model_id)? {
+            Source::Snapshot(path) => (read(&path)?, None, true),
+            Source::Tiny(path) => (read(&path)?, None, false),
+            Source::Package(directory) => (read(&directory.join("manifest.json"))?, Some(directory), false),
         };
         let key = sha256_hex(&bytes);
         if let Some((cached_key, loaded)) = self.cache.lock().unwrap_or_else(PoisonError::into_inner).get(&model_id)
@@ -197,9 +207,10 @@ impl SemanticLayer {
         {
             return Ok(Arc::clone(loaded));
         }
-        let loaded = Arc::new(match path_for_package {
-            Some(directory) => load_package(&model_id, &directory, &bytes, &key)?,
-            None => self.load_artifact(&model_id, &bytes)?,
+        let loaded = Arc::new(match (path_for_package, cached) {
+            (Some(directory), _) => load_package(&model_id, &directory, &bytes, &key)?,
+            (None, true) => self.load_value(&model_id, &crate::snapshot::decode(&model_id, &bytes)?.value)?,
+            (None, false) => self.load_artifact(&model_id, &bytes)?,
         });
         self.cache.lock().unwrap_or_else(PoisonError::into_inner).insert(model_id, (key, Arc::clone(&loaded)));
         Ok(loaded)
@@ -236,11 +247,16 @@ impl SemanticLayer {
     /// An artifact that is not a V3 package: the pretrained contextual heads, or a legacy Tiny model.
     fn load_artifact(&self, model_id: &str, bytes: &[u8]) -> Result<Loaded, String> {
         let value: Value = serde_json::from_slice(bytes).map_err(|error| format!("Could not load model artifact: {error}"))?;
+        self.load_value(model_id, &value)
+    }
+
+    /// The model of an artifact's JSON (read from a file, or rebuilt from a cached snapshot).
+    fn load_value(&self, model_id: &str, value: &Value) -> Result<Loaded, String> {
         let architecture = value.get("architecture").and_then(Value::as_str).unwrap_or_default();
         if architecture == context::ARCHITECTURE || model_id == PRETRAINED_CONTEXT_MODEL_ID {
-            return load_context(model_id, &value, self.context.as_ref());
+            return load_context(model_id, value, self.context.as_ref());
         }
-        load_tiny(model_id, &value)
+        load_tiny(model_id, value)
     }
 
     /// The semantic layer behind a presence gate (`pipeline._execute_semantic_with_presence_gate`). The semantic model

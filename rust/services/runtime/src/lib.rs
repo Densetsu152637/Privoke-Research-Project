@@ -31,6 +31,7 @@ pub mod request;
 pub mod response;
 pub mod semantic;
 pub mod service;
+pub mod snapshot;
 pub mod store;
 pub mod training;
 pub mod wire;

@@ -63,14 +63,14 @@ pub struct WorkerSettings {
 /// second pool of it and sends each call to the worker that serves it (`privoke_supervisor::routing`); the Python worker
 /// stays the answer for everything the Rust worker declines. Absent, nothing changes.
 ///
-/// The Rust worker reads plain read-only model artifacts (`<root>/<model_id>.json`), not the `<id>.snapshot.pb` files
-/// this service keeps for the Python worker, so its root is a directory the operator keeps current (the service does not
-/// write it).
+/// The Rust worker reads the `<id>.snapshot.pb` files this service keeps for the Python worker (and plain
+/// `<root>/<model_id>.json` artifacts), so by default its model root is this service's own cache and a model that a
+/// training cycle publishes reaches both pools through the one file the service replaces atomically.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RustWorkerSettings {
     /// The `privoke-runtime-worker` executable (`ANALYSIS_RUST_WORKER`).
     pub command: PathBuf,
-    /// Its read-only model root (`ANALYSIS_RUST_MODEL_ROOT`, required with the worker).
+    /// Its read-only model root (`ANALYSIS_RUST_MODEL_ROOT`); the service's own `cache_dir` unless set.
     pub model_root: PathBuf,
     /// The spaCy bundle directory, when it is not beside the executable (`ANALYSIS_RUST_BUNDLE`).
     pub bundle: Option<PathBuf>,
@@ -165,10 +165,13 @@ impl AnalysisConfig {
             }
             pins.insert(id.to_string(), checksum.to_ascii_lowercase());
         }
+        let cache_dir: PathBuf = text(&get, "ANALYSIS_CACHE_DIR", "/var/cache/privoke-models").into();
         let rust_worker = match get("ANALYSIS_RUST_WORKER").filter(|value| !value.is_empty()) {
             Some(command) => Some(RustWorkerSettings {
                 command: command.into(),
-                model_root: required(&get, "ANALYSIS_RUST_MODEL_ROOT")?.into(),
+                model_root: get("ANALYSIS_RUST_MODEL_ROOT")
+                    .filter(|value| !value.is_empty())
+                    .map_or_else(|| cache_dir.clone(), PathBuf::from),
                 bundle: get("ANALYSIS_RUST_BUNDLE").filter(|value| !value.is_empty()).map(PathBuf::from),
                 pretrained_context_dir: get("ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR").filter(|value| !value.is_empty()).map(PathBuf::from),
             }),
@@ -198,7 +201,7 @@ impl AnalysisConfig {
                 client_key: required(&get, "ANALYSIS_MODEL_CLIENT_KEY")?.into(),
                 server_name,
             },
-            cache_dir: text(&get, "ANALYSIS_CACHE_DIR", "/var/cache/privoke-models").into(),
+            cache_dir,
             default_model_id,
             warm_models,
             model_ttl: Duration::from_millis(number(&get, "ANALYSIS_MODEL_TTL_MS", 1000)?),
@@ -321,16 +324,21 @@ mod tests {
     }
 
     #[test]
-    fn the_rust_worker_is_off_by_default_and_needs_its_model_root() {
+    fn the_rust_worker_is_off_by_default_and_reads_the_services_cache_unless_told_otherwise() {
         assert_eq!(load(&base()).unwrap().rust_worker, None);
 
         let mut values = base();
         values.insert("ANALYSIS_RUST_WORKER", "/opt/privoke/privoke-runtime-worker".to_string());
-        assert!(load(&values).is_err(), "the worker without a model root");
-        values.insert("ANALYSIS_RUST_MODEL_ROOT", "/models".to_string());
-        let rust = load(&values).unwrap().rust_worker.unwrap();
+        let config = load(&values).unwrap();
+        let rust = config.rust_worker.unwrap();
         assert_eq!(rust.command, PathBuf::from("/opt/privoke/privoke-runtime-worker"));
-        assert_eq!((rust.model_root, rust.bundle, rust.pretrained_context_dir), (PathBuf::from("/models"), None, None));
+        assert_eq!(rust.model_root, config.cache_dir, "the service's own store by default");
+        assert_eq!((rust.bundle, rust.pretrained_context_dir), (None, None));
+
+        values.insert("ANALYSIS_CACHE_DIR", "/cache".to_string());
+        assert_eq!(load(&values).unwrap().rust_worker.unwrap().model_root, PathBuf::from("/cache"));
+        values.insert("ANALYSIS_RUST_MODEL_ROOT", "/models".to_string());
+        assert_eq!(load(&values).unwrap().rust_worker.unwrap().model_root, PathBuf::from("/models"));
 
         for key in ["ANALYSIS_RUST_MODEL_ROOT", "ANALYSIS_RUST_BUNDLE", "ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR"] {
             let mut orphan = base();

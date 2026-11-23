@@ -31,6 +31,8 @@ sha2 = { workspace = true }
 bytes = "1"
 
 [dev-dependencies]
+# The worker's own reader of the cache, to compare it with the artifact file the cache was fetched from.
+privoke-runtime = { path = "../runtime" }
 privoke-pki = { path = "../../tools/privoke-pki" }
 privoke-model-streaming = { path = "../model-streaming" }
 tempfile = { workspace = true }

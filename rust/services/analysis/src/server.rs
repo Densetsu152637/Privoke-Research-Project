@@ -102,8 +102,10 @@ fn apply_limits(pool: &mut PoolConfig, worker: &WorkerSettings) {
 
 /// The pool configuration for the Rust analysis worker (`privoke-runtime-worker`), under the same sandbox, limits and
 /// deadlines as the Python worker. It serves the semantic layer, presence and the gradient RPCs from its read-only model
-/// root; regex and NER are never exercised by this service, so they are not warmed, and no model is warmed (the root is
-/// the operator's, so a missing model is that request's error, not the service's start-up failure).
+/// root, which is by default this service's own cache (the `<id>.snapshot.pb` files it replaces atomically). Regex and
+/// NER are never exercised by this service, so they are not warmed. The start-up models are warmed only when the root is
+/// the cache, which `start` has filled by then; another root is the operator's, and a model missing there is that
+/// request's error rather than a start-up failure.
 pub fn rust_pool_config(config: &AnalysisConfig, rust: &RustWorkerSettings) -> PoolConfig {
     let mut pool = PoolConfig::new(&rust.command);
     pool.name = "analysis-rust".into();
@@ -115,6 +117,11 @@ pub fn rust_pool_config(config: &AnalysisConfig, rust: &RustWorkerSettings) -> P
         "--warm-layers".into(),
         OsString::new(),
     ];
+    if rust.model_root == config.cache_dir {
+        for model in &config.warm_models {
+            args.extend(["--warm-semantic-model".into(), model.into()]);
+        }
+    }
     if let Some(bundle) = &rust.bundle {
         args.extend(["--bundle".into(), bundle.clone().into()]);
     }
