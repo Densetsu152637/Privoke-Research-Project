@@ -24,6 +24,12 @@
  "forged": [
   {
    "manifest": "heads",
+   "name": "malleable-signature",
+   "statement": "{\"key_id\":\"test-publication-1\",\"manifest_sha\":\"03b599639e39f199bed605ade4abb24f2070eac658daeeb099827c1f831c9e69\",\"model_id\":\"privoke-v3-efficient\",\"original\":\"20ee0299bba0cdf295ab5ffc690377dc5f72a3cee9416f3bf80c52a69c24d95d\",\"parent\":\"20ee0299bba0cdf295ab5ffc690377dc5f72a3cee9416f3bf80c52a69c24d95d\",\"sequence\":1,\"signature\":\"b4468eba86a405f77c42b8d2df6efdcef75ff8e5ce4f51a6816c1ef0844028ead0bd01dd7cbfcc458b938146aa24112f23ab9bc347fc76a63289755f73c9821d\",\"tag\":\"privoke-v3-publication-v1\"}\n",
+   "verify": "bad_signature"
+  },
+  {
+   "manifest": "heads",
    "name": "bad-signature",
    "statement": "{\"key_id\":\"test-publication-1\",\"manifest_sha\":\"03b599639e39f199bed605ade4abb24f2070eac658daeeb099827c1f831c9e69\",\"model_id\":\"privoke-v3-efficient\",\"original\":\"20ee0299bba0cdf295ab5ffc690377dc5f72a3cee9416f3bf80c52a69c24d95d\",\"parent\":\"20ee0299bba0cdf295ab5ffc690377dc5f72a3cee9416f3bf80c52a69c24d95d\",\"sequence\":1,\"signature\":\"04468eba86a405f77c42b8d2df6efdcef75ff8e5ce4f51a6816c1ef0844028eae3e90b80625cbaedb4f689a3cb2a321a23ab9bc347fc76a63289755f73c9820d\",\"tag\":\"privoke-v3-publication-v1\"}\n",
    "verify": "bad_signature"

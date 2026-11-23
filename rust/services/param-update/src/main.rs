@@ -116,18 +116,20 @@ fn open_checkpoint(config: &V3Config) -> Result<CheckpointHandler> {
     let mut store =
         CheckpointStore::open(&config.store, Arc::new(sources)).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
     let mut publisher = None;
+    // Every commit is bounded, published or not.
+    let bounds = DriftBounds::load(&config.drift_bounds).map_err(|error| Error(format!("V3 drift bounds: {error}")))?;
+    log(format_args!("V3 drift bounds status={} evidence={}", bounds.status, bounds.evidence_sha256));
+    let mut observers: Vec<Arc<dyn CommitObserver>> = vec![Arc::new(DriftGate::new(bounds))];
     if let Some(publication) = &config.publication {
-        let bounds = DriftBounds::load(&publication.drift_bounds).map_err(|error| Error(format!("V3 drift bounds: {error}")))?;
-        log(format_args!("V3 drift bounds status={} evidence={}", bounds.status, bounds.evidence_sha256));
         let seed = read_seed(&publication.key_file)?;
         let signer = Arc::new(
             Publisher::new(&publication.root, &publication.key_id, seed, no_crash())
                 .map_err(|error| Error(format!("V3 publisher: {error}")))?,
         );
-        let observers: Vec<Arc<dyn CommitObserver>> = vec![Arc::new(DriftGate::new(bounds)), signer.clone()];
-        store = store.with_observer(Arc::new(ChainObserver::new(observers)));
+        observers.push(signer.clone());
         publisher = Some(signer);
     }
+    store = store.with_observer(Arc::new(ChainObserver::new(observers)));
     for initial in &config.initial {
         store.bootstrap(initial).map_err(|error| Error(format!("V3 checkpoint bootstrap of {}: {error}", initial.display())))?;
     }

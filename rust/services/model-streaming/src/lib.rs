@@ -8,6 +8,9 @@
 //! Modules mirror the Go files: [`artifact`] (artifact.go), [`contextual`], [`presence`], [`scratch`], [`pretrained`]
 //! (the per-architecture validators), [`catalog`] (catalog.go), [`releases`] (standard_v3.go), [`service`] and
 //! [`response`] (streaming_server.go), [`config`] (config.go), [`healthcheck`] (health.go) and [`server`] (main.go).
+//!
+//! [`published`] has no Go counterpart: it serves the trained V3 versions that param-update publishes (stage V3-R3 of the
+//! routine-training plan), next to the pinned standard releases.
 
 pub mod artifact;
 pub mod catalog;
@@ -18,6 +21,7 @@ pub mod healthcheck;
 pub mod jsonx;
 pub mod presence;
 pub mod pretrained;
+pub mod published;
 pub mod releases;
 pub mod response;
 pub mod scratch;

@@ -9,6 +9,7 @@ use clap::{Parser, Subcommand};
 use privoke_model_streaming::catalog::Catalog;
 use privoke_model_streaming::config::ServiceConfig;
 use privoke_model_streaming::healthcheck::{self, HealthcheckArgs};
+use privoke_model_streaming::published::Published;
 use privoke_model_streaming::releases::{StandardReleases, is_standard_v3};
 use privoke_model_streaming::server::{self, Listen};
 use privoke_model_streaming::service::ModelService;
@@ -71,6 +72,14 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> priv
         catalog.releases = Some(
             StandardReleases::open(&config.release_dir)
                 .map_err(|error| privoke_model_streaming::Error(format!("load standard V3 packages: {error}")))?,
+        );
+    }
+    if let (Some(root), Some(store)) = (&config.publish_root, &config.v3_store) {
+        if catalog.releases.is_none() {
+            return Err(privoke_model_streaming::Error("published V3 versions need the standard V3 release store".into()));
+        }
+        catalog.published = Some(
+            Published::open(root, store).map_err(|error| privoke_model_streaming::Error(format!("open published V3 versions: {error}")))?,
         );
     }
     let model_ids = catalog.model_ids();
