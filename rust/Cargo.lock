@@ -1855,6 +1855,7 @@ dependencies = [
  "privoke-model-streaming",
  "privoke-pki",
  "privoke-semantic",
+ "privoke-training",
  "privoke-transport",
  "prost",
  "rusqlite",

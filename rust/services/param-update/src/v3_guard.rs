@@ -168,7 +168,16 @@ pub struct V3Scorer;
 pub const SCRATCH_PREFIX: &str = "guard-";
 
 /// A scratch directory under the store that is removed when it goes out of scope.
-struct Scratch(std::path::PathBuf);
+pub(crate) struct Scratch(pub(crate) std::path::PathBuf);
+
+impl Scratch {
+    /// A fresh scratch directory under the store (swept when a store is opened, should a crash leave it behind).
+    pub(crate) fn create(store: &CheckpointStore) -> Result<Self, StoreError> {
+        let scratch = Self(store.directory().join(format!("{SCRATCH_PREFIX}{}", uuid::Uuid::new_v4().simple())));
+        std::fs::create_dir_all(&scratch.0)?;
+        Ok(scratch)
+    }
+}
 
 impl Drop for Scratch {
     fn drop(&mut self) {
@@ -187,8 +196,7 @@ pub fn score_blobs(
     candidate_blob: &str,
     rows: &[Example],
 ) -> Result<(Assessment, Assessment), StoreError> {
-    let scratch = Scratch(store.directory().join(format!("{SCRATCH_PREFIX}{}", uuid::Uuid::new_v4().simple())));
-    std::fs::create_dir_all(&scratch.0)?;
+    let scratch = Scratch::create(store)?;
     let (config_file, vocab_file, checkpoint) =
         (scratch.0.join("config.json"), scratch.0.join("vocab.txt"), scratch.0.join("base.safetensors"));
     std::fs::write(&config_file, store.read(config)?)?;

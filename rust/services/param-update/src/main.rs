@@ -20,6 +20,7 @@ use privoke_param_update::service::ParamUpdateHandler;
 use privoke_param_update::util::log;
 use privoke_param_update::v3_policy::{DriftBounds, DriftGate};
 use privoke_param_update::v3_publish::{Publisher, no_crash};
+use privoke_param_update::v3_retention::{RetentionGate, RetentionReleases};
 use privoke_param_update::v3_store::{ChainObserver, CheckpointHandler, CheckpointStore, CommitObserver, PinnedSources};
 use privoke_param_update::{Error, Result, SERVICE_NAME};
 use privoke_transport::startup::CloudTlsArgs;
@@ -120,6 +121,13 @@ fn open_checkpoint(config: &V3Config) -> Result<CheckpointHandler> {
     let bounds = DriftBounds::load(&config.drift_bounds).map_err(|error| Error(format!("V3 drift bounds: {error}")))?;
     log(format_args!("V3 drift bounds status={} evidence={}", bounds.status, bounds.evidence_sha256));
     let mut observers: Vec<Arc<dyn CommitObserver>> = vec![Arc::new(DriftGate::new(bounds))];
+    // The retention check is the costliest gate, so it follows the cheap ones; like them it runs before the transaction.
+    if let Some(retention) = &config.retention {
+        let releases =
+            RetentionReleases::load(&retention.root, &retention.bank).map_err(|error| Error(format!("V3 retention: {error}")))?;
+        log(format_args!("V3 retention gate on root={}", retention.root.display()));
+        observers.push(Arc::new(RetentionGate::new(releases)));
+    }
     if let Some(publication) = &config.publication {
         let seed = read_seed(&publication.key_file)?;
         let signer = Arc::new(
