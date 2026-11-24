@@ -1,0 +1,635 @@
+[
+  {
+    "id": "C1a",
+    "attack_class": 1,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C1b",
+    "attack_class": 1,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "needs two distinct genuine candidates on one base, and the real leg builds only one"
+  },
+  {
+    "id": "C1c",
+    "attack_class": 1,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C1d",
+    "attack_class": 1,
+    "expected": "rejected_unchanged",
+    "chain": "no_publisher",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "needs a deployment without the Publisher, and the container leg runs the main.rs chain with publication configured"
+  },
+  {
+    "id": "C2a",
+    "attack_class": 2,
+    "expected": "noop_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C2b",
+    "attack_class": 2,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C2c",
+    "attack_class": 2,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  },
+  {
+    "id": "C2d",
+    "attack_class": 2,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  },
+  {
+    "id": "C3a",
+    "attack_class": 3,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C3b",
+    "attack_class": 3,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C4a",
+    "attack_class": 4,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C4b",
+    "attack_class": 4,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C4c",
+    "attack_class": 4,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C4d",
+    "attack_class": 4,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C4e",
+    "attack_class": 4,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C4f",
+    "attack_class": 4,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  },
+  {
+    "id": "C5a",
+    "attack_class": 5,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C5b",
+    "attack_class": 5,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C6a",
+    "attack_class": 6,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C6b",
+    "attack_class": 6,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C7a",
+    "attack_class": 7,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C7b",
+    "attack_class": 7,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C7c",
+    "attack_class": 7,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C8a",
+    "attack_class": 8,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C8b",
+    "attack_class": 8,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C8c",
+    "attack_class": 8,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C8d",
+    "attack_class": 8,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C9a",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C9b",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C9c",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C9d",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C9e",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "store",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "at-rest corruption of a store blob before commit; there is no wire path to inject it, so it runs on the store in CI only"
+  },
+  {
+    "id": "C9f-serve",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "model-streaming",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "at-rest corruption of a published asset before serving; it runs against the in-process model-streaming read in CI only"
+  },
+  {
+    "id": "C9f-client",
+    "attack_class": 9,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  },
+  {
+    "id": "C10a",
+    "attack_class": 10,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "store",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "crash-point injection into the publication phases of the store; it has no wire path and runs in CI only"
+  },
+  {
+    "id": "C10b",
+    "attack_class": 10,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "store",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "crash-point injection into the publication phases of the store; it has no wire path and runs in CI only"
+  },
+  {
+    "id": "C10c",
+    "attack_class": 10,
+    "expected": "applied_recovered",
+    "chain": "main",
+    "surface": "store",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "crash-point injection into the publication phases of the store; it has no wire path and runs in CI only"
+  },
+  {
+    "id": "C10d",
+    "attack_class": 10,
+    "expected": "applied_recovered",
+    "chain": "main",
+    "surface": "store",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "crash-point injection into the publication phases of the store; it has no wire path and runs in CI only"
+  },
+  {
+    "id": "C10e",
+    "attack_class": 10,
+    "expected": "applied_recovered",
+    "chain": "main",
+    "surface": "store",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "crash-point injection into the publication phases of the store; it has no wire path and runs in CI only"
+  },
+  {
+    "id": "C11a",
+    "attack_class": 11,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C11b",
+    "attack_class": 11,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C11c",
+    "attack_class": 11,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C11d",
+    "attack_class": 11,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C11e",
+    "attack_class": 11,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C11f",
+    "attack_class": 11,
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "C11g",
+    "attack_class": 11,
+    "expected": "accepted_by_design",
+    "chain": "main",
+    "surface": "param-update",
+    "wire_path": true,
+    "legs": [
+      "ci",
+      "container"
+    ],
+    "ci_only_reason": ""
+  },
+  {
+    "id": "CS1",
+    "attack_class": "S",
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "model-streaming",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "a planted version directory with no authority row, read in process through model-streaming; it runs in CI only"
+  },
+  {
+    "id": "CS2",
+    "attack_class": "S",
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  },
+  {
+    "id": "CS3",
+    "attack_class": "S",
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  },
+  {
+    "id": "CS4",
+    "attack_class": "S",
+    "expected": "rejected_unchanged",
+    "chain": "main",
+    "surface": "client",
+    "wire_path": false,
+    "legs": [
+      "ci"
+    ],
+    "ci_only_reason": "client-side admission check with no service wire path; it runs in s13c_client_admission only"
+  }
+]
