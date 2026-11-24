@@ -41,7 +41,7 @@ class Fixture(unittest.TestCase):
                      ["config", "user.email", "fixture@example.invalid"],
                      ["config", "core.autocrlf", "false"], ["config", "commit.gpgsign", "false"]):
             self.git(*args)
-        self.write({"README.md": "fixture\n"})
+        self.write({"README.md": "fixture\n", ".gitignore": "evaluation/results/\n"})
         self.base = self.commit("base")
 
     def git(self, *args):
@@ -261,12 +261,10 @@ class AllowlistTests(Fixture):
 
     def test_pin_is_read_from_range_tip_not_base(self):
         d = self.local_dir()
-        body = f"x\n{PROMPT}\n"
-        self.commit("file first", {BRIEF: body})
+        self.commit("file first", {BRIEF: "old brief\n"})
         base = self.git("rev-parse", "HEAD")
-        self.commit("pin later", {ALLOWLIST: json.dumps({BRIEF: sha(body)}), "docs/touch.md": "t\n"})
-        # BRIEF is unchanged in the range so it is not scanned; touch it to scan it.
-        self.commit("touch", {BRIEF: body})
+        new = f"new brief\n{PROMPT}\n"
+        self.commit("change and pin", {BRIEF: new, ALLOWLIST: json.dumps({BRIEF: sha(new)})})
         rc, rep, _ = self.run_check("--local-inputs", d, base=base)
         self.assertEqual((rc, rep["violations"]), (0, []))
 
@@ -314,6 +312,117 @@ class AllowlistTests(Fixture):
         proc = subprocess.run([sys.executable, SCRIPT, "--repo", self.repo, "--range", "nope..HEAD"],
                               capture_output=True, text=True, env=env)
         self.assertEqual(proc.returncode, 2)
+
+
+ACCENTED = ("the café committee reviewed naïve résumé drafts "
+            "before the quarterly lantern festival")
+
+
+class HardeningTests(Fixture):
+    def expect(self, rc, rules, *extra, base=None, root=None):
+        got_rc, rep, _ = self.run_check(*extra, base=base, root=root)
+        self.assertEqual((got_rc, self.rules(rep)), (rc, rules))
+
+    def test_utf16_markdown_fails(self):
+        d = self.local_dir()
+        self.commit("u16", {"docs/u.md": ("intro\n" + PROMPT + "\n").encode("utf-16")})
+        self.expect(1, [("docs/u.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_modified_utf16_markdown_fails(self):
+        d = self.local_dir()
+        self.commit("u16", {"docs/u.md": "intro\n".encode("utf-16")})
+        base = self.git("rev-parse", "HEAD")
+        self.commit("u16b", {"docs/u.md": ("intro\n" + PROMPT + "\n").encode("utf-16")})
+        self.expect(1, [("docs/u.md", "prompt_8gram")], "--local-inputs", d, base=base)
+
+    def test_trailing_nul_fails(self):
+        d = self.local_dir()
+        self.commit("nul", {"docs/n.md": (PROMPT + "\n").encode() + bytes([0])})
+        self.expect(1, [("docs/n.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_key_marker_with_nul_fails(self):
+        marker = "-----BEGIN " + "OPENSSH PRIVATE KEY-----"
+        self.commit("k", {"k/a.txt": marker.encode() + bytes([0, 1]) + b"\n"})
+        self.expect(1, [("k/a.txt", "key_pattern")])
+
+    def test_diff_attribute_cannot_hide_hunks(self):
+        d = self.local_dir()
+        self.commit("attr", {".gitattributes": "*.md -diff\n", "docs/h.md": "plain\n"})
+        base = self.git("rev-parse", "HEAD")
+        self.commit("edit", {"docs/h.md": "plain\n" + PROMPT + "\n"})
+        self.expect(1, [("docs/h.md", "prompt_8gram")], "--local-inputs", d, base=base)
+
+    def test_utf16_local_input_contributes(self):
+        d = os.path.join(self.tmp, "inputs16", "s13a")
+        os.makedirs(d)
+        with open(os.path.join(d, "items.jsonl"), "wb") as fh:
+            fh.write((json.dumps({"c": PROMPT}) + "\n").encode("utf-16"))
+        self.commit("c", {"docs/c.md": PROMPT + "\n"})
+        self.expect(1, [("docs/c.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_json_unicode_escapes_caught(self):
+        d = self.local_dir(prompt=ACCENTED)
+        text = json.dumps({"id": 1, "label": ACCENTED})  # ensure_ascii writes é
+        self.assertIn("\\u00e9", text)
+        self.commit("rec", {"rec.json": text})
+        self.expect(1, [("rec.json", "prompt_8gram")], "--local-inputs", d)
+
+    def test_nfd_prompt_caught(self):
+        import unicodedata
+        d = self.local_dir(prompt=ACCENTED)
+        self.commit("nfd", {"docs/n.md": unicodedata.normalize("NFD", ACCENTED) + "\n"})
+        self.expect(1, [("docs/n.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_html_entity_prompt_caught(self):
+        d = self.local_dir()
+        self.commit("nb", {"docs/e.md": PROMPT.replace(" ", "&nbsp;") + "\n"})
+        self.expect(1, [("docs/e.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_bom_pretty_json_text_field(self):
+        body = b"\xef\xbb\xbf" + json.dumps({"rows": [{"id": 1, "text": "x"}]}, indent=2).encode()
+        self.commit("j", {"d/b.json": body})
+        self.expect(1, [("d/b.json", "forbidden_field")])
+
+    def test_invalid_json_fallback_field(self):
+        self.commit("j", {"d/bad.json": '{"id": 1, "text" : "x",\n'})
+        self.expect(1, [("d/bad.json", "forbidden_field")])
+
+    def test_bom_csv_and_semicolon_header(self):
+        self.commit("c1", {"d/a.csv": b"\xef\xbb\xbftext,id\n1,a\n", "d/b.csv": "text;id\n1;a\n"})
+        self.expect(1, [("d/a.csv", "forbidden_field"), ("d/b.csv", "forbidden_field")])
+
+    def test_output_dirs_not_ignored(self):
+        self.commit("rm", {".gitignore": "other/\n"})
+        rc, rep, _ = self.run_check()
+        self.assertEqual(rc, 1)
+        self.assertEqual({v["rule"] for v in rep["violations"]}, {"output_not_ignored"})
+        self.assertEqual(len(rep["violations"]), 7)
+
+    def test_empty_input_dir_with_require_exits_2(self):
+        root = os.path.join(self.tmp, "root")
+        os.makedirs(os.path.join(root, "s13a"))
+        self.commit("c", {"docs/c.md": "x\n"})
+        rc, rep, _ = self.run_check("--require-local-inputs", root=root)
+        self.assertEqual((rc, rep["local_inputs"], rep["local_grams"]), (2, 1, 0))
+
+    def test_prompt_added_then_removed_in_range(self):
+        d = self.local_dir()
+        self.commit("add", {"docs/tmp.md": PROMPT + "\n"})
+        self.git("rm", "-q", "docs/tmp.md")
+        self.git("commit", "-q", "-m", "remove")
+        self.expect(1, [("docs/tmp.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_glob_star_does_not_cross_slash(self):
+        path = "docs/research/sub/annotation-guideline-v2-1.md"
+        self.commit("p", {path: "g\n", ALLOWLIST: json.dumps({path: sha("g\n")})})
+        self.expect(1, [(path, "pin_scope")], "--stage", "13a-1")
+
+    def test_triple_dot_range(self):
+        self.commit("c", {"d/t.json": json.dumps({"text": 1})})
+        env = dict(os.environ, S13_LOCAL_INPUTS_ROOT=self.empty_root)
+        proc = subprocess.run([sys.executable, SCRIPT, "--repo", self.repo, "--range",
+                               f"{self.base}...HEAD"], capture_output=True, text=True, env=env)
+        self.assertEqual(proc.returncode, 1)
 
 
 if __name__ == "__main__":
