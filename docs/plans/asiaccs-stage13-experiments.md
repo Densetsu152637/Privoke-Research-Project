@@ -1,86 +1,118 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 (planning only; base `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`; Rust facts read from `origin/feat/rust-rewrite` at `4d838fd`)
+Revision: 2026-11-24 r2. This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
-This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement: the questions, the methods, the priority order 13a > 13b > 13c > 13d > 13e > 13f, the Threat → Defense → Experiment → Metric → Evidence chain and the no-padding rule. This document says how to carry it out. Nothing here changes code, starts a service or runs an experiment.
+This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
+
+- the question and method of each sub-stage;
+- the priority order 13a > 13b > 13c > 13d > 13e > 13f;
+- the chain Threat → Defense → Experiment → Metric → Evidence;
+- the rule that no experiment is added only to increase the result count.
+
+This document says how to carry the requirement out. Writing it changed no code, started no service and ran no experiment.
 
 ## Goals
 
-Each goal is boolean. Commands run from the repository root of the worktree that owns the stage. `PY` is `evaluation/.venv/Scripts/python.exe`. `PYNP` is `evaluation/.venv-fuzzer-study/Scripts/python.exe` (it has NumPy). `RUSTDOCK` is the Docker parity pattern: `MSYS_NO_PATHCONV=1 docker run --rm --cpus=8 -e CARGO_TARGET_DIR=target-docker -v <wt>:/work -w /work/rust rust:1.99.1-bookworm`.
+Each goal is boolean. Commands run from the repository root of the worktree that owns the stage.
 
-- **S13-G1 (13a). A human-annotated, independent test set has been scored.**
-  - `paper/research/human-annotated-eval-<date>.json` exists.
-  - `$PY evaluation/annotation/human_eval_report.py --check paper/research/human-annotated-eval-<date>.json` exits 0. It re-derives every kappa and every score from the committed label files and the record.
-  - The record names the set hash, which was committed before annotation began. Its commit precedes the commit of the first label file: `git log --format=%H -- <file>` gives the order.
-  - The record says how many people annotated, and states that no agent produced a label.
-- **S13-G2 (13b). End-to-end evasion is recorded.**
+**Interpreters and tools.** The Python environments are Git-ignored and exist only in the main checkout. Every stage uses them by absolute path:
+
+| Name | Path or command | Used for |
+| --- | --- | --- |
+| `PY` | `"D:/Git Repositories/Privoke-Research-Project/evaluation/.venv/Scripts/python.exe"` | Harnesses, reports and tests |
+| `PYNP` | `"D:/Git Repositories/Privoke-Research-Project/evaluation/.venv-fuzzer-study/Scripts/python.exe"` | Anything that needs NumPy |
+| `PYPIPE` | `"D:/Git Repositories/Privoke-Research-Project/evaluation/.venv-v1-v3-pipeline/Scripts/python.exe"` | The in-process product client of `score_privoke.py`, `layer_ablation.py` and the 13b detector-level arm, as Stage 3 used it |
+| `RUSTDOCK` | `MSYS_NO_PATHCONV=1 docker run --rm --cpus=8 -e CARGO_TARGET_DIR=target-docker -v <wt>:/work -w /work/rust rust:1.99.1-bookworm` | Rust tests |
+
+**Host protobuf clients.** Every worktree that runs a Python gRPC client generates the clients once with `$PY evaluation/setup-host.py`. The script already compiles `privoke/v1/{parameters,runtime,telemetry}.proto` and `privoke/experimental/v3.proto`. 13d needs the `experimental/v3.proto` clients for `CheckpointService`. 13a, 13b and 13e pass `--generated <extension/client-runtime/generated>`, as Stage 3 did.
+
+- **S13-G1 (13a): a human-annotated, independent test set is scored.** One of two outcomes holds.
+  - **(a) Run:**
+    - `paper/research/human-annotated-eval-<date>.json` exists.
+    - `$PY evaluation/annotation/human_eval_report.py --check paper/research/human-annotated-eval-<date>.json` exits 0. The script re-derives every kappa and every score from the committed label files.
+    - `$PY evaluation/annotation/check_order.py` exits 0. It checks that the set-manifest commit and the packet-manifest commit, which records the blank-sheet hashes, are ancestors of the first label commit. The label commit must also be an ancestor of the record commit.
+    - The record states how many people annotated, and that no agent produced a label.
+  - **(b) "13a not run":** `paper/main.tex` contains the 13a limitation paragraph, and the packet is listed in the artifact. See [13-P](#stage-13-p-paper-integration-and-stage-9-repeat).
+- **S13-G2 (13b): end-to-end evasion is recorded.**
   - `paper/research/e2e-evasion-<date>.json` exists.
-  - `$PY evaluation/e2e_evasion_report.py --check <json>` exits 0.
-  - The record reports conditional and unconditional end-to-end ASR with Wilson intervals, per transform family. Next to each, it gives the detector-level ASR on the same variants.
-  - Every browser is either run or listed as not run, with its reason.
-  - The record contains no traffic to a real provider, or names the user approval that allowed it.
-- **S13-G3 (13c). Every listed update attack has an observed outcome on the real V3 path.**
+  - `$PY evaluation/e2e_evasion_report.py --check <json>` exits 0. The script re-derives the conditional and unconditional end-to-end ASR and the detector-level ASR on the same applicable pairs.
+  - Every browser is either run or listed with a reason.
+  - `live_provider_runs` is empty, or names the user's approval.
+- **S13-G3 (13c): every listed update attack has an observed outcome on the real V3 path.**
   - `paper/research/v3-update-attacks-<date>.json` has at least one row for each of the 11 attack classes in [13c](#stage-13c-active-attacks-on-the-v3-guarded-update-path).
+  - Every attack class with a wire path has at least one `leg:"container"` row. The container leg runs against the real param-update and model-streaming containers, and its rows include an observation of the version that model-streaming serves. Classes without a wire path (crash points, at-rest corruption) carry a `not_run` reason for the container leg.
   - Each row names its rejecting check and records the active model before and after.
   - `$PY evaluation/v3_update_attacks_report.py --check <json>` exits 0.
   - `RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks` exits 0.
-- **S13-G4 (13d). Every listed authentication attack has an observed denial outcome and a denying layer.**
+  - `RUSTDOCK cargo test -p privoke-runtime-supervisor --release --locked --test s13c_client_admission` exits 0.
+- **S13-G4 (13d): every listed authentication attack has a denial outcome and a denying layer.**
   - `paper/research/authn-authz-<date>.json` exists.
   - `$PY evaluation/update_security_report.py --record <json> --document <md>` reproduces the generated tables.
+  - `$PY evaluation/update_security_report.py --record <json> --check-s13d-coverage` exits 0.
   - `$PY -m unittest discover -s evaluation/tests -p "test_update_security*.py"` passes.
-  - No V3 row is `not_run` unless the record gives a reason.
-- **S13-G5 (13e, if time allows). Seven configurations are scored with layers asserted.**
-  - `paper/research/layer-ablation-<date>.json` has 7 configurations.
-  - Each configuration has `layers_requested` non-empty, and `layers_executed` matches the expected set.
-  - `$PY evaluation/layer_ablation_report.py --check <json>` exits 0.
-- **S13-G6 (13f, if time allows). Overhead and breadth are recorded or stated as limits.**
-  - Either `paper/research/e2e-overhead-<date>.json` exists with 5 arms and p50, p95 and p99 per arm, and `$PY evaluation/e2e_overhead_report.py --check <json>` exits 0;
-  - or `paper/main.tex` contains the single-platform or single-interface limitation paragraph that Stage 13-P names.
-- **S13-G7. The paper integrates the results, and Stage 9 has been repeated.**
-  - `paper/scripts/check_pages.py` prints PASS.
+- **S13-G5 (13e, if time allows): seven layer configurations are scored with the executed layers asserted.**
+  - `$PY evaluation/layer_ablation_report.py --check paper/research/layer-ablation-<date>.json` exits 0.
+  - The check fails if any configuration has an empty `layers_requested`, or if its executed layers differ from the expected set.
+- **S13-G6 (13f, if time allows): overhead is recorded, or the limit is stated.** One of two holds.
+  - `$PY evaluation/e2e_overhead_report.py --check paper/research/e2e-overhead-<date>.json` exits 0, with 5 arms and p50, p95 and p99 for each arm.
+  - Or `paper/main.tex` contains the single-platform or single-interface limitation paragraph that 13-P names.
+- **S13-G7: the paper integrates the results and Stage 9 is repeated.**
+  - `$PY paper/scripts/check_pages.py` prints PASS.
   - `$PY paper/scripts/check_anonymity.py` reports 0 matches.
   - The G1–G5, G12, G13 and G14 checks of the [ASIACCS plan](asiaccs-2027-revision.md#goals) hold.
-  - Every new row in the security-goals and attack/defense tables cites a Stage 13 record.
-- **S13-G8. No forbidden material is committed.**
-  - `git diff --name-only <stage-base>..HEAD` lists no file that holds study prompt text, weights or private keys.
-  - `git grep -nE "BEGIN (EC |RSA |)PRIVATE KEY"` is empty.
-  - Every prompt-bearing output lives under a Git-ignored path (`evaluation/results/s13*/`; `git check-ignore` confirms each one).
+  - Every new row of `tab:security_goals` and `tab:threat_defense` cites a Stage 13 record.
+- **S13-G8: no forbidden material is committed.** `$PY evaluation/check_s13_commit_hygiene.py --base <stage-base>` exits 0. Over `git diff --name-only <stage-base>..HEAD`, the script checks all of the following:
+  - No committed JSON or CSV has a `text`, `prompt`, `body` or `notes` field or column.
+  - No committed file contains any 8-gram of a prompt from the local `evaluation/results/s13*/` inputs. The scan runs over the local files and reports counts only.
+  - No `*.safetensors`, `*.onnx`, `*.bin`, `*.pt` or `*.pth` file is added.
+  - No line matches the key patterns:
+    - `BEGIN (EC |RSA |OPENSSH |ENCRYPTED |)PRIVATE KEY`;
+    - a 64-hex token on a line that names `seed`, `secret` or `private`. A 64-hex Ed25519 seed has the same format as a sha256 digest, so the line context decides.
+  - Every prompt-bearing output path passes `git check-ignore`.
 
 ## Scope and non-goals
 
-- **Scope:** the six sub-stages 13a–13f, the 13a prerequisite (the `fresh_eval-folio-NN` partition leak), paper integration and the repeat of Stage 9.
-- **No padding.** No experiment, arm or row is added unless it answers its sub-stage's question. A 13c signature or lineage row is included only when it shows whether an attack can change the model that clients actually run.
-- **Agents never annotate.** No agent writes prompts for 13a or labels them; no agent adjudicates and no agent synthesizes labels. Agents build the packet, run the scripts and score the results.
+- **Scope:** the six sub-stages 13a–13f, the 13a prerequisite (the `fresh_eval-folio-NN` partition leak), paper integration and the Stage 9 repeat.
+- **No padding.** An experiment, arm or row is added only if it answers its sub-stage's question. A 13c signature or lineage row is included only when it shows whether an attack can change the model that clients run.
+- **Agents never annotate.**
+  - Agents never write 13a prompts, never label, never adjudicate and never synthesize labels. They never write labelled worked examples.
+  - Agents read the completed sheets only through `compute_iaa.py` and the adjudication export. They never open the sheets themselves.
+  - Agents run PriVoke on no 13a item before the freeze commit.
 - **No real provider traffic** without the user's explicit approval for that run (13b, 13f).
-- **No empty layer list.** Every analysis request in 13a, 13b, 13e and 13f names its layers explicitly, and every response is checked for the layers that actually executed.
-- **No tuning against PriVoke outputs**, at any point. This covers the transform templates, the writer brief and the thresholds.
-- **No change to the measured product** except harness-only seams that the stage names. If a stage finds a defect, it records the defect as a finding. It fixes the defect only if the fix is small, covered by a test, and reported, which is the Stage 4 rule.
-- **Not in scope:** merging PR #6, uploading the artifact, and any production deployment or use of the production publication key.
+- **No empty layer list.** Every analysis request in 13a, 13b, 13e and 13f names its layers explicitly, and the harness asserts the layers that executed on every response.
+- **No tuning against PriVoke outputs.** This covers the templates, the writer brief and any thresholds.
+- **No change to the measured product**, except the harness seams that a stage names. A stage records any defect it finds. It fixes the defect only if the fix is small, covered by a test and reported (the Stage 4 rule).
+- **Not in scope:** merging PR #6, uploading the artifact, deploying, and using the production publication key.
 
 ## Assumptions
 
-- **Queue position.** Stage 13 starts after the Rust rewrite and the repeat of Stage 9. Both are done: V3-R8b merged at `c89b42a`, and the Stage 9 repeat was done on 23 Nov.
-- **Deadline.** The deadline is 11 December 2026. Under the time plan below, 13a–13d fit only if the people for 13a are recruited by about 28 November.
-- **Local inputs.** The standard V3 releases (`models/standard-releases/`), the frozen Stage 3 set and the AU3 data are Git-ignored and exist only in the main checkout (`D:/Git Repositories/Privoke-Research-Project`). Worktrees pass these as absolute paths or mount them read-only. They are never copied into a commit.
-- **Docker** is available on the Windows host for the Rust services and the Rust tests, with `--cpus=8`.
-- **Publication key.** Only test publication keys are used. The production key (`C:/Users/Nicholas/.privoke/v3-publication.key`) is never read.
+- **Queue.** Stage 13 waits for the Rust rewrite and the Stage 9 repeat. Both are done: V3-R8b merged at `c89b42a`, and the Stage 9 repeat finished on 23 Nov.
+- **Deadline.** The deadline is 11 December 2026. 13a fits only if the people are recruited by about 28 November. Otherwise the "13a not run" outcome applies.
+- **Local inputs.** Some inputs are Git-ignored and exist only in the main checkout `D:/Git Repositories/Privoke-Research-Project`:
+  - `models/standard-releases/`;
+  - the frozen Stage 3 set, `evaluation/results/adversarial_evasion_20261116/main/frozen_set.jsonl`, sha256 `5e4eac4c7c3117adf81a013fa9e4572484c9b0f41ab4b4f217ca960a82b634c2`;
+  - the AU3 data.
+
+  Worktrees refer to them by absolute path or mount them read-only, and never commit them.
+- **Docker** is available with `--cpus=8`. One Compose stack runs at a time.
+- **Publication key.** Only test publication keys are used. The production key is never read.
 
 ## Relevant paths
 
 | Area | Path (branch) |
 | --- | --- |
 | Requirement | `docs/plans/asiaccs-2027-revision.md` "Stage 13" (nick) |
-| Annotation tooling | `evaluation/annotation/` (both branches; the 13a work happens on nick) |
+| Annotation tooling | `evaluation/annotation/`; the blinding pattern is `DATASET_MARKER` in `sample_annotation.py` (nick) |
 | Annotation protocol and status | `docs/research/annotation-protocol-20261024.md`, `docs/research/annotation-packet-status-20261116.md` |
-| Stage 3 evasion harness | `evaluation/adversarial_evasion.py`, `evaluation/adversarial_evasion_transforms.py`, `paper/research/adversarial-evasion-20261116.*` |
-| Stage 11 browser harness | `evaluation/cross_platform_study.py`, `evaluation/cross_platform_receiver.py`, `evaluation/cross_platform_probes.py`, `extension/test/cross-platform-driver.mjs` |
-| Extension layer contract | `extension/src/analysis-request.js` (`requireExplicitLayers`); `extension/src/background.js` (`disabledLayersResponse`: no layers enabled means no request is sent) |
-| Earlier detector ablation (historical) | `evaluation/run-controlled-product-ablation.py` (AB14; a legacy command guarded by `--allow-product-pipeline`, which Stage 13 does not use) |
-| Detector latency (historical) | `evaluation/detector_latency.py`, `docs/experiments/detector-latency-20261025.md` |
-| V3 store and gates | `rust/services/param-update/src/v3_store/{store,service,evidence,mod}.rs`, `src/v3_policy.rs`, `src/v3_guard.rs`, `src/v3_retention.rs`, `src/v3_publish.rs`, `src/main.rs`, `src/server.rs`, `config/v3-drift-bounds.toml` (rust) |
-| Client admission | `rust/crates/privoke-contracts/src/{v3,model_cache,publication}.rs`, `rust/services/runtime-supervisor/src/fetch.rs`, `rust/services/model-streaming/src/published.rs` (rust) |
+| Stage 3 evasion harness | `evaluation/adversarial_evasion.py` (`assert_executed_layers`, `evaluate_arm`, `summarise_pairs`, `wilson`, `BASELINE = "baseline"`), `evaluation/adversarial_evasion_transforms.py`, `evaluation/adversarial_evasion_report.py`, `paper/research/adversarial-evasion-20261116.*` |
+| Stage 11 browser harness | `evaluation/cross_platform_study.py`, `cross_platform_receiver.py`, `cross_platform_probes.py`, `extension/test/cross-platform-driver.mjs` |
+| Extension layer contract | `extension/src/analysis-request.js` (`requireExplicitLayers`); `extension/src/background.js` (`disabledLayersResponse`: when no layer is enabled, no request is sent) |
+| Historical ablation and latency | `evaluation/run-controlled-product-ablation.py` (AB14; legacy and guarded, not used); `evaluation/detector_latency.py` |
+| V3 store and gates | `rust/services/param-update/src/v3_store/{store,service,evidence,mod}.rs`, `src/v3_policy.rs`, `src/v3_guard.rs`, `src/v3_retention.rs`, `src/v3_publish.rs`, `src/main.rs` (`open_checkpoint`), `src/config.rs` (`V3Config`), `src/journal.rs` (`JournalAllocations`), `src/server.rs` (`policy()`), `rust/services/param-update/config/v3-drift-bounds.toml` (rust) |
+| V3 test fixtures | `rust/services/param-update/tests/golden_world/mod.rs` (V3 store world); `tests/v3_guard.rs`, `tests/scheduler_chain.rs`, `tests/v3_publication.rs`, `tests/v3_signed_chain.rs`, `tests/checkpoint_mtls.rs`; the client side is in `rust/services/runtime-supervisor/tests/{lineage_fetch,lineage_chain,fetch}.rs` (rust) |
+| Client admission | `rust/crates/privoke-contracts/src/{v3,model_cache,publication}.rs`, `rust/services/runtime-supervisor/src/fetch.rs` (`verify_package`), `rust/services/model-streaming/src/published.rs` (rust) |
 | Transport and PKI | `rust/crates/privoke-transport/src/{tls,authz,registry,reload,identity}.rs`, `rust/tools/privoke-pki/`, `deploy/gce/tests/make_test_pki.py` (rust) |
-| Rust security harness | `evaluation/update_security.py --target rust`, `evaluation/update_security_pki.py`, `evaluation/update_security_report.py`, `paper/research/update-security-20261117.*` (rust only) |
+| Rust security harness | `evaluation/update_security.py --target rust`, `evaluation/update_security_pki.py` (OpenSSL), `evaluation/update_security_report.py`, `paper/research/update-security-20261117.*` (rust only) |
 | Paper | `paper/main.tex`, `paper/research/claims.md`, `paper/REWRITE_SCOPE.md`, `paper/scripts/check_pages.py`, `paper/scripts/check_anonymity.py` (nick) |
 
 ## Related docs
@@ -88,44 +120,48 @@ Each goal is boolean. Commands run from the repository root of the worktree that
 - [ASIACCS plan, Stage 13](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap) wins on the requirement. This plan wins on how it is carried out.
 - [REWRITE_SCOPE](../../paper/REWRITE_SCOPE.md) wins on paper scope. The [evidence ledger](../../paper/research/claims.md) wins on numbers.
 - On `origin/feat/rust-rewrite`:
-  - `docs/plans/v3-routine-training.md` wins on V3 update-path behaviour;
+  - `docs/plans/v3-routine-training.md` wins on V3 update behaviour;
   - `docs/plans/rust-server-rewrite.md` wins on transport and PKI;
   - `docs/runtime/v3-publication.md` documents publication.
 - [Annotation protocol](../research/annotation-protocol-20261024.md): its sizing, blinding and adjudication rules carry over to 13a, except where 13a-1 states otherwise.
 
-## Branch strategy (decision record)
+## Branch strategy and coordination (decision record)
 
-**Problem.** The paper, the ASIACCS plan and the 13 commits that `feat/rust-rewrite` lacks are on `feat/nick-branch`. The Rust services, including the only guarded update path that still exists (V3), are on `feat/rust-rewrite`, which is 312 commits ahead of the merge base `972578c`. The Rust plan lands PR #6 after submission, and it does not rebuild the artifact from the Rust tree.
+**Problem.** The paper, the ASIACCS plan and this plan live on `feat/nick-branch`, which has 13 commits that `feat/rust-rewrite` lacks. The Rust services, including V3, which is now the only guarded update path, live on `feat/rust-rewrite`. That branch is 312 commits ahead of the merge base `972578c`. The Rust plan lands PR #6 after submission and never rebuilds the artifact from the Rust tree.
 
-**Decision: split the work by the build under test, and import the records.**
+**Decision: split by the build under test, and import the records.**
 
-| Sub-stage | Build measured | Code branch (one worktree each, from the named base) | Where the records are committed |
+| Sub-stage | Build measured | Code branch (one worktree each) | Records committed on |
 | --- | --- | --- | --- |
-| 13a, 13b, 13e, 13f | Submission build: Python runtime, the extension and the supervisor of `feat/nick-branch` (the same build as Stages 3, 5 and 11) | `feat/asiaccs-s13a`, `-s13b`, `-s13e`, `-s13f` from `origin/feat/nick-branch` | The same branches, merged into `feat/nick-branch` by root |
-| 13c, 13d | Rust build: param-update V3 store, model-streaming, transport | `feat/asiaccs-s13c` and `-s13d` from `origin/feat/rust-rewrite` | The same branches, merged into `feat/rust-rewrite` by root, then imported into `feat/nick-branch` |
+| 13a, 13b, 13e, 13f | Submission build: the Python runtime, extension and supervisor of `feat/nick-branch`, as in Stages 3, 5 and 11 | `feat/asiaccs-s13a`, `-s13b`, `-s13e`, `-s13f` from `origin/feat/nick-branch` | The same branches; root merges them into `feat/nick-branch` |
+| 13c, 13d | Rust build: param-update V3 store, model-streaming, transport | `feat/asiaccs-s13c` and `-s13d` from `origin/feat/rust-rewrite` | The same branches; root merges them into `feat/rust-rewrite`, then imports the records |
+
+**Coordination rules.**
+
+- **This plan is not on `feat/rust-rewrite`.** Root passes it to the 13c and 13d leaves by absolute path, read-only. Leaves on the Rust line never edit or copy it.
+- **Root is the only writer of stage status**, at every transition (pending, in progress, done or blocked, and the outcome), in this plan and in the Stage 13 section of the ASIACCS plan. Leaves report through their results only.
+- **Root syncs** this plan and the Stage 13 section to `docs/roadmap` after each status change, in the same way as the other plans.
 
 **Record import (13c, 13d).**
 
-1. After root merges a Rust stage, root (or an assigned leaf) creates `docs/asiaccs-s13-records` from `feat/nick-branch`.
-2. Run `git checkout <rust-merge-sha> -- paper/research/<record>.md paper/research/<record>.json docs/experiments/<record>.md`.
+1. After a Rust stage merges, root creates `docs/asiaccs-s13-records` from `feat/nick-branch`.
+2. Run `git checkout <rust-merge-sha> -- paper/research/<stem>.md paper/research/<stem>.json docs/experiments/<stem>.md`.
 3. Commit with the message `docs(research): import <ID> from feat/rust-rewrite <sha>`.
-4. Verify the import: `git diff <rust-merge-sha> HEAD -- <those paths>` is empty.
+4. Verify that `git diff <rust-merge-sha> HEAD -- <those paths>` is empty.
 
-The imported files are new and byte-identical on both branches, so the later PR #6 merge cannot conflict on them.
-
-Only `feat/nick-branch` edits `claims.md`, `REWRITE_SCOPE.md` and `main.tex`, because these files exist on both branches. Each Rust record states its measured revision (`build.branch`, `build.sha` and `build.clean`). It also states that the V3 update path exists only in the Rust build.
+The imported files are new and byte-identical on both branches, so PR #6 cannot conflict on them. Only `feat/nick-branch` edits `claims.md`, `REWRITE_SCOPE.md` and `main.tex`. Each Rust record states `build.branch`, `build.sha` and `build.clean`, and states that the V3 update path exists only in the Rust build.
 
 **Rejected alternatives.**
 
-- **Merge PR #6 into the submission line before Stage 13.** This changes the build behind every earlier result in the paper 17 days before the deadline. It contradicts the Rust plan's sequencing (the PR lands after submission) and its rule that the artifact is not rebuilt from the Rust tree. Revisit if the user decides to submit the Rust build (open decision D9).
-- **Run all of Stage 13 on `feat/rust-rewrite`.** The paper and the nick-only commits are not there. 13a, 13b, 13e and 13f would then measure a different runtime from Stages 3, 5 and 11, so the paired comparisons that 13b and 13e need would mix builds.
-- **Run 13c and 13d from `feat/nick-branch` against images built from the Rust branch.** This splits the harness from the code it tests. The Rust tests (`cargo test`) must live beside the crates they test, and CI already runs there.
+- **Merge PR #6 into the submission line first.** This changes the build behind every earlier result 17 days before the deadline. It also contradicts the Rust plan's sequencing and its artifact rule. Revisit under D9.
+- **Run all of Stage 13 on `feat/rust-rewrite`.** The paper and the nick-only commits are missing there, and 13b and 13e would compare against Stage 3 across two builds.
+- **Run 13c and 13d from `feat/nick-branch` against Rust images.** The harness would be separated from the code it tests. The Rust tests must live beside their crates.
 
-**Consequences.** The paper reports results from two builds and must say so (the paper stage owns this). The 13c and 13d harness code is not in the anonymous artifact that is exported from `feat/nick-branch`. Open decision D10 covers a second export.
+**Consequences.** The paper reports results from two builds and labels each result with its build. The 13c and 13d harness is not in the anonymous artifact that is exported from `feat/nick-branch` (D10).
 
 ## Shared conventions for every stage
 
-- **Record IDs and files.**
+- **Record IDs and files.** `<date>` is the run date. Records are only added; existing records are never edited.
 
   | Sub-stage | ID | Files |
   | --- | --- | --- |
@@ -136,218 +172,270 @@ Only `feat/nick-branch` edits `claims.md`, `REWRITE_SCOPE.md` and `main.tex`, be
   | 13e | `LAYERABL-<date>` | `paper/research/layer-ablation-<date>.{md,json}` |
   | 13f | `E2EOVH-<date>` | `paper/research/e2e-overhead-<date>.{md,json}` |
 
-  Each record also has a `docs/experiments/<same-stem>.md` summary. `<date>` is the run date. Records are only ever added; earlier records are never edited.
-- **Record header** (Markdown and JSON):
+  Each record also has a `docs/experiments/<stem>.md` summary.
+- **Record header** (in both the Markdown and the JSON) has these fields:
   - `schema` and `study_id`;
-  - the T→D→E→M→E row as `chain: {threat, defense, experiment, metric, evidence}`;
+  - `chain: {threat, defense, experiment, metric, evidence}`;
   - `build: {branch, sha, clean}`;
-  - `host` (OS, CPU, cores and RAM);
-  - `run_dates` and `commands`;
-  - `scope_label`: one of `product pipeline`, `LLM-only (semantic)`, `update path (Rust V3)`, `transport (Rust)` or `human ground truth`;
-  - `not_established`: a list of what the record does not establish;
-  - `user_actions`: what the user did, with dates, or `none`.
-- **Re-derivation.** Every number in the Markdown comes from the JSON. Each record has a report script with `--check`, which recomputes every aggregate from the per-row data and fails on any difference, plus a unittest that runs `--check` on the committed record.
+  - `host`, `run_dates` and `commands`;
+  - `scope_label`;
+  - `not_established`;
+  - `user_actions`.
+- **`scope_label` vocabulary.** Every row and every arm takes exactly one of these values:
+  - `product pipeline (in-process)`;
+  - `product pipeline (installed extension, end to end)`;
+  - `LLM-only (semantic)`;
+  - `update path (Rust V3)`;
+  - `transport (Rust)`;
+  - `human ground truth`.
+- **Re-derivation.** Every number in the Markdown comes from the JSON. Each record has a report script with a `--check` mode that recomputes every aggregate from the per-row data. A unittest runs `--check` on the committed record.
 - **Layer assertion (13a, 13b, 13e, 13f).**
-  - Requests carry an explicit, non-empty list from {`DETECTION_LAYER_REGEX` (2), `DETECTION_LAYER_NER` (3), `DETECTION_LAYER_SEMANTIC` (4)}.
-  - The harness asserts the executed layers of every response with a generalised form of `assert_executed_layers` in `evaluation/adversarial_evasion.py`. The expected set comes from the configuration, and the regex-first skip rule applies only when regex is requested.
-  - Any response whose executed layers differ from the expected set aborts the run. It is never silently scored.
-  - An empty list is impossible by construction: each harness rejects one before it sends, with a test.
-- **Prompt-bearing data** go under `evaluation/results/s13<x>/`, which is ignored through `evaluation/.gitignore` `results/`. This covers raw prompts, variants, annotator sheets with text, and receiver bodies. Commits carry only hashes, counts, opaque item ids and labels.
-- **Host Python.** Python clients, harnesses and scoring run on the host, never with `docker compose run`. Docker only hosts services and the Rust tests. One Compose stack runs at a time.
+  - Requests carry an explicit, non-empty list drawn from {`DETECTION_LAYER_REGEX` (2), `DETECTION_LAYER_NER` (3), `DETECTION_LAYER_SEMANTIC` (4)}.
+  - The harness asserts the executed layers of every response with a generalised form of `assert_executed_layers` (`evaluation/adversarial_evasion.py`). The expected set comes from the configuration, and the regex-first skip rule applies only when regex was requested.
+  - A response whose executed layers differ from the expected set aborts the run.
+  - Each harness refuses an empty list before sending it, and a test covers that refusal.
+- **Prompt-bearing data** (raw prompts, variants, sheets with text, the adjudication export, receiver bodies) live under `evaluation/results/s13<x>/`, which `evaluation/.gitignore` (`results/`) ignores. Commits carry only hashes, counts, opaque ids and labels.
+- **"Unchanged" means the authority, not the blob directory.** The store is unchanged when its `current` row, its `versions`, its `publications` (row count and highest sequence), the receipt of that request id, the version model-streaming serves and the client high-water mark are all unchanged. Rejected candidates can leave orphan blobs, because `stage` puts the payload before admission (`store.rs` `stage` → `put`, then `admit_candidate`). Records report orphan blobs but do not count them as a change.
+- **Host Python, Docker only for hosting.** Python clients and scoring run on the host. Docker hosts the services and the Rust tests, never test drivers.
+- **Host-heavy runs share one lock.** 13b-2, 13b-3, 13c-2, 13d-2, 13f-1 and 13f-2 each acquire `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13-host.lock` (Git-ignored in the main checkout, shared by every worktree). Each run writes its stage id and process id into the lock and removes it on exit. A run refuses to start while the lock is held.
 - **Process cleanup.** Every stage stops the services, browsers and containers it started, and lists them in its handoff.
 
 ## Time plan (estimates)
 
+Host-heavy runs follow this fixed order, one at a time, under the host lock: **13c-2 → 13d-2 → 13b-2 → 13b-3 → 13f-1 → 13f-2**. Work that needs no host, such as harness code and CI-only tests, runs in parallel with these.
+
 | Window | Agent work | User work |
 | --- | --- | --- |
-| 24–28 Nov | 13a-0, 13a-1; 13c-1; 13d-1; 13b-1 | Answer D1–D5; recruit writers and annotators; check ethics |
-| 28 Nov – 3 Dec | 13a-3 once prompts arrive; 13c-2; 13d-2; 13b-2 | Writers deliver prompts (13a-2); annotators do the pilot and the main round (13a-4); 13b-3 attended subset |
-| 3–6 Dec | 13a-5; 13e (if 13a is frozen); 13f-1 (serialised, nothing else running on the host) | Adjudication (13a-4); 13f-2 attended subset |
+| 24–28 Nov | 13a-0, 13a-1; 13c-1 (CI); 13d-1; 13b-1 | Answer D1–D4, D6 and D9; recruit people; check ethics; supply or approve the worked examples |
+| 28 Nov – 2 Dec | 13a-3 when prompts arrive; 13c-2, then 13d-2 (host lock) | Writers deliver prompts (13a-2); annotators run the pilot and the main round (13a-4) |
+| 2–5 Dec | 13a-5; 13b-2 (host lock); 13e if 13a is frozen | Adjudication (13a-4); 13b-3 (host lock) |
+| 5–6 Dec | 13f-1 (host lock, idle host) | 13f-2 (host lock) |
 | 6–10 Dec | 13-P paper integration; Stage 9 repeat | Review the paper; approve the push |
 
-Go or no-go for 13e and 13f: they start only when the 13a–13d records are `ready for review` by 4 December (D11). Otherwise 13f becomes the limitation paragraph, and 13e is dropped or run on provisional labels (D11).
+**Go or no-go (D11).** 13e and 13f start only if the 13a–13d records are `ready for review` by 4 December. If 13a is not frozen by 6 December, the "13a not run" outcome applies (13-P).
 
 ---
 
 ## Stage 13a-0: Resolve the `fresh_eval-folio-NN` partition leak (prerequisite)
 
-- **Objective:** settle the Stage 8 finding before any annotation work starts. Every AU3 `fresh_eval` text (1,560 of them) contains a `fresh_eval-folio-NN` token. The token names the dataset partition, and its 24 values follow the audience-expression groups, so it can cue the visibility label.
-- **Paper question:** a precondition of 13a. Blinding fails if annotator-facing text names the data source or cues a label.
-  - **T→D→E→M→E:** annotator cueing biases the ground truth → blinding audit → marker scan over every annotator-facing sheet → count of items with a marker (required: 0) → `key/manifest.json` `blinding_audit` plus the decision note.
-- **Resolution (recommended, D5):**
-  1. Record that the AU3 `fresh_eval` set is **ineligible as the 13a set**. 13a requires prompts that were never used in development, tuning or earlier evaluation, and `fresh_eval` is the RQ1 AU3 evaluation set. 13a therefore uses a newly sourced set (13a-1, 13a-2), and the leak cannot affect it.
-  2. For the deferred AU3 provisional-target packet (Stage 8, G10), record a documented normalisation for the time it is run: before pre-registration, every `fresh_eval-folio-NN` occurrence is replaced by one constant neutral token, `folio`. That removes both the partition name and the group cue. The replacement is applied identically for every annotator. Both the original and the normalised set hashes are recorded. Any PriVoke scoring against those labels runs on the normalised text the annotators saw.
-  3. Turn the sampler's marker warning into a hard gate for 13a: `sample_annotation.py --fail-on-marker` exits non-zero when any annotator-facing text matches the blinding-audit pattern. It extends to `--marker-pattern` values that the 13a-1 contamination step derives from the source names in the repository.
+- **Objective:** settle the Stage 8 finding before any annotation work.
+  - Every one of the 1,560 AU3 `fresh_eval` texts contains a `fresh_eval-folio-NN` token.
+  - The token names the partition, and its 24 values follow the audience-expression groups.
+- **Paper question:** this is a precondition of 13a. Blinding fails if the text shown to annotators names the source or hints at a label.
+  - **T→D→E→M→E:**
+    - **Threat:** a marker in the text biases the annotators.
+    - **Defense:** a blinding audit.
+    - **Experiment:** scan every annotator-facing sheet with `DATASET_MARKER`.
+    - **Metric:** the number of items with a marker (required: 0).
+    - **Evidence:** `key/manifest.json` `blinding_audit`, plus the decision note.
+- **Resolution (D5):**
+  1. **Record that AU3 `fresh_eval` is ineligible as the 13a set.** 13a requires prompts that were never used in development, tuning or earlier evaluation, and `fresh_eval` is the RQ1 AU3 evaluation set. 13a uses a new set, so the leak cannot reach it.
+  2. **For the deferred AU3 provisional-target packet**, record a normalisation rule to apply whenever it is run:
+     - Before pre-registration, replace every whole `fresh_eval-folio-NN` token with the constant `folio`.
+     - Apply the replacement identically for every annotator, and record both set hashes.
+     - Run any PriVoke scoring against the normalised text.
+  3. **Make the sampler's check a hard gate:** `sample_annotation.py --fail-on-marker` exits non-zero on any `DATASET_MARKER` match.
+     - The pattern is `fresh_eval|release-\d+|AU3|folio-\d+` at line 122 of `sample_annotation.py`.
+     - After normalisation, the `folio-\d+` alternative no longer matches, and the `fresh_eval` alternative still catches any partial replacement. The whole pattern is therefore the complete gate.
+     - A test asserts that a normalised fixture matches no alternative, and that a fixture with a partial replacement fails.
+     - `--marker-pattern` adds the source names that the 13a-1 contamination step finds.
 - **Depends on:** none.
 - **Owned paths:**
-  - `evaluation/annotation/sample_annotation.py`: the `--fail-on-marker` and `--marker-pattern` flags, and the optional `--normalise-marker folio`;
+  - `evaluation/annotation/sample_annotation.py`: the `--fail-on-marker`, `--marker-pattern` and `--normalise-marker folio` flags;
   - `evaluation/annotation/tests/test_sampling.py`;
   - `docs/research/annotation-marker-decision-<date>.md` (new).
-- **Interfaces and data shapes:** `key/manifest.json` gains `blinding_audit: {patterns: [..], items_checked, items_with_marker, normalisation: null | {pattern, replacement, original_sha256, normalised_sha256}}`.
+- **Interfaces and data shapes:** `key/manifest.json` gains:
+
+  ```
+  blinding_audit: {patterns, items_checked, items_with_marker,
+                   normalisation: null | {pattern, replacement, original_sha256, normalised_sha256}}
+  ```
 - **Acceptance checks:**
-  - **The tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests`. They include two new tests: `--fail-on-marker` exits non-zero on a fixture with a marker, and the normalisation is identical across annotators and records both hashes.
-  - **The decision note exists** and states three things: the eligibility ruling, the normalisation rule, and that no label was produced.
-  - **No prompt text is committed:** `git diff --stat` shows no data file.
-- **User dependency:** USER — confirm D5. Without an answer, the default applies, and the note records the default as provisional.
+  - **The sampling tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests -p test_sampling.py`. This includes the new gate, normalisation and partial-replacement tests.
+  - **The decision note exists:** `test -f docs/research/annotation-marker-decision-<date>.md`.
+  - **No prompt text is committed:** `$PY evaluation/check_s13_commit_hygiene.py --base <base>` exits 0. 13a-0 writes this script, because every later stage uses it.
+- **User dependency:** USER confirms D5. If the user does not answer, the default stands and the note records it as provisional.
 - **Status:** pending.
 - **Handoff notes:**
-  - The protocol's step 9 commits the annotator sheets, but those sheets contain text. Under Stage 13, only label-only files are committed; see 13a-5. Record this deviation in the decision note.
-  - The pinned AU3 input exists only in the main checkout. Pass it to the sampler with `--input`.
+  - The protocol's step 9 commits annotator sheets, which contain text. Stage 13 commits label-only files instead; the note records this deviation.
+  - The AU3 input exists only in the main checkout. Pass it with `--input`.
 
 ## Stage 13a-1: Packet for the independent human-annotated set (agent)
 
-- **Objective:** build everything that humans need for 13a, so that their time goes only to writing and labelling.
+- **Objective:** build everything that the humans need for 13a, so that their time goes only to writing and labelling.
 - **Paper question:** does PriVoke's accuracy hold against ground truth that no developer label influenced? (RQ1, `sec:final_annotation`.)
   - **T→D→E→M→E:**
-    - **Threat:** labels written by the developers inflate the measured protection, and under-enforcement is missed.
+    - **Threat:** developer-made labels inflate the measured protection, and under-enforcement goes unseen.
     - **Defense:** the shipped PriVoke pipeline and policy.
     - **Experiment:** score PriVoke on a fresh, blind, human-labelled set.
     - **Metric:** kappa per field; precision, recall, specificity and F1; under- and over-enforcement.
-    - **Evidence:** HUMANEVAL record, with the set hash and the label-freeze commit.
+    - **Evidence:** the HUMANEVAL record, the set hash and the commit that froze the labels.
 - **Depends on:** 13a-0.
 - **Work:**
-  1. **Writer brief** (`docs/research/s13a-writer-brief-<date>.md`), used if D1 keeps its default:
-     - quotas over privacy category × audience × sensitive/benign, with at least 45% sensitive and every category at least 20 times;
-     - a rule that only invented people and values are used;
-     - a ban on reading PriVoke code, its data, rubrics or outputs.
-     The brief is frozen and committed before any writer starts. It contains no example taken from a repository dataset.
-  2. **Ingest and freeze** (`evaluation/annotation/fresh_set.py`):
-     - reads the user-supplied raw prompts from a Git-ignored path;
-     - normalises whitespace only;
-     - assigns opaque ids and removes exact duplicates;
-     - runs a contamination check: exact match and 8-gram Jaccard ≥ 0.5 against every prompt-bearing file in `evaluation/datasets/`, `evaluation/results/` (main checkout) and the fuzzer curricula, plus a marker scan;
-     - writes `set_manifest.json` (no text): `{schema, n, sha256_jsonl, source_kind, contamination: {sources_checked, exact, near, removed_ids}, quota_counts}`.
-     Root commits `set_manifest.json` under `docs/research/s13a/` **before** sampling.
-  3. **Schema v2** (`annotation_schema.py`, `SCHEMA_VERSION = 2`), keeping v1 readable. The fields are:
-     - `sensitive` (`yes`/`no`);
-     - `subject`, meaning whose information (`SELF`, `THIRD_PARTY`, `PUBLIC_FIGURE`, `NONE`, `UNCLEAR`);
-     - `audience`, the intended audience and context (`P0`–`P4`, `PU`, with the v1 visibility definitions);
-     - `categories` (the 10 v1 categories, or `NONE`);
-     - `action` (`ALLOW`, `WARN`, `BLOCK`);
-     - `notes`.
+  1. **Writer brief** (`docs/research/s13a-writer-brief-<date>.md`), used if D1 chooses writers:
+     - quotas over category × audience × sensitive or benign, with at least 45% sensitive and at least 20 per category;
+     - invented people and values only;
+     - writers must not read PriVoke code, data, rubrics or outputs.
+     The brief has no example taken from a repository dataset, and it is committed before any writer starts.
+  2. **Freezing the set** (`evaluation/annotation/fresh_set.py`):
+     - Reads the user-supplied raw prompts from a Git-ignored path and normalises whitespace only.
+     - Assigns opaque ids and removes exact duplicates.
+     - Runs a contamination check. It looks for exact matches and for 8-gram Jaccard ≥ 0.5 against:
+       - every prompt-bearing file in `evaluation/datasets/`;
+       - `evaluation/results/` in the main checkout, including the frozen Stage 3 set;
+       - the fuzzer curricula.
+       It also runs the marker scan.
+     - Writes `set_manifest.json`, with no text: `{schema, n, sha256_jsonl, source_kind, contamination: {sources_checked, exact, near, removed_ids}, quota_counts}`.
+     - Flags: `--dry-run` reports counts only, and `--check-quotas` exits non-zero when the brief's quotas are unmet.
+  3. **Schema v2** (`annotation_schema.py`, `SCHEMA_VERSION = 2`; v1 stays readable):
+     - Fields:
+       - `sensitive` (`yes`/`no`);
+       - `subject`, meaning whose information it is (`SELF`, `THIRD_PARTY`, `PUBLIC_FIGURE`, `NONE`, `UNCLEAR`);
+       - `audience`, the intended audience and context (`P0`–`P4`, `PU`, with the v1 visibility definitions);
+       - `categories` (the 10 v1 categories, or `NONE`);
+       - `action` (`ALLOW`, `WARN`, `BLOCK`);
+       - `notes`.
+     - `notes` stays in the local sheet only. It is never copied into a committed file, because it can quote the text.
+     - A command-line validator: `python annotation_schema.py --validate <sheet.csv> --schema 2` exits non-zero on an empty or invalid cell.
   4. **Guideline v2** (`docs/research/annotation-guideline-v2-<date>.md`):
-     - definitions for each field;
-     - a glossary;
-     - one invented worked example per matched contrast (from protocol section 2 plus the `subject` field);
-     - a declaration form for each annotator.
-  5. **Sampling and blinding.** Reuse `sample_annotation.py` with `--stratify-by quota_cell` and `--fail-on-marker`. The defaults are 360 main items plus a disjoint 30-item pilot (D3), and the seed is recorded in the pre-registration.
+     - definitions for each field, a glossary and the annotator declaration form;
+     - **no labelled worked examples written by an agent**.
+     The matched-contrast worked examples (protocol section 2 plus `subject`) are either written by the user or another human, or drafted unlabelled by an agent with the user writing and approving the labels (USER, D12). Until then, the guideline ships without examples, and the packet status says so.
+  5. **Sampling and blinding.** Use `sample_annotation.py` with `--stratify-by quota_cell` and `--fail-on-marker`. The size is 360 main items plus a 30-item pilot (D3). The seed is pre-registered.
+     - The sampler writes `packet_manifest.json`: the sha256 of every blank sheet and of the key. These values contain no text.
   6. **Agreement** (`compute_iaa.py`):
-     - add Fleiss' kappa for three or more annotators, and Cohen's kappa per pair and per field;
-     - categories use a per-category binary kappa plus exact-set agreement and Jaccard;
-     - keep Krippendorff's alpha;
-     - intervals come from a bootstrap over the `quota_cell` clusters.
-  7. **Scoring** (`evaluation/annotation/score_privoke.py`). It refuses to run unless the label-freeze record (13a-5) exists and its hashes match. It runs two arms, separately labelled (D6):
-     - `product`: layers [2, 3, 4], with the in-process client of `adversarial_evasion.py`, V3 balanced, shipped defaults;
-     - `semantic_only`: layers [4].
-     The positive class is `sensitive = yes`, and PriVoke is positive when its action is WARN or BLOCK. Under-enforcement is a PriVoke action less strict than the reference action; over-enforcement is a stricter one. The script reports Wilson and cluster-bootstrap intervals.
-  8. **Report** (`evaluation/annotation/human_eval_report.py --check`), and a pre-registration template (`docs/research/s13a-preregistration-<date>.md`) that names the seed, the sizes, the fields, the metrics, the arms and the analysis order.
-  9. **Interface.** The default is a CSV with validated columns, using the existing validator. A local HTML form is optional and not required.
+     - add Fleiss' kappa (three or more annotators) next to Cohen's kappa per pair and per field;
+     - categories use per-category binary kappa, exact-set agreement and Jaccard;
+     - Krippendorff's alpha stays;
+     - the bootstrap resamples `quota_cell` clusters;
+     - `to_adjudicate.csv` contains text, so it is written only under `evaluation/results/s13a/`.
+  7. **Scoring** (`evaluation/annotation/score_privoke.py`, run with `$PYPIPE`):
+     - It refuses to run unless the freeze record exists and its hashes match (see 13a-5).
+     - It runs two separately labelled arms (D6):
+       - `product`, with layers [2, 3, 4], V3 balanced and the shipped defaults. Its `scope_label` is `product pipeline (in-process)`. The justification is the explicit request for PriVoke's accuracy in the supervisor request relayed by the user on 19 Nov 2026 (ASIACCS plan, Stage 13 "Source").
+       - `semantic_only`, with layer [4] and scope `LLM-only (semantic)`.
+     - The positive class is `sensitive = yes`. PriVoke's prediction counts as positive when its action is WARN or BLOCK.
+     - Under-enforcement is a PriVoke action less strict than the reference label; over-enforcement is a stricter one.
+     - Intervals are Wilson and cluster bootstrap.
+  8. **Reports and order check:**
+     - `human_eval_report.py --check` re-derives every kappa and score.
+     - `check_order.py` verifies with `git merge-base --is-ancestor` that the set-manifest commit is an ancestor of the packet-manifest commit, which is an ancestor of the first label commit, which is an ancestor of the record commit.
+     - The pre-registration template (`docs/research/s13a-preregistration-<date>.md`) lists the seed, sizes, fields, metrics, arms and analysis order.
+  9. **Interface.** A CSV checked by the validator. A local HTML form is optional.
 - **Owned paths:**
-  - `evaluation/annotation/{fresh_set.py,score_privoke.py,human_eval_report.py}` (new);
+  - `evaluation/annotation/{fresh_set.py,score_privoke.py,human_eval_report.py,check_order.py}` (new);
   - `evaluation/annotation/{annotation_schema.py,compute_iaa.py,agreement.py,sample_annotation.py}`;
-  - `evaluation/annotation/tests/test_{fresh_set,fleiss,score_privoke,human_eval_report}.py`;
+  - `evaluation/annotation/tests/test_{fresh_set,fleiss,score_privoke,human_eval_report,check_order}.py`;
   - `docs/research/s13a-*.md` and `docs/research/annotation-guideline-v2-<date>.md`.
 - **Interfaces and data shapes:**
-  - Sheet columns: `item_id,text,sensitive,subject,audience,categories,action,notes`.
-  - The label-only file committed later has the same columns without `text`.
-  - Record JSON:
+  - The local sheet has the columns `item_id,text,sensitive,subject,audience,categories,action,notes`.
+  - The committed label file has the columns `item_id,sensitive,subject,audience,categories,action`: no `text`, no `notes`.
+  - The record JSON is:
 
-    ```text
-    {schema:"privoke-s13a-v1", study_id, chain, build, set:{sha256, n, source_kind, contamination},
-     annotators:{count, familiarity_declared:[..]}, pilot:{iaa}, iaa:{<field>:{cohen:[{pair,kappa,ci95,n}], fleiss?, alpha, ci95}},
-     adjudication:{items, resolution_counts, disagreement_types}, freeze:{commit, files:{name:sha256}},
-     arms:[{arm, scope_label, layers_requested, layers_executed_ok:true, metrics:{precision,recall,specificity,f1,
-     under_enforcement,over_enforcement each {value,ci95,num,den}}, per_category, per_audience}], not_established}
     ```
+    {schema:"privoke-s13a-v1", study_id, chain, build, scope_label,
+     set:{sha256, n, source_kind, contamination},
+     annotators:{count, familiarity_declared},
+     pilot:{iaa},
+     iaa:{<field>:{cohen:[{pair, kappa, ci95, n}], fleiss?, alpha, ci95}},
+     adjudication:{items, resolution_counts, disagreement_types},
+     freeze:{set_manifest_commit, packet_manifest_commit, label_commit, files:{name: sha256}},
+     arms:[{arm, scope_label, justification, layers_requested, layers_executed_ok,
+            metrics:{precision, recall, specificity, f1, under_enforcement, over_enforcement},
+            per_category, per_audience}],
+     not_established}
+    ```
+
+    Each metric is `{value, ci95, num, den}`.
 - **Acceptance checks:**
-  - **The annotation tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests`. Kappa and Fleiss are checked against hand-computed fixtures, and the scorer must refuse to run when no freeze record exists.
-  - **The scorer refuses an empty layer list:** `$PY -m unittest evaluation.annotation.tests.test_score_privoke` includes this case.
-  - **The contamination check flags a planted duplicate** in a fixture.
-  - **No label exists in the repository**, apart from fixtures inside the test code.
-- **User dependency:** USER — answer D1–D4 and D6. Nothing else is needed for 13a-1.
+  - **The annotation tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests`. They cover:
+    - kappa and Fleiss against hand-computed fixtures;
+    - the scorer refusing to run without a freeze and refusing an empty layer list;
+    - the contamination check flagging a planted duplicate;
+    - the validator rejecting an invalid cell;
+    - `check_order.py` failing on a fixture repository with the wrong order.
+  - **No labels are committed:** `$PY evaluation/check_s13_commit_hygiene.py --base <base>` exits 0, and no label file exists outside the test fixtures.
+- **User dependency:** USER answers D1–D4 and D6, and writes or approves the worked examples (D12).
 - **Status:** pending.
-- **Handoff notes:**
-  - Pick the client environment for `score_privoke.py` the way Stage 3 did, with `evaluation/.venv-v1-v3-pipeline`. Record the interpreter path in the record.
-  - The V3 balanced release is read from the main checkout.
+- **Handoff notes:** record the `$PYPIPE` interpreter path and the generated-client directory in the record. V3 balanced is read from the main checkout.
 
 ## Stage 13a-2: Recruit, write and deliver the fresh prompts (USER)
 
-- **Objective:** produce the fresh prompt set without any agent writing it.
-- **Paper question and chain:** as in 13a-1.
-- **Depends on:** 13a-1 (writer brief).
-- **Owned paths:** none in Git. Prompts are delivered to `evaluation/results/s13a/raw/` in the main checkout, which is Git-ignored.
+- **Objective:** produce the fresh set. No agent writes any of it.
+- **Depends on:** 13a-1 (the brief).
+- **Owned paths:** none in Git. The prompts are delivered to `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/raw/`, which is Git-ignored.
 - **Acceptance checks:**
-  - **The prompts arrive:** the raw file exists, and `fresh_set.py --dry-run` reports the quota counts.
-  - **The writers sign their declarations:** none read PriVoke data or outputs, and only invented people appear.
+  - **The quotas are met:** `$PY evaluation/annotation/fresh_set.py --input <raw> --dry-run --check-quotas` exits 0 and prints the quota counts.
+  - **The declarations are in:** the user confirms in chat that every writer signed the declaration.
 - **User dependency:** USER does all of the following:
-  - confirm whether human-ethics approval is needed (D4), and obtain it if so;
-  - recruit the writers, who are neither annotators nor developers (D1);
-  - hand them the brief;
-  - collect the prompts and place them at the path above;
-  - record the names of the writers, annotators and adjudicator in a private, unshared list (not in the repository).
+  - settles D4 (ethics);
+  - recruits the writers, who are neither annotators nor developers (D1);
+  - hands out the brief and collects the prompts at the path above;
+  - keeps a private list of the people involved, outside the repository.
 - **Status:** pending.
 - **Handoff notes:** if D1 chooses a public corpus instead, this stage becomes:
-  - **user:** a licence and ethics check;
-  - **agent:** a sampling script with a recorded seed, plus contamination and PII handling rules. Prompts that contain real personal data stay local.
+  - a licence and ethics check by the user;
+  - an agent sampling script with a recorded seed and the same contamination check.
+
+  Real personal data stays local.
 
 ## Stage 13a-3: Freeze, sample and blind (agent)
 
-- **Objective:** turn the raw prompts into a frozen set and blinded sheets.
+- **Objective:** turn the raw prompts into a frozen set and blinded sheets, in an order that the commit history proves.
 - **Depends on:** 13a-2.
 - **Work:**
-  1. Run `fresh_set.py`.
-  2. Root commits `docs/research/s13a/set_manifest.json` (no text).
-  3. Commit the pre-registration with the seed.
-  4. Run the sampler with `--fail-on-marker`, writing to `evaluation/results/s13a/packet/`.
-- **Owned paths:** `docs/research/s13a/set_manifest.json` and `docs/research/s13a-preregistration-<date>.md` (filled in).
+  1. Run `fresh_set.py`. Root commits `docs/research/s13a/set_manifest.json` together with the filled pre-registration.
+  2. Sample with `--fail-on-marker` into `evaluation/results/s13a/packet/`.
+  3. Root commits `docs/research/s13a/packet_manifest.json`, which holds the blank-sheet and key hashes. Only then does the user send out the sheets.
+- **Owned paths:**
+  - `docs/research/s13a/set_manifest.json`;
+  - `docs/research/s13a/packet_manifest.json`;
+  - `docs/research/s13a-preregistration-<date>.md`.
 - **Acceptance checks:**
-  - **The manifest was committed first:** `git log` shows the manifest commit before any sheet exists.
-  - **The blinding audit is clean:** `blinding_audit.items_with_marker == 0`.
-  - **Sampling is deterministic:** a rerun of the sampler gives byte-identical sheets (compare the hashes).
-- **User dependency:** USER — receive `sheets/*_<annotator>.csv` and send each annotator only their own sheet. The key stays with the coordinator.
+  - **The set manifest came first:** `git merge-base --is-ancestor $(git log -1 --format=%H -- docs/research/s13a/set_manifest.json) $(git log -1 --format=%H -- docs/research/s13a/packet_manifest.json)` exits 0.
+  - **The blinding audit is clean:** `$PY -c "import json,sys; m=json.load(open(sys.argv[1])); sys.exit(m['blinding_audit']['items_with_marker'])" evaluation/results/s13a/packet/key/manifest.json` exits 0.
+  - **The sheets are deterministic:** a second sampler run into a scratch directory gives the same hashes as `packet_manifest.json` (`$PY evaluation/annotation/sample_annotation.py ... --verify-against docs/research/s13a/packet_manifest.json` exits 0).
+- **User dependency:** USER sends each annotator only their own `sheets/*_<annotator>.csv`. The coordinator keeps the key.
 - **Status:** pending.
-- **Handoff notes:** the agent never opens the completed sheets until 13a-5.
+- **Handoff notes:** agents never open a completed sheet. They read the sheets only through `compute_iaa.py` and the adjudication export.
 
 ## Stage 13a-4: Annotate, calibrate and adjudicate (USER)
 
-- **Objective:** human labels, agreement and adjudicated reference labels.
+- **Objective:** human labels, agreement figures and adjudicated reference labels.
 - **Depends on:** 13a-3.
 - **Owned paths:** none in Git. Completed sheets and the adjudication file go to `evaluation/results/s13a/returned/`.
-- **Work:** steps 3–8 of the [runbook](../research/annotation-packet-status-20261116.md#3-runbook-for-two-human-annotators-and-a-coordinator), with the v2 fields. Agents run `compute_iaa.py` for the pilot and the main round when asked, and produce `to_adjudicate.csv`. The human adjudicator decides every item.
+- **Work:**
+  - Follow steps 3–8 of the [runbook](../research/annotation-packet-status-20261116.md#3-runbook-for-two-human-annotators-and-a-coordinator), with the v2 fields.
+  - Agents run `compute_iaa.py` for the pilot and the main round when asked, and write `to_adjudicate.csv` locally. That file is never committed, because it holds text.
+  - A human adjudicator decides every item.
 - **Acceptance checks:**
-  - **The sheets are valid:** the validator accepts every returned sheet.
-  - **The pilot clears the bar:** kappa is at least 0.6 for `sensitive`, `audience` and `action`. Otherwise there is one guideline revision and a repeat, as the protocol allows.
-  - **Adjudication is complete:** every disagreement has a `resolution` and an `adjudicator`.
-- **User dependency:** USER does all of the following:
-  - run the training;
-  - make sure the annotators work independently;
-  - collect the sheets;
-  - organise the adjudication;
-  - record dated guideline revisions;
-  - report any annotator who knew PriVoke data.
+  - **The sheets are valid:** `$PY evaluation/annotation/annotation_schema.py --validate <sheet> --schema 2` exits 0 for every returned sheet.
+  - **The pilot agrees well enough:** in `pilot_iaa.json`, the kappa for `sensitive`, `audience` and `action` is at least 0.6. If not, there is one revision and a repeat. The check is `$PY evaluation/annotation/compute_iaa.py ... --min-kappa 0.6 --fields sensitive,audience,action`, which exits non-zero below the bar.
+  - **Adjudication is complete:** `$PY evaluation/annotation/compute_iaa.py --check-adjudication <adjudicated.csv>` exits 0. Every disagreement must have a `resolution` and an `adjudicator`.
+- **User dependency:** USER runs the training, keeps the annotators independent, collects the sheets, organises the adjudication, dates every guideline revision, and reports any annotator who already knew PriVoke data.
 - **Status:** pending.
-- **Handoff notes:** the effort estimate is about 19 hours of human time for 360 + 30 items with 2 annotators (protocol section 8).
+- **Handoff notes:** about 19 hours of human time for 390 items and 2 annotators (protocol section 8).
 
-## Stage 13a-5: Freeze labels, score and record (agent)
+## Stage 13a-5: Freeze the labels, score and record (agent)
 
-- **Objective:** freeze the labels, then score PriVoke and write HUMANEVAL.
+- **Objective:** freeze the labels, then score PriVoke and write the HUMANEVAL record.
 - **Depends on:** 13a-4.
 - **Work:**
-  1. Write label-only CSVs (no `text`) for each annotator and for the adjudicated set to `docs/research/s13a/labels/`.
-  2. Root commits them, together with `iaa.json` and their SHA-256 values, **before** any PriVoke run on these items. This is the freeze commit.
-  3. Run `score_privoke.py`, both arms, with the layer assertion on every response.
-  4. Write the record and the claims-ledger row draft (the ledger itself is edited in 13-P).
+  1. Write the label-only CSVs (no `text`, no `notes`) for each annotator and for the adjudicated set into `docs/research/s13a/labels/`.
+  2. Root commits them with `iaa.json` and their sha256 values. This is the freeze commit, and it comes before any PriVoke run on these items.
+  3. Run `score_privoke.py` for both arms.
+  4. Write the record and a draft ledger row. The ledger itself changes in 13-P.
 - **Owned paths:**
-  - `docs/research/s13a/labels/*.csv`, `docs/research/s13a/iaa.json`;
+  - `docs/research/s13a/labels/*.csv`;
+  - `docs/research/s13a/iaa.json`;
   - `paper/research/human-annotated-eval-<date>.{md,json}`;
   - `docs/experiments/human-annotated-eval-<date>.md`.
 - **Acceptance checks:**
-  - **S13-G1 holds.**
-  - **The freeze came before scoring:** `git log --format=%H` places the label commit before the record commit.
-  - **The arms are labelled:** the record shows `product` and `semantic_only` as separate sections with separate scope labels.
+  - **S13-G1(a) holds:** `human_eval_report.py --check` and `check_order.py` both exit 0.
+  - **The commit is clean:** `$PY evaluation/check_s13_commit_hygiene.py --base <base>` exits 0.
 - **User dependency:** none.
 - **Status:** pending.
-- **Handoff notes:** use the protocol's report wording. The record says "agree at the reported rate with adjudicated labels from N annotators", and does not say "validated".
+- **Handoff notes:** use the protocol's wording, "agree at the reported rate with adjudicated labels from N annotators", and never "validated".
 
 ---
 
@@ -358,80 +446,93 @@ Go or no-go for 13e and 13f: they start only when the 13a–13d records are `rea
   - **T→D→E→M→E:**
     - **Threat:** a user or a tool rewrites a prompt to evade detection.
     - **Defense:** in-page interception, then detection, then BLOCK or WARN.
-    - **Experiment:** declared transforms through the installed extension to the synthetic receiver.
-    - **Metric:** end-to-end ASR, conditional and unconditional, next to the detector-level ASR of the same variants.
-    - **Evidence:** E2EEVADE record.
-- **Depends on:** none (the Stage 3 and Stage 11 code is present).
+    - **Experiment:** declared transforms sent through the installed extension to the synthetic receiver.
+    - **Metric:** conditional and unconditional end-to-end ASR, beside the detector-level ASR on the same applicable pairs.
+    - **Evidence:** the E2EEVADE record.
+- **Depends on:** none.
 - **Work:**
-  1. **Seeds.** Draw a stratified sample of seeds from the frozen Stage 3 set (sha256 `5e4eac4c...b634c2`) with a recorded seed.
-     - The sample must be disjoint from the 13a set and from the sets that were used to design the robustness flags.
-     - Size `N_seed` is fixed after a 20-probe timing pilot so that one browser run takes 8 hours or less. The floor is 200 seeds.
+  1. **Seeds.** A stratified sample, with a recorded seed, from the frozen Stage 3 set at `D:/Git Repositories/Privoke-Research-Project/evaluation/results/adversarial_evasion_20261116/main/frozen_set.jsonl` (sha256 `5e4eac4c7c3117adf81a013fa9e4572484c9b0f41ab4b4f217ca960a82b634c2`). The harness verifies this hash before it reads anything.
+     - **Disjointness.** F4 is disjoint from the flag-design sets (`development.jsonl` dev-TUNE and dev-CHECK, the personalised synthetic set and the OpenAI synthetic set) by the [F4 freeze record](../research/fresh-sets-freeze-v3-20261025.md). The sample must also be disjoint from the 13a set, which the 13a contamination check confirms.
+     - **Size.** `N_seed` is fixed after a 20-probe timing pilot so that one browser takes at most 8 hours, with a floor of 200.
+     - **Re-use.** Reusing the frozen Stage 3 items keeps the variant text identical to Stage 3.
   2. **Variants.**
-     - Use `adversarial_evasion_transforms.py` **unchanged**, imported at its recorded revision, for the Stage 3 families.
-     - Add `fragmented_identifier` and `mixed_language` as declared templates in a new module, `evaluation/e2e_evasion_transforms.py`.
-     - The hash of the template file is frozen and committed before the first scored run, and the templates are never edited after any PriVoke output has been seen.
-  3. **Runner** (`evaluation/e2e_evasion.py`). It reuses the Stage 11 method:
-     - the unmodified extension build, loaded in disposable profiles;
+     - The Stage 3 families come from `adversarial_evasion_transforms.py`, unchanged, at its recorded revision.
+     - `fragmented_identifier` and `mixed_language` are declared templates in a new `evaluation/e2e_evasion_transforms.py`.
+     - Freeze the template hash before the first scored run, and verify it with `$PY evaluation/e2e_evasion.py verify-templates --expected-sha256 <hash>` (exit 0). Never edit the templates after any PriVoke output has been seen.
+  3. **Runner** (`evaluation/e2e_evasion.py`), following Stage 11:
+     - the unmodified extension in disposable profiles;
      - only the fixture hosts resolve;
-     - the synthetic receiver;
-     - the real supervisor and bridge on loopback.
-     For each seed and each variant, it types or pastes the text into a provider-shape fixture page and submits it. It records:
+     - the synthetic receiver, and the real supervisor and bridge on loopback.
+     For each seed, the runner sends the untransformed `baseline` item end to end (Stage 3 calls this variant `BASELINE = "baseline"`), then every applicable variant. For each send it records:
      - whether the receiver got a request;
-     - whether the receiver body contains the variant payload intact;
-     - the page `noticeStatus` (whether a WARN was shown);
-     - the decision and the executed layers, from the bridge response log.
-  4. **Paired detector-level arm.** Run the same variants through the Stage 3 in-process product client with explicit layers [2, 3, 4].
-  5. **Definitions** (written into the record):
-     - **protected seed:** an untransformed seed that is not delivered (BLOCK), or delivered only after a WARN was shown;
-     - **evasion:** a protected seed whose variant is delivered intact with no BLOCK and no WARN;
-     - **downgrade:** BLOCK falls to WARN;
-     - **conditional ASR:** evasions divided by protected seed-variant pairs;
-     - **unconditional ASR:** evasions divided by all pairs.
-     Fail-closed errors are counted separately and are never counted as protection.
+     - whether the variant payload arrived intact;
+     - the page's `noticeStatus`;
+     - the decision and the executed layers, from the bridge log.
+  4. **Detector-level arm.** Score the same items with the Stage 3 in-process product client (`$PYPIPE`, layers [2, 3, 4]).
+  5. **Scoring.** Both arms are scored with the Stage 3 functions `evaluate_arm` and `summarise_pairs`, imported from `adversarial_evasion.py`, on the **same applicable-pair set**: the pairs that both arms scored. The record lists any pairs that are excluded.
+     - **Applicable:** the transform changed the text (Stage 3 definition).
+     - **Intended action:** the action on the `baseline` item. The end-to-end arm uses its own end-to-end baseline, and the detector-level arm uses the in-process baseline.
+     - **Protected:** the intended action is WARN or BLOCK, as in Stage 3. On the end-to-end side, BLOCK means the receiver got nothing, and WARN means the notice was shown before sending.
+     - **Evasion:** a protected pair whose variant is delivered intact with no BLOCK and no WARN.
+     - **Downgrade:** BLOCK becomes WARN.
+     - **Fail-closed:** counted separately, never as protection.
+     - **Conditional ASR** = evasions / protected applicable pairs. **Unconditional ASR** = evasions / all applicable pairs.
+     - **Value-removing families** (`indirect_pointer`, flagged `True` in the transform table) may leave the prompt no longer sensitive. They are reported separately, and every overall rate is given with and without them, using Stage 3's `overall_excluding_value_removing` key. A delivery of an `indirect_pointer` variant is never reported as a leak of the original value.
+  6. **Expected executed layers.** Every end-to-end and detector-level response must execute [regex, ner, semantic], subject to the regex-first skip rule.
+     - If the installed runtime cannot run the semantic layer, the run stops; it never silently drops a layer. This happened in Stage 11, where `PRIVOKE_USE_LOCAL_STACK=true` made the semantic layer unavailable.
+     - Root then decides between making V3 balanced available locally (the default) and running a separately labelled regex+NER arm.
 - **Owned paths:**
   - `evaluation/e2e_evasion.py`, `evaluation/e2e_evasion_transforms.py`, `evaluation/e2e_evasion_report.py`;
   - `extension/test/e2e-evasion-driver.mjs` (new; the Stage 11 driver is not edited);
   - `evaluation/tests/test_e2e_evasion*.py`.
-- **Interfaces and data shapes:**
-  - Per-pair row: `{seed_id, family, variant_id, browser, receiver_got, payload_intact, warn_shown, decision, layers_requested, layers_executed, error, detector_level:{action, layers_executed}, e2e_outcome: protected|evaded|downgraded|fail_closed|not_delivered_other}`. Prompt text is stored only in `evaluation/results/s13b/`.
-  - The record holds ids and hashes only.
+- **Interfaces and data shapes:** one row per item and browser, holding ids only:
+
+  ```
+  {seed_id, variant, family, value_removing, applicable, browser, attended,
+   receiver_got, payload_intact, warn_shown, decision,
+   layers_requested, layers_executed, error,
+   detector_level:{action, failed_closed, layers_executed},
+   e2e_outcome: protected | evaded | downgraded | fail_closed | not_delivered_other,
+   scope_label: "product pipeline (installed extension, end to end)"}
+  ```
+
+  Prompt text is stored only under `evaluation/results/s13b/`.
 - **Acceptance checks:**
-  - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_evasion*.py"`. They cover outcome classification, the ASR formulas, Wilson intervals, refusal of an empty layer list, and refusal of any non-fixture host.
-  - **The template hash is committed** before the first scored run.
-- **User dependency:** none for 13b-1.
+  - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_evasion*.py"`. They cover:
+    - outcome classification;
+    - matching Stage 3's `summarise_pairs` on a fixture;
+    - the value-removing split;
+    - refusing an empty layer list;
+    - refusing a host that is not a fixture;
+    - stopping on a layer mismatch.
+  - **The templates are frozen before scoring:** `$PY evaluation/e2e_evasion.py verify-templates --expected-sha256 <hash>` exits 0. The template-hash commit must also be an ancestor of the first scored-run record (`git merge-base --is-ancestor`).
+- **User dependency:** none.
 - **Status:** pending.
-- **Handoff notes:**
-  - Stage 11 ran with only regex and NER available, because `PRIVOKE_USE_LOCAL_STACK=true` made the semantic layer unavailable. 13b must make the semantic layer available locally (the V3 balanced release from the main checkout) and assert that it executed. If it cannot, the record states the scope label "regex+NER runtime" and the paper says so.
-  - The extension enforces `requireExplicitLayers` (`extension/src/analysis-request.js`). Capture the request layers from the bridge log rather than assuming them.
+- **Handoff notes:** take the request layers from the bridge log. `requireExplicitLayers` (`extension/src/analysis-request.js`) enforces a non-empty list in the extension.
 
 ## Stage 13b-2: Headless installed-extension run (agent)
 
-- **Objective:** the main end-to-end run in Chrome, Edge and Firefox on the Windows host, headless, with disposable profiles. This is the agent-run method of Stage 11.
-- **Depends on:** 13b-1.
-- **Owned paths:** `paper/research/e2e-evasion-<date>.{md,json}` and `docs/experiments/e2e-evasion-<date>.md`.
+- **Objective:** the main end-to-end run in Chrome, Edge and Firefox on Windows, headless and in disposable profiles. This is the agent-run method of Stage 11.
+- **Depends on:** 13b-1, and the host lock (order: after 13d-2).
+- **Owned paths:**
+  - `paper/research/e2e-evasion-<date>.{md,json}`;
+  - `docs/experiments/e2e-evasion-<date>.md`.
 - **Acceptance checks:**
-  - **S13-G2 holds.**
-  - **Every browser is accounted for:** each is run or listed as not run with its reason.
-  - **No other host is contacted:** the hostname guard shows zero lookups outside the fixture hosts.
+  - **S13-G2 holds:** `$PY evaluation/e2e_evasion_report.py --check <json>` exits 0. The check fails if a browser is neither run nor listed with a reason.
+  - **No outside host was contacted:** the record's `host_guard.outside_lookups` is 0, which `--check` verifies.
 - **User dependency:** none.
 - **Status:** pending.
-- **Handoff notes:**
-  - Do not run this at the same time as 13f timing.
-  - Stop the supervisor, the bridge, the receiver and the browsers when the run ends.
+- **Handoff notes:** release the host lock, and stop the supervisor, bridge, receiver and browsers.
 
 ## Stage 13b-3: Attended real-browser subset (USER)
 
-- **Objective:** confirm on the user's installed, headed browser (native-host launch, visible notices) that the headless outcomes hold for a stratified subset. The default is 60 pairs (D8).
-- **Depends on:** 13b-2.
-- **Owned paths:** an addendum section and rows in the same record (`attended: true`).
-- **Acceptance checks:** **the attended rows are labelled.** Each one has the same fields and the flag `attended`. Any disagreement with the headless run is reported.
-- **User dependency:** USER does all of the following:
-  - run the provided script, which opens the fixture page in the user's browser with the installed extension;
-  - submit each listed variant when prompted;
-  - leave the machine otherwise idle.
-  No real provider is involved.
+- **Objective:** confirm the headless outcomes in the user's installed, headed browser for a stratified subset (D8). Here the native host launches normally and the notices are visible.
+- **Depends on:** 13b-2, and the host lock.
+- **Owned paths:** rows with `attended: true` added to the same record.
+- **Acceptance checks:** **the attended rows check out:** `$PY evaluation/e2e_evasion_report.py --check <json> --require-attended` exits 0. It requires the attended rows to have the full row fields and reports any disagreement with the headless rows.
+- **User dependency:** USER runs the provided script, which opens the fixture page in the user's browser with the installed extension. The user submits each listed variant when prompted, and leaves the machine otherwise idle. No real provider is involved.
 - **Status:** pending.
-- **Handoff notes:** if D7 approves live-provider runs, a separate `live` addendum may follow, using only non-sensitive synthetic seeds. Without that approval, it is blocked.
+- **Handoff notes:** a `live` addendum is possible only with D7 approval, and then only with non-sensitive synthetic seeds.
 
 ---
 
@@ -439,85 +540,132 @@ Go or no-go for 13e and 13f: they start only when the 13a–13d records are `rea
 
 ### 13c-1: Attack matrix in CI (agent)
 
-- **Objective:** drive each attack against the real V3 commit path, on a branch from `feat/rust-rewrite`, and record the rejecting check and the active model before and after.
+- **Objective:** drive each attack against the real V3 commit path, on `feat/asiaccs-s13c` (from `feat/rust-rewrite`), and record the rejecting check and the active model before and after.
 - **Paper question:** can an invalid, stale, replayed or behaviourally unsafe update replace the active model? (RQ2, `sec:eval_update`.)
   - **T→D→E→M→E:**
-    - **Threat:** a compromised or faulty trainer (a principal with the `trainer` or `publisher` role), or a corrupted transfer or store, submits a bad candidate.
-    - **Defense:** the V3 checkpoint store, in this order: admission → compare-and-swap with request-id idempotence → DriftGate → GuardGate → RetentionGate → signed Publisher. Then model-streaming serves only signed versions, and the client applies `admit_lineage`.
-    - **Experiment:** the attack matrix below, run against the real path.
-    - **Metric:** for each attack, whether the active model is unchanged (required) at the store, at model-streaming and at the client, plus the check that rejected the attack.
-    - **Evidence:** V3UPDATK record.
-- **Depends on:** none (`feat/rust-rewrite` at its current head).
-- **Harness design.**
-  - **Location.** A Rust integration test, `rust/services/param-update/tests/s13c_update_attacks.rs`, built on `tests/common` and the fixtures of `scheduler_chain.rs`, `v3_guard.rs`, `v3_publication.rs` and `v3_signed_chain.rs`.
-  - **Wiring.** It must use exactly the observer chain that `main.rs` installs. Add one harness seam: move the observer construction in `src/main.rs` (lines 131–150 at `4d838fd`) into a `pub fn build_observers(..)` in `src/lib.rs`, which both `main.rs` and the test call. This is a refactor with no behaviour change, covered by the existing `v3_deployment.rs`.
-  - **Transport.** It calls the real `CheckpointService` over mutual TLS (as `checkpoint_mtls.rs` does) as the `trainer` principal.
-  - **Store and publishing.** The store is seeded with `bootstrap_pinned`, uses the drift bounds of `rust/services/param-update/config/v3-drift-bounds.toml`, and the committed retention references. The Publisher has a **test** key.
-  - **Client side.** model-streaming `published.rs` is read through its library API over the same store. The client leg is `admit_lineage` with the test key as its key set.
-  - **Fixed scorer.** In CI, the guard and retention scorers use the fixed-scorer test doubles that already exist. The real-encoder leg is 13c-2.
-  - **Output.** With `S13C_OUT` set, the test writes the rows as JSON. It asserts each row's expected outcome, so CI fails on any regression.
-- **Attack-to-check map.** Every check named here is in the current source of `origin/feat/rust-rewrite`. `store.rs` means `rust/services/param-update/src/v3_store/store.rs`, and `v3.rs` means `rust/crates/privoke-contracts/src/v3.rs`.
-  - **Order of reasons.** In `CheckpointStore::commit`, the receipt reason is `stale_base` first, then `guard_rejected` (trainer evidence, `v3::publication_passes`), then the first observer refusal (Drift, then Guard, then Retention). Admission errors come before all of these, as `INVALID_ARGUMENT` with no receipt.
-  - **Isolation.** Each row therefore isolates one fault. Rows with combined faults are labelled `combined`.
+    - **Threat:** a compromised or faulty trainer (a principal with the `trainer` or `publisher` role), or a corrupted transfer or store, supplies a bad candidate.
+    - **Defense:**
+      1. Admission (`admit_candidate`).
+      2. The observer `prepare` steps, run **before** the compare-and-swap transaction, in this order: DriftGate, GuardGate, RetentionGate, then the Publisher's staging.
+      3. Inside the `BEGIN IMMEDIATE` transaction: the compare-and-swap with request-id idempotence, the `stale_base` and trainer-evidence guard checks, then signing and the `publications` insert (the Publisher's `before_swap`).
+      4. After the commit: the Publisher's rename and pointer move.
+      5. model-streaming serves only signed versions.
+      6. Clients apply `admit_lineage` and `verify_package`.
+    - **Experiment:** the attack matrix below.
+    - **Metric:** for each attack, whether the active model is unchanged in the sense of "Shared conventions" (required), or recovered with `applied_recovered`, plus the rejecting check.
+    - **Evidence:** the V3UPDATK record.
+- **Depends on:** none.
+- **Harness seam.** Move the observer construction out of `open_checkpoint` in `rust/services/param-update/src/main.rs` (at `4d838fd`) into `src/lib.rs`:
 
-  | # | Attack (13c list) | Variants (row ids) | Expected rejecting check (file → symbol / reason) | Expected outcome |
+  ```rust
+  pub fn build_observers(
+      config: &V3Config,
+      sources: Arc<PinnedSources>,
+      allocations: Arc<dyn Allocations>,
+      crash: CrashHook,
+      guard_scorer: Option<Arc<dyn GuardScorer>>,
+      retention_scorer: Option<Arc<dyn RetentionScorer>>,
+  ) -> Result<(Vec<Arc<dyn CommitObserver>>, Option<Arc<Publisher>>)>
+  ```
+
+  - **Order.** The function builds the observers in the same order as `main.rs` today:
+    - `DriftGate`;
+    - `GuardGate::new(..)` with `.with_scorer(s)` when a scorer is given;
+    - `RetentionGate::new(..)` with `.with_scorer(s)` when the config has retention;
+    - `Publisher::new(.., crash)` when the config has publication.
+  - **`main.rs`** passes `JournalAllocations`, `no_crash()`, `None` and `None` (the real scorers).
+  - **Contract.** The seam changes no behaviour. The existing `tests/v3_deployment.rs` and `tests/scheduler_chain.rs` still pass.
+- **Harness.**
+  - **Location.** A Rust integration test, `rust/services/param-update/tests/s13c_update_attacks.rs`. It builds its store world from the V3 fixtures in `tests/golden_world/mod.rs` and the toy-candidate pattern of `tests/scheduler_chain.rs`. It does not use the V1-oriented `tests/common`, apart from that file's PKI and mutual-TLS helpers.
+  - **Checkpoints and keys.** Checkpoints are generated in test code: stand-in weights with the fixture `config.json` and `vocab.txt`. **No weights are committed.**
+  - **Scorers.** `Fixed` is private to `tests/v3_guard.rs`, so the test writes its own `GuardScorer` and `RetentionScorer` doubles, modelled on `Fixed` in `tests/v3_guard.rs` and on `Better` and `Retains` in `tests/scheduler_chain.rs`.
+  - **Wiring.** Observers come from `build_observers` with a test publication key and a recording `CrashHook`. The store is seeded with `bootstrap_pinned`, uses `rust/services/param-update/config/v3-drift-bounds.toml` and the committed retention references, and the allocations come from a test `Allocations`.
+  - **Transport.** Calls go through the real `CheckpointService` over mutual TLS (pattern of `tests/checkpoint_mtls.rs`), as the `trainer` principal.
+  - **Observation.**
+    - The store authority is read directly.
+    - The served version comes from `model-streaming`'s `published.rs` library API over the same store and publish root, if `privoke-model-streaming` can be a dev-dependency of param-update. If it cannot, from the container leg only.
+  - **Client checks.** The client-side checks (`admit_lineage`, and `verify_package` in `rust/services/runtime-supervisor/src/fetch.rs`) are tested in **runtime-supervisor**, not in param-update, because runtime-supervisor is not a dependency of param-update. The test is `rust/services/runtime-supervisor/tests/s13c_client_admission.rs`, built on the synthetic efficient-tier chain of `tests/lineage_fetch.rs` and `privoke-contracts/tests/fixtures/v3_signed_chain/chain.json`.
+  - **Outputs.**
+    - With `S13C_OUT` set, both tests write their rows as JSON. They assert each row's expected outcome, so CI fails on any regression.
+    - With `S13C_EXPORT_CANDIDATES=<dir>`, the param-update test also writes the valid and invalid candidate bundles (manifest, blob, evidence and allocation) to a scratch directory, for 13c-2 and 13d. These bundles are never committed.
+- **Attack-to-check map.** Every check named here was read with `git show origin/feat/rust-rewrite:<path>`. `store.rs` means `rust/services/param-update/src/v3_store/store.rs`, and `v3.rs` means `rust/crates/privoke-contracts/src/v3.rs`.
+  - **Reason order.** Admission errors come first. They raise `INVALID_ARGUMENT` before any transaction and leave no receipt; this includes `validate_execution` and the commit-identity check. Next, the observer refusals in `prepare` are computed. Inside the transaction, the receipt reason is `stale_base` first, then `guard_rejected` (`v3::publication_passes`), and only then the first `prepare` refusal.
+  - **Isolation.** Each row isolates one fault. Rows that combine faults are labelled `combined`.
+  - **Expected values:**
+    - `rejected_unchanged`;
+    - `noop_unchanged`: the stored receipt is returned and nothing is swapped;
+    - `applied_recovered`: the authority applied the candidate before the crash. The served version is the old complete version or the new complete signed one, never partial, and after `reconcile` the authority and the served version agree;
+    - `accepted_by_design`.
+
+  | # | Attack | Variants | Rejecting check (file → symbol / message or reason) | Expected |
   | --- | --- | --- | --- | --- |
-  | 1 | Stale parent | C1a: the candidate's parent was current, then another candidate was applied. C1b: two candidates race on one base. C1c: `RollbackModel` to a version that was never published | `store.rs` `commit`, CAS inside `BEGIN IMMEDIATE` → receipt `rejected`/`stale_base`; the loser of the race is never signed (`v3_publish.rs` `before_swap` is never reached); `store.rs` `rollback` → "Rollback target was never published." | rejected, model unchanged; `publications` has no row for the loser |
-  | 2 | Replay | C2a: the same request id and content after a later update. C2b: the same id with different content. C2c: the client is served an older signed statement (sequence below the high-water mark). C2d: the client is served the unsigned pin after a signed version | `store.rs` `replay`/`replayed` → stored receipt, no swap; "Request ID reused with different commit content."; `v3.rs` `admit_lineage` → `LineageError::Replay`; `LineageError::Downgrade` | no-op or rejected; the store, the served version and the client mark are unchanged |
-  | 3 | Duplicate | C3a: a candidate that is already current is committed again under a new request id. C3b: the same candidate is staged twice | `store.rs` `commit` → `stale_base` (its parent is no longer current); `put` is content-addressed (the second stage is idempotent) | at most one application; one `publications` row |
-  | 4 | Wrong model or version id | C4a: `Commit.model_id` differs from the manifest. C4b: the manifest `model_id`, `tier`, `config` or `vocab` differs from the parent. C4c: `original` is not the parent's ORIGINAL. C4d: `expected_base` is not the manifest's `parent`. C4e: the candidate claims scope `original`. C4f: the client receives a statement for another model or manifest | `store.rs` `commit` → "Commit identity differs from candidate/fit evidence."; `admit_candidate` → "Candidate changed immutable model provenance/config.", "Candidate ORIGINAL binding mismatch.", "Candidates cannot claim ORIGINAL scope."; `v3.rs` `LineageError::StatementModel`, `StatementManifest`, `WrongOriginal` | `INVALID_ARGUMENT` or client refusal; unchanged |
-  | 5 | Wrong tensor name | C5a: a renamed tensor in the manifest and the blob. C5b: the manifest inventory differs from the blob | `store.rs` `admit_candidate` → "Candidate changed admitted tensor inventory."; `verify_checkpoint` → "Safetensors inventory differs from manifest." | `INVALID_ARGUMENT`; unchanged |
-  | 6 | Wrong tensor shape | C6a: the shape changes in both the manifest and the blob. C6b: the shape changes only in the blob | the same two checks (the inventory includes shape and dtype) | `INVALID_ARGUMENT`; unchanged |
-  | 7 | NaN or Inf values | C7a: NaN. C7b: +Inf. C7c: −Inf, each in one coordinate of a heads tensor | `rust/crates/privoke-semantic/src/safetensors.rs` finite check, reached through `store.rs` `verify_checkpoint` → "Snapshot tensors must be finite float32." | `INVALID_ARGUMENT` at stage or commit; unchanged |
-  | 8 | Excessive parameter change | C8a: one update above `max_update_l2` for the tier and scope. C8b: a sequence of updates each under the per-update bound until the cumulative bound of 100 is crossed. C8c: a HEADS-scope candidate that changes encoder bytes. C8d: `changed_tensors` misreported | `rust/services/param-update/src/v3_policy.rs` `DriftGate::prepare` → `drift_exceeded` (per-update and cumulative from `DriftGate::root`); `store.rs` → "HEADS candidate changed pretrained encoder/pooler bytes.", "Reported changes differ from actual checkpoint tensors." | `rejected`/`drift_exceeded` or `INVALID_ARGUMENT`; unchanged. C8b records the update at which the bound triggers |
-  | 9 | Truncated or corrupted artifact | C9a: the stream ends early. C9b: a chunk offset gap. C9c: the declared sha does not match the bytes. C9d: the manifest `blob` digest does not match the uploaded bytes. C9e: a store blob is corrupted at rest before commit. C9f: a published asset is corrupted at rest before it is served | `rust/services/param-update/src/v3_store/service.rs` `stage_checkpoint` → "Incomplete/corrupt checkpoint upload.", "Invalid bounded ordered checkpoint upload."; `store.rs` `stage` → "Candidate snapshot identity mismatch."; `read` → "Immutable blob hash mismatch."; `rust/services/model-streaming/src/published.rs` `stream_asset` re-hash; the client `rust/services/runtime-supervisor/src/fetch.rs` `verify_package` | rejected; unchanged. C9e and C9f are labelled as at-rest defence in depth |
-  | 10 | Interrupted publication | C10a–e: the crash hook fires at `staged`, `signed`, `committed`, `renamed` and `pointer`, then restart and `Publisher::reconcile` | `rust/services/param-update/src/v3_publish.rs` `CrashHook`, `reconcile` (promote or rebuild, repair the pointer, quarantine) | before reconcile, the served version is the old version or the complete new signed one, never a partial or unsigned one; after reconcile, the store authority and the served version agree |
-  | 11 | Update that improves the aggregate but breaks guard cases | C11a: honest evidence showing a guard harm. C11b: evidence that claims a pass, while the recomputed guard fails. C11c: substituted guard rows. C11d: a trainer-chosen source or seed. C11e: an unallocated request id. C11f: a better aggregate that regresses reference rows beyond the 5% allowance. C11g: the boundary case, which regresses exactly the allowance (7, 9 or 10 rows) | `store.rs` `commit` via `v3::publication_passes` → `guard_rejected`; `rust/services/param-update/src/v3_guard.rs` `GuardGate` → `guard_recomputed`, `guard_rows_differ`, `commitment_mismatch`, `request_not_allocated`/`allocation_mismatch`; `rust/services/param-update/src/v3_retention.rs` `RetentionGate` → `retention_regressed` | C11a–f rejected, model unchanged. **C11g is accepted by design.** It is reported as a boundary row and a documented limit, not as a pass |
-  | S | Signature and lineage at the client (included because the question includes the model clients run) | CS1: a version directory dropped into the publish root with no authority row. CS2: a statement signed by an unknown key. CS3: a tampered statement. CS4: an unsigned non-pin manifest | `published.rs` (authority only, `is_published`); `rust/crates/privoke-contracts/src/publication.rs` verify → `LineageError::Publication`; `v3.rs` `LineageError::Unsigned` | not served, or refused by the client; the client mark is unchanged |
+  | 1 | Stale parent | **C1a:** the candidate's parent was current, then another candidate on the same base was applied. **C1b:** two distinct candidates, each with its own evidence and request id, race on one base. **C1c:** `RollbackModel` to a manifest that was never committed for the model. **C1d** (chain `no_publisher`: `main.rs` without V3 publication config): `RollbackModel` to a version that went live unsigned | `store.rs` `commit` compare-and-swap → receipt `rejected`/`stale_base`. The race loser never reaches `Publisher::before_swap`, so it gets no `publications` row. `store.rs` `rollback` → "Rollback target is not in the history of this model." (C1c), and "Rollback target was never published." (C1d). The main chain cannot produce an unsigned live version, so C1d exists only for the `no_publisher` deployment | `rejected_unchanged` |
+  | 2 | Replay | **C2a:** the same request id and content after a later update. **C2b:** the same id with different content. **C2c:** the client is served an older signed statement. **C2d:** the client is served the unsigned pin after a signed version | `store.rs` `replay`/`replayed` returns the stored receipt (C2a records `receipt_status=applied`, `expected=noop_unchanged`); "Request ID reused with different commit content." (C2b); `v3.rs` `admit_lineage` → `LineageError::Replay` (C2c), `LineageError::Downgrade` (C2d) | C2a `noop_unchanged`; the rest `rejected_unchanged` |
+  | 3 | Duplicate | **C3a:** a candidate that is already current is committed again under a new request id. **C3b:** the same candidate is staged twice | `store.rs` `commit` requires `evidence["request_id"] == request.request_id` before the transaction → `INVALID_ARGUMENT` "Commit identity differs from candidate/fit evidence.", with no receipt (C3a). `put` is content-addressed, so the second stage is idempotent (C3b). `stale_base` with a distinct candidate is C1b | at most one application and one `publications` row; `rejected_unchanged` |
+  | 4 | Wrong model or version id | **C4a:** `Commit.model_id` differs from the manifest. **C4b:** the manifest `model_id`, `tier`, `config` or `vocab` differs from the parent. **C4c:** a wrong `original`. **C4d:** `expected_base` differs from the manifest's `parent`. **C4e:** scope `original`. **C4f:** the client receives a statement for another model or manifest | `store.rs` `commit` → "Commit identity differs from candidate/fit evidence." (C4a, C4d); `admit_candidate` → "Candidate changed immutable model provenance/config." (C4b), "Candidate ORIGINAL binding mismatch." (C4c), "Candidates cannot claim ORIGINAL scope." (C4e); `v3.rs` `LineageError::StatementModel` / `StatementManifest` / `WrongOriginal` (C4f) | `rejected_unchanged` |
+  | 5 | Wrong tensor name | **C5a:** a tensor renamed in both the manifest and the blob. **C5b:** the manifest inventory differs from the blob | `store.rs` `admit_candidate` → "Candidate changed admitted tensor inventory." (C5a); `verify_checkpoint` → "Safetensors inventory differs from manifest." (C5b) | `rejected_unchanged` |
+  | 6 | Wrong tensor shape | **C6a:** the shape changed in both the manifest and the blob. **C6b:** the shape changed only in the blob | The same two checks; `inventory` compares shape and dtype | `rejected_unchanged` |
+  | 7 | NaN or Inf | **C7a–c:** NaN, +Inf and −Inf in one heads coordinate | `rust/crates/privoke-semantic/src/safetensors.rs` finite check, called from `store.rs` `verify_checkpoint` → "Snapshot tensors must be finite float32." | `rejected_unchanged` |
+  | 8 | Excessive parameter change | **C8a:** one update above `max_update_l2`. **C8b:** a run of updates each under the per-update bound until the cumulative cap of 100. **C8c:** a HEADS candidate that changes encoder bytes, with honest evidence. **C8d:** the same with dishonest `changed_tensors` / `changes` | `rust/services/param-update/src/v3_policy.rs` `DriftGate::prepare` → `drift_exceeded` (C8a, C8b; cumulative from `DriftGate::root`). C8c: `v3.rs` `validate_execution` → "HEADS changed pretrained encoder." (`tensor_changes` counts every `encoder.*` tensor, embeddings and pooler included). C8d: `store.rs` `admit_candidate` → "Reported changes differ from actual checkpoint tensors.". The store's own "HEADS candidate changed pretrained encoder/pooler bytes." cannot be reached after these two checks, so no row targets it | C8a and C8b `rejected_unchanged` with receipt `drift_exceeded`; C8c and C8d `INVALID_ARGUMENT`, unchanged |
+  | 9 | Truncated or corrupted artifact | **C9a:** the stream ends early. **C9b:** an offset gap. **C9c:** the declared sha256 differs from the bytes. **C9d:** the manifest `blob` differs from the uploaded bytes. **C9e:** a store blob is corrupted at rest before commit. **C9f:** a published asset is corrupted at rest before serving | `rust/services/param-update/src/v3_store/service.rs` `stage_checkpoint` → "Incomplete/corrupt checkpoint upload." / "Invalid bounded ordered checkpoint upload."; `store.rs` `stage` → "Candidate snapshot identity mismatch."; `read` → "Immutable blob hash mismatch."; `rust/services/model-streaming/src/published.rs` `stream_asset` re-hash; `rust/services/runtime-supervisor/src/fetch.rs` `verify_package` (C9f client side) | `rejected_unchanged`; C9e and C9f are labelled at-rest defence in depth |
+  | 10 | Interrupted publication | **C10a:** `staged`. **C10b:** `signed`. **C10c:** `committed`. **C10d:** `renamed`. **C10e:** `pointer`. Each is a `CrashHook` failure (`rust/services/param-update/src/v3_publish.rs`), followed by a restart and `Publisher::reconcile` | `staged` (`prepare`) and `signed` (`before_swap`, inside the transaction): the commit errors and the transaction rolls back. `committed`, `renamed` and `pointer` (after the transaction): the authority is already applied, and `reconcile` promotes or rebuilds, repairs the pointer and quarantines | C10a and C10b `rejected_unchanged`; C10c–e `applied_recovered` |
+  | 11 | Better aggregate but broken guard cases | **C11a:** honest evidence of a guard harm. **C11b:** evidence claims a pass, but the recomputed guard fails. **C11c:** substituted guard rows. **C11d:** a trainer-chosen source or seed. **C11e:** an unallocated request id. **C11f:** reference rows regress beyond the 5% allowance. **C11g:** the boundary, exactly the allowance (7, 9 or 10 rows) | `store.rs` `commit` via `v3::publication_passes` → `guard_rejected`; `rust/services/param-update/src/v3_guard.rs` `GuardGate` → `guard_recomputed`, `guard_rows_differ`, `commitment_mismatch`, `request_not_allocated` / `allocation_mismatch`; `rust/services/param-update/src/v3_retention.rs` `RetentionGate` → `retention_regressed` | C11a–f `rejected_unchanged`; **C11g `accepted_by_design`**, reported as a documented limit |
+  | S | Client signature and lineage (included because the question covers the model that clients run) | **CS1:** a version directory placed in the publish root with no authority row. **CS2:** an unknown key. **CS3:** a tampered statement. **CS4:** an unsigned manifest that is not the pin | `published.rs` `is_published` (authority only); `rust/crates/privoke-contracts/src/publication.rs` verification → `LineageError::Publication`; `v3.rs` `LineageError::Unsigned` | not served, or refused by the client; the client mark is unchanged |
 
+  **C8b.** It needs about 25 updates, each just under the per-update bound, to reach the cumulative cap of 100. It runs **synthetically in CI only**, with stand-in weights and the test scorers. The real-weight leg records it as `not_run` with that reason.
 - **Owned paths:**
-  - `rust/services/param-update/tests/s13c_update_attacks.rs` (new);
   - `rust/services/param-update/src/{lib.rs,main.rs}` (the `build_observers` seam only);
+  - `rust/services/param-update/tests/s13c_update_attacks.rs` (new);
+  - `rust/services/param-update/Cargo.toml` (only if a `privoke-model-streaming` dev-dependency is added);
+  - `rust/services/runtime-supervisor/tests/s13c_client_admission.rs` (new);
   - `evaluation/v3_update_attacks_report.py` and `evaluation/tests/test_v3_update_attacks_report.py` (new).
-- **Interfaces and data shapes.** Each row:
+- **Interfaces and data shapes:** one row per attack variant:
 
-  ```text
-  {id, attack_class:1..11|S, variant, combined:false, leg:"ci"|"real"|"container", surface:stage|commit|rollback|serve|client,
-   identity:"trainer"|"publisher", attempted:{request_id, model_id, expected_base, candidate_sha, mutation},
-   expected:"rejected_unchanged"|"noop_unchanged"|"accepted_by_design", observed:{grpc_code, receipt_status, receipt_reason, message},
-   rejecting_check:{file, symbol, reason}, active_before:{store_current, max_sequence, served_manifest, client_mark},
-   active_after:{...}, property_met:bool}
+  ```
+  {id, attack_class: 1..11 | "S", variant, combined, chain: "main" | "no_publisher",
+   leg: "ci" | "real" | "container", surface: stage | commit | rollback | serve | client,
+   identity, attempted:{request_id, model_id, expected_base, candidate_sha, mutation},
+   expected: rejected_unchanged | noop_unchanged | applied_recovered | accepted_by_design,
+   observed:{grpc_code, receipt_status, receipt_reason, message},
+   rejecting_check:{file, symbol, reason},
+   active_before:{store_current, versions_count, max_sequence, served_manifest, client_mark},
+   active_after:{...}, orphan_blobs, property_met, not_run_reason}
   ```
 - **Acceptance checks:**
-  - **The CI matrix passes:** `RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks` exits 0.
-  - **The rest of the crate is unaffected:** `RUSTDOCK cargo test -p privoke-param-update --release --locked` exits 0.
+  - **The param-update attack test passes:** `RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks` exits 0.
+  - **The rest of param-update still passes:** `RUSTDOCK cargo test -p privoke-param-update --release --locked` exits 0. This includes `v3_deployment` and `scheduler_chain`, which show the seam changed no behaviour.
+  - **The client admission test passes:** `RUSTDOCK cargo test -p privoke-runtime-supervisor --release --locked --test s13c_client_admission` exits 0.
   - **The report tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_v3_update_attacks_report.py`.
-  - **Every attack class has a row:** each of the 11 classes has at least one row with `rejecting_check` set, or with `accepted_by_design` and its reason.
 - **User dependency:** none.
 - **Status:** pending.
 - **Handoff notes:**
-  - The V1 rows of `update_security.py --target rust --rust-service param-update` (A1–E7, R1, R2, R5) now only show that `SubmitParameterUpdate` is `UNIMPLEMENTED`. They are not 13c evidence.
-  - Never use `PRODUCTION_KEYS` or the production key. The test key reaches the build only through dev-dependencies, which CI's `cargo tree` check enforces.
+  - The V1 rows of `update_security.py --target rust --rust-service param-update` (A1–E7, R1, R2, R5) only show that `SubmitParameterUpdate` is `UNIMPLEMENTED`. They are not 13c evidence.
+  - Never use `PRODUCTION_KEYS` or the production key. Test keys enter only through dev-dependencies, which CI's `cargo tree` check enforces.
 
 ### 13c-2: Real-weight and container legs, and the record (agent)
 
-- **Objective:** repeat the rows that depend on the scorer (C11b, C11f, C11g) with the real Rust V3 encoder and the real efficient-tier release. Run the matrix's wire-level rows against the Compose `v3-training` stack on loopback (with a test PKI and a test publication key). Then write V3UPDATK.
-- **Depends on:** 13c-1.
+- **Objective:**
+  - Repeat the scorer-dependent rows (C11b, C11f, C11g) with the real Rust V3 encoder and the efficient-tier release.
+  - Run every attack class that has a wire path against the Compose `v3-training` containers on loopback (test PKI, test publication key). Observe the served version through model-streaming `GetModelPackage` in those runs.
+  - Write the V3UPDATK record.
+- **Depends on:** 13c-1, and the host lock (first in the order).
 - **Work:**
-  - **Real-weight leg.** An env-gated test, `s13c_update_attacks_real.rs`, follows the pattern of `rust/services/v3-fuzzer/tests/scheduler_real.rs`. It runs in Docker with `models/standard-releases` and the ORIGINAL mounted read-only.
-  - **Container leg.** A host Rust client or the same test runs with `S13C_ENDPOINT` set against `docker compose --profile v3-training up` on loopback.
-  - **One stack at a time**, torn down after the run.
+  - **Real-weight leg.** An env-gated test, `s13c_update_attacks_real.rs`, following the pattern of `rust/services/v3-fuzzer/tests/scheduler_real.rs`. Docker mounts `models/standard-releases` and the ORIGINAL read-only.
+  - **Container leg.**
+    - The same test with `S13C_ENDPOINT` set, against `docker compose --profile v3-training up`.
+    - Candidate bundles come from `S13C_EXPORT_CANDIDATES`.
+    - GuardGate needs an allocation for every committed request, so the leg writes allocations into a scheduler journal file that is mounted into the param-update container. This is the documented harness seam; 13d-2 reuses it.
+    - The stack is torn down afterwards.
 - **Owned paths:**
   - `rust/services/param-update/tests/s13c_update_attacks_real.rs`;
+  - the journal-fixture helper in that test;
   - `paper/research/v3-update-attacks-<date>.{md,json}`;
   - `docs/experiments/v3-update-attacks-<date>.md`.
 - **Acceptance checks:**
-  - **S13-G3 holds.**
-  - **The legs are labelled:** each row carries its `leg`.
-  - **The record lists what did not run**, with reasons.
+  - **S13-G3 holds.** `$PY evaluation/v3_update_attacks_report.py --check <json>` exits 0. Among other things, `--check` fails when a class with a wire path has neither a `container` row with `active_after.served_manifest` nor a `not_run_reason`.
 - **User dependency:** none.
 - **Status:** pending.
-- **Handoff notes:** the record goes to `feat/nick-branch` only through the record import (see "Branch strategy").
+- **Handoff notes:** the record reaches `feat/nick-branch` only through the record import.
 
 ---
 
@@ -525,44 +673,71 @@ Go or no-go for 13e and 13f: they start only when the 13a–13d records are `rea
 
 ### 13d-1: Row families and PKI (agent)
 
-- **Objective:** extend `evaluation/update_security.py --target rust` so that it answers the 13d question against the current Rust services, including the V3 `CheckpointService` and the publication path.
+- **Objective:** extend `evaluation/update_security.py --target rust` to answer the 13d question against the current Rust services, including the V3 `CheckpointService` and publication.
 - **Paper question:** can an unauthorised identity retrieve protected resources, submit updates or publish a candidate model? (RQ2 attack resistance, `sec:eval_auth`.)
   - **T→D→E→M→E:**
     - **Threat:** an attacker with no credentials, wrong credentials or stolen low-privilege credentials.
-    - **Defense:** mutual TLS (the rustls verifier with CRL hot reload), the registry, the role policy and the RPC surface, plus the application identity checks of the V3 store.
+    - **Defense:** mutual TLS with the rustls verifier and CRL hot reload; the registry; the role policy; the RPC surface; and the V3 store's application checks.
     - **Experiment:** negative rows from a host Python client against the containers.
-    - **Metric:** for each attack, whether it was denied (required) and the layer that denied it.
-    - **Evidence:** AUTHZ record.
-- **Depends on:** none (`feat/rust-rewrite` at its current head).
+    - **Metric:** for each attack, denial (required) and the denying layer.
+    - **Evidence:** the AUTHZ record.
+- **Depends on:**
+  - 13c-1, for the candidate bundles that CK8 and the positive controls need (`S13C_EXPORT_CANDIDATES`);
+  - 13c-2, for the journal-allocation seam.
+
+  Rows that need no candidate can be built earlier.
 - **Work:**
   1. **PKI.**
-     - **Legitimate principals** are issued with the real operator tool, `privoke-pki`:
+     - **Legitimate principals come from `privoke-pki`:**
        - `init-ca` for the client CA and the server CA;
        - `issue-server`;
-       - `sign-service --role publisher|trainer|runtime`;
+       - `sign-service` for `publisher`, `trainer` and `runtime`;
        - `enrol`, then `sign`, then `install-cert` for installations;
        - `issue-reporter`;
        - `revoke`, then `crl`.
-     - **Deliberately invalid credentials** come from the existing OpenSSL helper in `update_security_pki.py`: expired, not yet valid, no client-auth EKU, foreign CA, self-signed. `privoke-pki` will not mint these by design.
-     - Each row records which tool issued its credential.
-  2. **New row family `CK`** for `CheckpointService` (policy in `rust/services/param-update/src/server.rs` `policy()`):
-     - CK1: `CommitCandidate` as `runtime` → `PERMISSION_DENIED`.
-     - CK2: `RollbackModel` as `trainer` → `PERMISSION_DENIED`.
-     - CK3: `CommitCandidate` with a registered installation certificate → `PERMISSION_DENIED`.
-     - CK4: `CommitCandidate` with the reporter credential → `PERMISSION_DENIED`.
-     - CK5: `StageCheckpoint` with no certificate → handshake failure.
-     - CK6: `CommitCandidate` as a revoked trainer, after a CRL swap → handshake failure without a restart.
-     - CK7: `CommitCandidate` as a deny-listed trainer, on an open connection → `PERMISSION_DENIED`.
-     - CK8: `CommitCandidate` as a valid trainer with an unallocated request id → `rejected`/`request_not_allocated`. This is an application-layer row, and it is the cross-identity misuse case.
-     - CK9: an unlisted RPC → `UNIMPLEMENTED`.
-     - Positive controls: `publisher` commit and rollback, and `runtime` stage are accepted.
-  3. **TLS-level rows `TL`** (replayed or tampered requests):
-     - TL1: replay the captured TLS 1.3 bytes of an authenticated `CommitCandidate` to a new connection → handshake or record failure, and no receipt.
-     - TL2: flip one bit in the application data, using a loopback TCP proxy → the connection aborts (`bad_record_mac`), and no receipt.
-     - TL3: a man-in-the-middle with a server certificate that is not from the server CA → the client refuses.
-     - The application-level replay is covered by 13c C2a and C2b. AUTHZ cross-references those rows rather than repeating them.
-  4. **Re-run the existing Rust families with the V3 packages present.** These are T, R3, R4, R7, R8, R9, X8, X13 live, R6 and R10, run without `--no-v3`. The goal is that the 9 rows that are `not_run` in UPDSEC-20261117 (T7, T9, T10, R8-wrong-pin, R8-not-allowlisted, I3, X1, X1b and X1c) run.
-  5. **`denied_by` field on every row:** `tls_handshake | revocation | registry | role_policy | rpc_surface | application | client_admission | not_denied`.
+
+       Confirm the subcommand spellings with `privoke-pki --help`.
+     - **Deliberately invalid credentials come from the OpenSSL helper** in `update_security_pki.py`: expired, not yet valid, no client-auth EKU, a foreign CA, and self-signed. `privoke-pki` will not mint these.
+     - Each row records `credential_issuer`.
+  2. **`CK` rows for `CheckpointService`**, following the policy in `rust/services/param-update/src/server.rs` `policy()`:
+
+     | Row | Attempt | Expected |
+     | --- | --- | --- |
+     | CK1 | `CommitCandidate` as `runtime` | `PERMISSION_DENIED` |
+     | CK2 | `RollbackModel` as `trainer` | `PERMISSION_DENIED` |
+     | CK3 | `CommitCandidate` with a registered installation certificate | `PERMISSION_DENIED` |
+     | CK4 | `CommitCandidate` with the reporter credential | `PERMISSION_DENIED` |
+     | CK5 | `StageCheckpoint` with no certificate | handshake failure |
+     | CK6 | `CommitCandidate` from a revoked trainer, after a CRL swap | handshake failure, no restart |
+     | CK7 | `CommitCandidate` from a deny-listed trainer on an open connection | `PERMISSION_DENIED` |
+     | CK8 | `CommitCandidate` from a valid trainer, carrying a valid 13c candidate, with an unallocated request id | `rejected`/`request_not_allocated` (application layer; cross-identity misuse) |
+     | CK9 | An unlisted RPC | `UNIMPLEMENTED` |
+
+     **Positive controls:**
+     - a `publisher` commit of an allocated valid candidate, applied;
+     - a `publisher` rollback to the pin, applied;
+     - a `runtime` stage, accepted.
+
+     All of these use the 13c candidate bundles and journal seam.
+  3. **`TL` rows (TLS level):**
+     - **TL1:** replay the captured TLS 1.3 bytes of an authenticated `CommitCandidate` on a new connection. Expected: no receipt.
+     - **TL2:** flip one bit through a loopback TCP proxy. Expected: the connection aborts, and there is no receipt.
+     - **TL3:** a man in the middle presents a server certificate that is not from the server CA. Expected: the client refuses.
+
+     Application-level replay is covered by 13c rows C2a and C2b, which AUTHZ cross-references.
+  4. **Re-run the existing Rust families with the V3 packages present**, without `--no-v3`: T, R3, R4, R7, R8, R9, X8, X13 live, R6 and R10. This makes the 9 rows that are `not_run` in UPDSEC-20261117 run: T7, T9, T10, R8-wrong-pin, R8-not-allowlisted, I3, X1, X1b and X1c.
+  5. **`denied_by` on every row.** The values are:
+     - `tls_handshake`;
+     - `revocation`;
+     - `registry`;
+     - `role_policy`;
+     - `rpc_surface`;
+     - `application`;
+     - `client_admission`;
+     - `not_denied`.
+
+     R9-submit-update gets `rpc_surface`, because it returns `UNIMPLEMENTED`.
+  6. **`--check-s13d-coverage`** in `update_security_report.py` fails unless every attack in the map below has at least one row with a `denied_by` value. A `not_denied` row counts and is reported as an unmet property.
 - **Attack-to-row map (13d list):**
 
   | Attack | Rows |
@@ -574,36 +749,33 @@ Go or no-go for 13e and 13f: they start only when the 13a–13d records are `rea
   | Unauthorised model retrieval | R7-*, R8-*, T rows |
   | Unauthorised update submission | CK1, CK3, CK4, R9-submit-update |
   | Unauthorised publication | CK2, CK6, CK7 |
-  | Replayed authenticated request | TL1, plus a pointer to 13c C2 |
-  | Tampered request | TL2, TL3, plus a pointer to 13c C9 |
+  | Replayed authenticated request | TL1; 13c C2 |
+  | Tampered request | TL2, TL3; 13c C9 |
   | Cross-identity misuse | CK2, CK4, CK8, R7-reporter, R10-installation |
 - **Owned paths:**
-  - `evaluation/update_security.py`, `evaluation/update_security_pki.py`, `evaluation/update_security_report.py` (new families; the legacy target is unchanged);
+  - `evaluation/update_security.py`, `evaluation/update_security_pki.py`, `evaluation/update_security_report.py` (new families and flags; the legacy target is unchanged);
   - `evaluation/tests/test_update_security*.py`.
-- **Interfaces and data shapes:** the existing row schema of `update_security.py`, plus `denied_by`, `credential_issuer: privoke-pki|openssl-helper` and `identity`.
+- **Interfaces and data shapes:** the existing `update_security.py` row schema, plus `denied_by`, `credential_issuer` and `identity`.
 - **Acceptance checks:**
-  - **The update-security tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_update_security*.py"`. New tests cover the presence of the CK and TL families and the `denied_by` vocabulary.
+  - **The tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_update_security*.py"`. New tests cover the CK and TL families, the `denied_by` vocabulary and `--check-s13d-coverage`.
   - **The legacy record still reproduces:** `$PY evaluation/update_security_report.py --record paper/research/update-security-20261117.json --document paper/research/update-security-20261117.md` reproduces it unchanged.
 - **User dependency:** none.
 - **Status:** pending.
-- **Handoff notes:**
-  - `update_security_pki.py` currently uses OpenSSL for every credential. Only the CI smoke test (`deploy/gce/tests/make_test_pki.py`) uses `privoke-pki`.
-  - Keep the generated PKI in a scratch directory and delete it after the run. Never commit a key.
+- **Handoff notes:** generate the host clients first (`$PY evaluation/setup-host.py`, which includes `experimental/v3.proto`). Keep the PKI in a scratch directory, delete it after the run, and never commit a key.
 
 ### 13d-2: Run and record (agent)
 
 - **Objective:** run every family against the Rust containers on loopback with the local V3 packages, and write AUTHZ.
-- **Depends on:** 13d-1.
-- **Owned paths:** `paper/research/authn-authz-<date>.{md,json}` and `docs/experiments/authn-authz-<date>.md`.
+- **Depends on:** 13d-1, and the host lock (after 13c-2).
+- **Owned paths:**
+  - `paper/research/authn-authz-<date>.{md,json}`;
+  - `docs/experiments/authn-authz-<date>.md`.
 - **Acceptance checks:**
-  - **S13-G4 holds.**
-  - **Every 13d attack has a result:** each attack in the map has at least one row with a `denied_by` value or `not_denied`. A `not_denied` row is reported as an unmet property.
-  - **The record cross-references UPDSEC-20261116 and UPDSEC-20261117** for the gaps that are now closed.
+  - **S13-G4 holds.** This includes `$PY evaluation/update_security_report.py --record <json> --check-s13d-coverage`, which must exit 0.
+  - **The record cross-references UPDSEC-20261116 and UPDSEC-20261117:** `--check` verifies that both IDs appear in its gap table.
 - **User dependency:** none.
 - **Status:** pending.
-- **Handoff notes:**
-  - Run 13d-2 and 13c-2 one after the other, never at the same time: both use Docker on one host.
-  - The record goes to `feat/nick-branch` through the import.
+- **Handoff notes:** the record reaches `feat/nick-branch` through the import.
 
 ---
 
@@ -612,31 +784,31 @@ Go or no-go for 13e and 13f: they start only when the 13a–13d records are `rea
 - **Objective:** score the seven layer configurations on the 13a labels.
 - **Paper question:** what does each detector layer contribute, and where do the trade-offs come from? (`sec:detector_ablation`.)
   - **T→D→E→M→E:**
-    - **Threat:** a single-layer failure mode, either leaking or over-blocking.
+    - **Threat:** a single-layer failure mode that leaks or over-blocks.
     - **Defense:** layered detection.
-    - **Experiment:** the 7 configurations, run on identical items.
-    - **Metric:** precision, recall, specificity, F1, under-enforcement and over-enforcement for each configuration, with paired comparisons against the full pipeline.
-    - **Evidence:** LAYERABL record.
-- **Scope label:** an explicitly requested detector ablation, which is product-pipeline evidence. It is kept separate from LLM-only results, and the semantic-only configuration is not reported as an LLM-only result.
-- **Depends on:** 13a-5 (frozen labels). If D11 chooses the fallback, it depends instead on the Stage 3 declared split with its provisional targets, which the record labels as provisional.
+    - **Experiment:** 7 configurations on the same items.
+    - **Metric:** precision, recall, specificity, F1, and under- and over-enforcement for each configuration, plus exact McNemar tests against `full`.
+    - **Evidence:** the LAYERABL record.
+- **Scope label:** `product pipeline (in-process)`. This is an explicitly requested detector ablation, kept separate from LLM-only results. The semantic-only configuration is not reported as LLM-only evidence.
+- **Depends on:**
+  - 13a-5 (frozen labels);
+  - or, under the D11 fallback, the Stage 3 declared split with its provisional targets, which are labelled as provisional.
 - **Work:**
-  - A new harness, `evaluation/layer_ablation.py`, uses the in-process client of `adversarial_evasion.py`.
-  - The configurations are `{regex:[2], ner:[3], semantic:[4], regex+ner:[2,3], regex+semantic:[2,4], ner+semantic:[3,4], full:[2,3,4]}`. This is the AB14 mapping, but the legacy `run-controlled-product-ablation.py` command and the `--allow-product-pipeline` flag are not used.
+  - `evaluation/layer_ablation.py` (`$PYPIPE`) uses the in-process client of `adversarial_evasion.py`.
+  - The configurations are `{regex:[2], ner:[3], semantic:[4], regex+ner:[2,3], regex+semantic:[2,4], ner+semantic:[3,4], full:[2,3,4]}`. This is the AB14 mapping, but the legacy command and its `--allow-product-pipeline` flag are not used.
   - The executed layers are asserted for each configuration.
-  - Paired comparisons against `full` use exact McNemar tests on the same items.
 - **Owned paths:**
   - `evaluation/layer_ablation.py`, `evaluation/layer_ablation_report.py`, `evaluation/tests/test_layer_ablation*.py`;
   - `paper/research/layer-ablation-<date>.{md,json}`, `docs/experiments/layer-ablation-<date>.md`.
 - **Interfaces and data shapes:**
-  - Per item and configuration: `{item_id, config, layers_requested, layers_executed, action, per_layer_action, error}`.
-  - Aggregates for each configuration, as in the 13a arm metrics.
+  - Rows: `{item_id, config, layers_requested, layers_executed, action, per_layer_action, error}`.
+  - Each configuration's aggregates have the same form as the 13a arm metrics.
 - **Acceptance checks:**
   - **S13-G5 holds.**
-  - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_layer_ablation*.py"`. They cover an empty-list refusal, a mismatched executed set that aborts the run, and the McNemar check against a fixture.
+  - **The ablation tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_layer_ablation*.py"`. They cover empty-list refusal, aborting on an executed-layer mismatch, and the McNemar fixture.
 - **User dependency:** none, apart from D11.
 - **Status:** pending.
-- **Handoff notes:**
-  - The historical AB14 results stay historical. Do not merge them with these results.
+- **Handoff notes:** the historical AB14 results stay separate and are not merged with these.
 
 ---
 
@@ -644,125 +816,124 @@ Go or no-go for 13e and 13f: they start only when the 13a–13d records are `rea
 
 ### 13f-1: Harness and headless timing (agent)
 
-- **Objective:** measure what PriVoke costs a user, from submit to the request reaching the receiver (or to the block decision), in five arms.
+- **Objective:** measure what PriVoke costs a user, from submit until the request reaches the receiver (or until the block decision), in five arms.
 - **Paper question:** what does PriVoke cost a user in practice? (RQ3 and `sec:cross_platform`.)
   - **T→D→E→M→E:**
-    - **Threat:** protection that is too costly leads users to disable it, which is a usability-driven bypass.
+    - **Threat:** protection that costs too much leads users to turn it off, which is a bypass driven by usability.
     - **Defense:** local inference and configurable layers.
     - **Experiment:** browser timing in 5 arms.
     - **Metric:** p50, p95 and p99 latency, and CPU and memory where measurable.
-    - **Evidence:** E2EOVH record.
-- **Arms**, all configured through the extension's own settings:
-  - A0: browser without the extension.
-  - A1: extension installed with every layer toggle off. `background.js` `disabledLayersResponse` sends no analysis request, so no empty list ever exists.
-  - A2: regex and NER.
-  - A3: semantic only.
-  - A4: the full pipeline.
-  The harness asserts, from the bridge log, that A1 sent no request and that A2–A4 executed exactly their layers.
-- **Depends on:** 13b-1, for the driver and the receiver.
+    - **Evidence:** the E2EOVH record.
+- **Arms**, all set through the extension's own settings:
+
+  | Arm | Configuration | Expected executed layers |
+  | --- | --- | --- |
+  | A0 | No extension | — |
+  | A1 | Every layer toggle off. `background.js` `disabledLayersResponse` sends no request, so no empty list ever exists | none; no request is sent |
+  | A2 | Regex and NER | [regex, ner] |
+  | A3 | Semantic only | [semantic] |
+  | A4 | Full pipeline | [regex, ner, semantic] |
+
+  The harness checks the bridge log for each arm: A1 must send no request, and A2–A4 must execute exactly their layers.
+- **Depends on:** 13b-1 (driver and receiver), and the host lock (after 13b-3).
 - **Work:**
-  - A timing driver, `extension/test/e2e-overhead-driver.mjs`, measures from the page submit event to the receiver's arrival timestamp, read with the same clock on one host. The prompts are a fixed, frozen benign and sensitive mix.
-  - CPU and memory come from per-process sampling of the browser, supervisor and detector.
-  - **Serialisation.** Before each run, a guard requires that no other Python, cargo or Docker workload is running and that system CPU load is at most 25% (the detector-latency precedent). The run acquires a host lock file, `evaluation/results/s13f/.timing.lock`, and root dispatches nothing else to the host while it holds the lock.
-  - There are 5 repeats per arm, and the arms run in randomised order.
+  - **Driver.** `extension/test/e2e-overhead-driver.mjs` measures from the page submit event to the receiver's arrival timestamp, on one host clock. It uses a fixed, frozen mix of benign and sensitive prompts, and samples CPU and memory for each process.
+  - **Host guard.** Before each run, the guard requires no other Python, cargo or Docker workload, and system CPU load of at most 25% (the detector-latency precedent).
+  - **Repeats.** 5 per arm, with the arms in randomised order.
   - **Breadth:**
     - Chrome, Edge and Firefox on Windows;
-    - headless Chromium in a Linux container (a second platform);
-    - at least two provider-shape fixture interfaces from Stage 11.
+    - headless Chromium in a Linux container, as the second platform;
+    - at least two Stage 11 provider-shape fixture interfaces.
 - **Owned paths:**
   - `evaluation/e2e_overhead.py`, `evaluation/e2e_overhead_report.py`, `evaluation/tests/test_e2e_overhead*.py`;
   - `extension/test/e2e-overhead-driver.mjs`;
   - `paper/research/e2e-overhead-<date>.{md,json}`, `docs/experiments/e2e-overhead-<date>.md`.
 - **Interfaces and data shapes:**
-  - Per sample: `{arm, browser, platform, interface, repeat, prompt_id, t_submit_ms, t_receiver_ms|null, decision, layers_executed, cpu_pct, rss_mb, host_load_before}`.
-  - Aggregates: p50, p95 and p99 with bootstrap intervals for each arm, browser and interface.
+  - Each sample: `{arm, browser, platform, interface, repeat, attended, prompt_id, t_submit_ms, t_receiver_ms|null, decision, layers_executed, request_sent, cpu_pct, rss_mb, host_load_before}`.
+  - p50, p95 and p99 with bootstrap intervals for each arm, browser and interface.
 - **Acceptance checks:**
-  - **S13-G6 holds**, in its first form.
-  - **The serialisation guard holds:** the record shows `host_load_before` at or below 25% for every run, and there is one lock holder.
-  - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_overhead*.py"`.
-- **User dependency:** none for the headless runs. The user should not use the machine during a timing window. Root agrees the window with the user.
+  - **S13-G6 holds**, in its first form. `--check` also fails on any `host_load_before` above 25%, or on overlapping lock intervals.
+  - **The overhead tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_overhead*.py"`.
+- **User dependency:** the user leaves the machine idle during the timing window that root agrees with them.
 - **Status:** pending.
-- **Handoff notes:** never time while 13b, 13c or 13d runs are active.
+- **Handoff notes:** nothing else runs while the host lock is held.
 
 ### 13f-2: Attended headed timing subset and breadth (USER)
 
-- **Objective:** headed timing on the user's installed browser, with the native host launched normally, for arms A0, A1 and A4. Optionally, a second LLM web interface or platform that the user has.
-- **Depends on:** 13f-1.
+- **Objective:** headed timing in the user's installed browser, with the native host launched normally, for A0, A1 and A4. Optionally, a second machine, OS or LLM interface.
+- **Depends on:** 13f-1, and the host lock.
 - **Owned paths:** rows with `attended: true` in the same record.
-- **Acceptance checks:** **the attended rows are labelled and reported separately.**
-- **User dependency:** USER does all of the following:
-  - run the provided script during an agreed idle window;
-  - leave other applications closed;
-  - optionally run it on a second machine or OS;
-  - approve live-interface timing (D7), if wanted.
+- **Acceptance checks:** **the attended rows check out:** `$PY evaluation/e2e_overhead_report.py --check <json> --require-attended` exits 0.
+- **User dependency:** USER runs the provided script during an agreed idle window with other applications closed. Optionally, the user runs it on a second machine. Live interfaces need D7 approval.
 - **Status:** pending.
-- **Handoff notes:** if 13f is dropped (D11), 13-P writes the single-platform or single-interface limitation paragraph, citing XPLAT-20261117 for what was covered.
+- **Handoff notes:** if 13f is dropped (D11), 13-P writes the limitation paragraph and cites XPLAT-20261117 for what was covered.
 
 ---
 
 ## Stage 13-P: Paper integration and Stage 9 repeat
 
 - **Objective:**
-  - Fold each finished record into the paper under the page limits, in the T→D→E→M→E structure.
-  - State which build each result measured.
-  - Then repeat Stage 9 of the ASIACCS plan.
-- **Paper question:** none of its own. It carries the questions of 13a–13f.
-- **Depends on:** the records of whichever sub-stages are done, imported into `feat/nick-branch`; D9 for the scope entry.
+  - Fold each finished record into the paper within the page limits, in the T→D→E→M→E structure.
+  - Label each result with the build it measured.
+  - Repeat Stage 9 of the ASIACCS plan.
+- **Paper question:** the questions of 13a–13f.
+- **Depends on:** the finished records, imported into `feat/nick-branch`, and D9.
 - **Work:**
-  1. **Scope.** Add a `paper/REWRITE_SCOPE.md` entry that authorises the Stage 13 evidence units. It must cover the description of the Rust V3 guarded-update path and the per-build labels.
+  1. **Scope entry.** Add an entry to `paper/REWRITE_SCOPE.md` that authorises the Stage 13 evidence units, including the description of the Rust V3 guarded-update path and the per-build labels. This needs D9.
   2. **Placement:**
 
      | Record | Section |
      | --- | --- |
-     | 13a | RQ1, `sec:final_annotation` |
-     | 13b | `sec:eval_evasion`, next to `tab:asr` |
-     | 13c | RQ2, `sec:eval_update`, citing the guarded-update predicate |
+     | 13a | `sec:final_annotation` |
+     | 13b | `sec:eval_evasion`, beside `tab:asr` |
+     | 13c | `sec:eval_update`, citing the guarded-update predicate |
      | 13d | `sec:eval_auth` |
      | 13e | `sec:detector_ablation` |
      | 13f | RQ3 and `sec:cross_platform` |
 
-     Update `tab:security_goals` and `tab:threat_defense`, so that each new row cites its record, and update the "does not establish" items in Threats to Validity. Properties that are not met stay visible, including C11g and any `not_denied` row.
-  3. **Claims ledger.** Add rows to `paper/research/claims.md`, one for each record, with scope labels.
-  4. **Page budget.** Offset any added content with equal cuts or moves to the appendix. Rerun `check_pages.py` after each fold-in.
-  5. **Stage 9 repeat.**
-     - G1–G5, G12 (failing-id sets compared with `bca457df`, including the new test files), G13 and G14;
-     - `check_anonymity.py` at 0 matches;
-     - the anonymous export verified with `evaluation/export_anonymous_artifact.py`, and a second export of the measured Rust revision if D10 chooses it;
-     - the implementation-gate critic, dispatched by root.
+     Update `tab:security_goals`, `tab:threat_defense` and Threats to Validity. Properties that are not met stay visible, including C11g and any `not_denied` row.
+  3. **"13a not run" outcome.** If 13a is not frozen by 6 December:
+     - Threats to Validity states that the independent human-annotated evaluation was prepared but not run, and why.
+     - The packet (brief, guideline, schema, scripts, pre-registration and set manifest) ships in the anonymous artifact as a ready-to-run protocol.
+     - The paper claims no 13a result.
+  4. **Claims ledger.** Add a `claims.md` row for each record, with its scope label.
+  5. **Page budget.** Offset every addition with cuts or moves to the appendix, and rerun `check_pages.py` after each fold-in.
+  6. **Stage 9 repeat.**
+     - G1–G5, G12 (failing-id sets compared against `bca457df`, including the new test files), G13 and G14.
+     - `check_anonymity.py` reports 0 matches.
+     - The export is verified with `evaluation/export_anonymous_artifact.py`, plus a second export of the measured Rust revision under D10.
+     - Root dispatches the implementation-gate critic.
 - **Owned paths:**
   - `paper/main.tex`, `paper/research/claims.md`, `paper/REWRITE_SCOPE.md`;
-  - `paper/figures/` and `paper/scripts/` (figure scripts only);
-  - this plan's status fields;
-  - the Stage 13 section of `docs/plans/asiaccs-2027-revision.md` (status only).
+  - `paper/figures/` and `paper/scripts/` (figure scripts only).
+
+  Status fields in this plan and in the ASIACCS plan are written by root (see "Coordination rules").
 - **Acceptance checks:**
   - **S13-G7 and S13-G8 hold.**
   - **The paper builds:** `latexmk -pdf main.tex` exits 0 in `paper/`.
-  - **The pages check passes:** `$PY paper/scripts/check_pages.py` prints PASS.
+  - **The page check passes:** `$PY paper/scripts/check_pages.py` prints PASS.
   - **The anonymity check is clean:** `$PY paper/scripts/check_anonymity.py` reports 0 matches.
-  - **Every security-goals row has evidence:** each row cites a `\label` and a record.
-- **User dependency:** USER does all of the following:
-  - approve the REWRITE_SCOPE entry (D9);
-  - review the paper text;
-  - approve the push. Root pushes, and the user uploads the artifact.
+- **User dependency:** USER approves the REWRITE_SCOPE entry (D9), reviews the paper text and approves the push. Root pushes; the user uploads the artifact.
 - **Status:** pending.
-- **Handoff notes:** the paper stages run strictly in order, one writer at a time on `paper/main.tex`.
+- **Handoff notes:** paper stages run strictly in order, with one writer on `paper/main.tex` at a time.
 
 ---
 
 ## Open decisions (user only)
 
-Each decision has a recommended default. Root applies the default if the user has not answered by the date shown, and records that the default was used.
+"**Holds**" means that nothing that depends on the decision starts until the user answers. Root does not apply a default silently. "Default" means that root applies the recommendation after the date and records that it did so.
 
-| ID | Decision | Recommended default | Needed by |
-| --- | --- | --- | --- |
-| D1 | Source of the fresh 13a prompts | Newly written by 2–3 recruited writers who are not developers and not annotators, using the frozen brief, with invented persons only. Alternatives: a licensed public prompt corpus (needs licence, ethics and PII handling), or prompts generated by an agent with a recorded generator (weaker independence; not recommended) | 26 Nov |
-| D2 | Number and identity of annotators | 2 annotators and 1 adjudicator, none of whom wrote PriVoke labels or rubrics. Cohen's kappa per field; Fleiss' kappa if 3 or more | 26 Nov |
-| D3 | 13a set size | 360 main items plus a 30-item pilot (the protocol's sizing; kappa half-width ≤ 0.10) | 26 Nov |
-| D4 | Human-ethics approval and consent | The user confirms with the supervisor whether institutional approval is needed before recruiting anyone. Nothing involving external people starts until this is confirmed | 26 Nov |
-| D5 | `fresh_eval-folio-NN` leak | `fresh_eval` is ineligible for 13a. For the deferred AU3 packet: normalise the token to the constant `folio` before pre-registration, recording both hashes. The AU3 packet itself is not run in Stage 13 | 26 Nov |
-| D6 | Configurations scored in 13a | Both: `product` [regex, NER, semantic] and `semantic_only` [semantic], reported separately with their scope labels | 26 Nov |
-| D7 | Real-provider traffic (13b, 13f) | Not approved. Use the synthetic receiver and provider-shape fixtures only. Any live run needs a separate approval that names the provider, the account and the exact non-sensitive prompts | before 13b-3 |
-| D8 | Attended real-browser subsets | 13b: 60 stratified pairs in one browser. 13f: arms A0, A1 and A4, 5 repeats each. Skip both if the user cannot attend by 5 Dec | 28 Nov |
-| D9 | The paper describes 13c and 13d measured on the Rust build (where V3 updates exist), with per-build labels, under a new REWRITE_SCOPE entry; PR #6 is not merged before submission | Approve the scope entry. Keep PR #6 after submission | before 13-P |
-| D10 | Artifact coverage of the 13c and 13d harness | Make a second anonymous export of the measured Rust revision with the same exporter. Do not upload it; the user uploads | before 13-P |
-| D11 | 13e and 13f go or no-go | Go only if the 13a–13d records are `ready for review` by 4 Dec. Otherwise 13f becomes the limitation paragraph, and 13e is dropped. 13e may run on provisional Stage 3 targets only if they are labelled as such | 4 Dec |
+| ID | Decision | Recommendation | Rule | Needed by |
+| --- | --- | --- | --- | --- |
+| D1 | Source of the fresh 13a prompts | 2–3 recruited writers who are neither developers nor annotators, working from the frozen brief, with invented people only. Alternatives: a licensed public prompt corpus (needs licence, ethics and PII handling), or agent-generated prompts with a recorded generator (weaker independence; not recommended) | Holds | 26 Nov |
+| D2 | Number and identity of annotators | 2 annotators and 1 adjudicator, none of whom wrote PriVoke labels or rubrics. Cohen's kappa per field, and Fleiss' kappa if 3 or more | Holds | 26 Nov |
+| D3 | 13a set size | 360 main items plus a 30-item pilot (protocol sizing, kappa half-width ≤ 0.10) | Default | 26 Nov |
+| D4 | Human-ethics approval and consent | The user confirms with the supervisor whether institutional approval is needed. No external person is involved until this is confirmed | Holds | 26 Nov |
+| D5 | `fresh_eval-folio-NN` leak | `fresh_eval` is ineligible for 13a. For the deferred AU3 packet, normalise the token to `folio` and record both hashes. The AU3 packet is not run in Stage 13 | Default | 26 Nov |
+| D6 | Configurations scored in 13a | Both `product` [regex, NER, semantic] and `semantic_only` [semantic], reported separately | Default | 26 Nov |
+| D7 | Real-provider traffic (13b, 13f) | Not approved. Use the synthetic receiver and fixtures only. Any live run needs its own approval naming the provider, the account and the exact non-sensitive prompts | Default (no traffic) | before 13b-3 |
+| D8 | Attended real-browser subsets | 13b: 60 stratified pairs in one browser. 13f: A0, A1 and A4, 5 repeats each. Skip both if the user cannot attend by 5 Dec | Default | 28 Nov |
+| D9 | The paper describes 13c and 13d as measured on the Rust build, with per-build labels, under a new REWRITE_SCOPE entry; PR #6 is not merged before submission | Approve the entry. PR #6 waits until after submission | Holds (13c and 13d may run; 13-P cannot fold them in) | 26 Nov |
+| D10 | Artifact coverage of the 13c and 13d harness | A second anonymous export of the measured Rust revision, not uploaded | Default | before 13-P |
+| D11 | 13e and 13f go or no-go | Go only if the 13a–13d records are `ready for review` by 4 Dec. Otherwise 13f becomes the limitation paragraph and 13e is dropped; 13e may run on provisional Stage 3 targets only if labelled as such | Default | 4 Dec |
+| D12 | 13a worked examples | The user, or a human they choose, writes the matched-contrast examples and their labels, or approves unlabelled drafts and writes the labels. Until then, the guideline ships with no examples | Holds (13a-3 cannot start without either examples or the user's explicit "no examples") | 27 Nov |
