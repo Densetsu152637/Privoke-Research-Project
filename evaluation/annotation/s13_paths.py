@@ -2,7 +2,8 @@
 
 Prompt-bearing files may only be written under the Git-ignored ``evaluation/results/s13a`` directory of the main
 checkout. The root can be moved with S13A_RESULTS_ROOT (and its ``returned`` directory with S13A_RETURNED_ROOT)
-only when ``git check-ignore`` confirms the moved root is ignored, or under tests (S13A_TESTING=1).
+only when ``git check-ignore`` confirms the moved root is ignored, or when a test sets the module attribute
+``TESTING`` (there is no environment switch: nothing in a real run's environment can enable it).
 """
 from __future__ import annotations
 
@@ -14,8 +15,11 @@ MAIN_CHECKOUT = Path("D:/Git Repositories/Privoke-Research-Project")
 DEFAULT_RESULTS_ROOT = MAIN_CHECKOUT / "evaluation" / "results" / "s13a"
 
 
+TESTING = False  # tests patch this attribute; it is deliberately not read from the environment
+
+
 def under_tests():
-    return os.environ.get("S13A_TESTING") == "1"
+    return TESTING
 
 
 def is_git_ignored(path):

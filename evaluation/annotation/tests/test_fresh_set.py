@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import annotation_schema as schema  # noqa: E402
 import fresh_set  # noqa: E402
+import s13_paths  # noqa: E402
 
 WORDS = ["amber", "birch", "cedar", "delta", "ember", "fjord", "grove", "harbor", "island", "juniper", "kettle", "lantern",
          "meadow", "nectar", "orchid", "pebble", "quartz", "ripple", "saddle", "thimble", "umber", "velvet", "willow", "yonder"]
@@ -38,9 +39,10 @@ class FreshSetTests(unittest.TestCase):
         self.raw = self.dir / "raw"
         self.raw.mkdir()
         self.results = self.dir / "results" / "s13a"
-        for name, value in (("S13A_RESULTS_ROOT", str(self.results)), ("S13A_TESTING", "1")):
-            os.environ[name] = value
-            self.addCleanup(os.environ.pop, name, None)
+        os.environ["S13A_RESULTS_ROOT"] = str(self.results)
+        self.addCleanup(os.environ.pop, "S13A_RESULTS_ROOT", None)
+        s13_paths.TESTING = True
+        self.addCleanup(setattr, s13_paths, "TESTING", False)
         self.source = self.dir / "source"
         self.source.mkdir()
         (self.source / "old.jsonl").write_text(json.dumps({"text": "a completely unrelated invented sentence about gardens and rain"}) + "\n")
@@ -100,10 +102,25 @@ class FreshSetTests(unittest.TestCase):
 
     def test_source_adds_to_the_defaults_and_opting_out_is_tests_only(self):
         sources = fresh_set.resolve_sources([f"extra={self.source}"])
-        self.assertEqual(sorted(sources), ["datasets", "extra", "fuzzer_curricula", "results"])
-        os.environ["S13A_TESTING"] = "0"
+        self.assertEqual(sorted(sources), ["datasets", "extra", "results"])
+        s13_paths.TESTING = False
         with self.assertRaises(SystemExit):
             fresh_set.resolve_sources([], no_defaults=True)
+        os.environ["S13A_TESTING"] = "1"  # the retired environment switch must not enable anything
+        self.addCleanup(os.environ.pop, "S13A_TESTING", None)
+        with self.assertRaises(SystemExit):
+            fresh_set.resolve_sources([], no_defaults=True)
+        with self.assertRaises(SystemExit):
+            self.freeze(dry_run=False, out=str(self.results / "p"), no_default_sources=True)
+
+    def test_a_3_to_7_token_prompt_contained_in_a_longer_source_is_flagged(self):
+        for tokens_in_prompt in (3, 5, 7):
+            rows = raw_rows()
+            words = [f"zzq{tokens_in_prompt}x{i}" for i in range(tokens_in_prompt)]
+            rows[6]["text"] = " ".join(words)
+            self.write_raw(rows)
+            (self.source / "long.jsonl").write_text(json.dumps({"text": "invented opening words " + " ".join(words) + " and a closing tail of words"}) + "\n")
+            self.assertEqual(self.freeze()["contamination"]["near"], 1, tokens_in_prompt)
 
     def test_dry_run_reports_counts_and_writes_nothing(self):
         self.run_main("--dry-run")

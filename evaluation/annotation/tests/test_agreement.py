@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import agreement as ag  # noqa: E402
 import annotation_schema as schema  # noqa: E402
+import s13_paths  # noqa: E402
 
 
 def table_ratings(a, b, c, d):
@@ -234,9 +235,10 @@ class SchemaV2AndGateTests(unittest.TestCase):
         agree = ["yes" if n % 2 else "no" for n in range(10)]
         a, b = self.two_sheets(agree)
         returned = self.dir / "returned"
-        for name, value in (("S13A_RETURNED_ROOT", str(returned)), ("S13A_TESTING", "1")):
-            os.environ[name] = value
-            self.addCleanup(os.environ.pop, name, None)
+        os.environ["S13A_RETURNED_ROOT"] = str(returned)
+        self.addCleanup(os.environ.pop, "S13A_RETURNED_ROOT", None)
+        s13_paths.TESTING = True
+        self.addCleanup(setattr, s13_paths, "TESTING", False)
         with self.assertRaises(SystemExit):
             self.run_iaa(a, b, "--disagreements-csv", str(self.dir / "elsewhere.csv"))
         returned.mkdir()

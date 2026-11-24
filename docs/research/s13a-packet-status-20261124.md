@@ -36,10 +36,10 @@ The plan's defaults are applied and marked provisional until the user answers: D
 
 ## Contamination, confinement and gates as implemented
 
-- Contamination rules: exact match, 8-gram Jaccard of at least 0.5, and containment (shared n-grams over the prompt's own n-grams) of at least 0.5; a prompt shorter than 8 tokens uses n-grams down to its own length, and one under 3 tokens is compared for equality only. Default sources: this checkout's `evaluation/datasets/`, the main checkout's `evaluation/results/` and `evaluation/datasets/` (the fuzzer curricula). `--source` adds to them. A real freeze fails on a missing source or one with no scanned file.
-- Prompt-bearing output (`fresh_set.py --out`, the quota-mode sampler `--output-dir`, the adjudication export) must lie under the main checkout's Git-ignored `evaluation/results/s13a`. `S13A_RESULTS_ROOT` and `S13A_RETURNED_ROOT` are honoured only when `git check-ignore` confirms the moved root is ignored, or under tests.
+- Contamination rules: exact match, 8-gram Jaccard of at least 0.5, and containment (shared n-grams over the prompt's own n-grams) of at least 0.5; a prompt shorter than 8 tokens uses n-grams down to its own length, and one under 3 tokens is compared for equality only. Default sources: this checkout's `evaluation/datasets/` and the main checkout's `evaluation/results/` (which holds the frozen Stage 3 set and the fuzzer outputs); any other curriculum path is passed with `--source`, which adds to the defaults. A real freeze fails on a missing source or one with no scanned file.
+- Prompt-bearing output (`fresh_set.py --out`, the quota-mode sampler `--output-dir`, the adjudication export) must lie under the main checkout's Git-ignored `evaluation/results/s13a`. `S13A_RESULTS_ROOT` and `S13A_RETURNED_ROOT` are honoured only when `git check-ignore` confirms the moved root is ignored, or a test sets a module attribute (there is no environment switch).
 - The sampler's marker gate is always on in quota mode.
-- Scoring: run `score_privoke.py --smoke` under the host lock once before the real run (one invented sentence per arm). A layer error aborts an arm. The freeze gate checks the record, every label file, the packet hashes of `--sheet` and `--key`, and the commit order.
+- Scoring: `score_privoke.py --smoke` must run under the host lock before 13a-5 and before the real scoring run (one invented sentence per arm; it takes the lock itself, so run it while the lock is free). A layer error aborts an arm. The freeze gate checks the record, every label file, the packet hashes of `--sheet` and `--key`, and the commit order.
 
 ## Remains user-only
 

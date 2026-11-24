@@ -100,7 +100,15 @@ class OrderTests(unittest.TestCase):
         git(self.repo, "commit", "-q", "-am", "edit")
         self.assertFalse(self.run_check()["ok"])
 
-    def test_labels_changed_after_the_label_commit_fail(self):
+    def test_labels_added_over_several_commits_pass(self):
+        pilot = "docs/research/s13a/labels/pilot_A.csv"
+        shas = [self.commit(path) for path in (SET, PACKET, pilot, LABEL)]
+        shas = [shas[0], shas[1], shas[2]]  # the first label commit is the pilot
+        self.commit(RECORD, json.dumps({"freeze": dict(zip(NAMES, shas))}))
+        result = self.run_check()
+        self.assertTrue(result["ok"], result["problems"])
+
+    def test_a_label_modified_deleted_or_renamed_after_it_was_committed_fails(self):
         shas = [self.commit(path) for path in (SET, PACKET, LABEL)]
         self.commit(RECORD, json.dumps({"freeze": dict(zip(NAMES, shas))}))
         self.assertTrue(self.run_check()["ok"])
@@ -108,6 +116,12 @@ class OrderTests(unittest.TestCase):
         result = self.run_check()
         self.assertFalse(result["ok"])
         self.assertTrue(any("labels changed" in p for p in result["problems"]))
+        git(self.repo, "mv", LABEL, "docs/research/s13a/labels/renamed.csv")
+        git(self.repo, "commit", "-q", "-m", "rename")
+        self.assertFalse(self.run_check()["ok"])
+        git(self.repo, "rm", "-q", "docs/research/s13a/labels/renamed.csv")
+        git(self.repo, "commit", "-q", "-m", "delete")
+        self.assertFalse(self.run_check()["ok"])
 
     def test_main_exit_codes(self):
         for path in (SET, LABEL, PACKET):

@@ -19,8 +19,9 @@ Under-enforcement is an action less strict than the reference action label; over
 reported over all scored items and conditionally: under-enforcement among items whose reference action is WARN or
 BLOCK, over-enforcement among items whose reference action is ALLOW.
 
-Before the real run, execute `--smoke` once under the host lock: it sends one invented sentence per arm through the
-real runtime and asserts the executed layers, with no labels needed. A layer that reports status `error`, or a
+Before 13a-5 and before the real run, execute `--smoke` once (it takes the host lock itself, so run it while the lock
+is free, and never in parallel with another host-heavy run): it sends one invented sentence per arm through the real
+runtime and asserts the executed layers, with no labels needed. A layer that reports status `error`, or a
 response with a non-empty error, aborts a scoring run. Before scoring, the freeze gate also checks that the label
 files are all listed and unchanged, that --sheet and --key hash to packet_manifest.json, and the commit order
 (check_order).

@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import annotation_schema as schema  # noqa: E402
+import s13_paths  # noqa: E402
 import sample_annotation as sa  # noqa: E402
 
 AUDIENCES = ["P0", "P1", "P2", "P3", "P4", "PU"]
@@ -204,9 +205,10 @@ class QuotaModeAndVerifyTests(unittest.TestCase):
         self.set_manifest = self.dir / "set_manifest.json"
         self.set_manifest.write_text(json.dumps({"sha256_jsonl": hashlib.sha256(self.input.read_bytes()).hexdigest()}))
         self.results = self.dir / "results" / "s13a"
-        for name, value in (("S13A_TESTING", "1"), ("S13A_RESULTS_ROOT", str(self.results))):
-            os.environ[name] = value
-            self.addCleanup(os.environ.pop, name, None)
+        os.environ["S13A_RESULTS_ROOT"] = str(self.results)
+        self.addCleanup(os.environ.pop, "S13A_RESULTS_ROOT", None)
+        s13_paths.TESTING = True
+        self.addCleanup(setattr, s13_paths, "TESTING", False)
 
     def args(self, out, *extra):
         return ["--input", str(self.input), "--set-manifest", str(self.set_manifest), "--stratify-by", "quota_cell",
@@ -224,10 +226,19 @@ class QuotaModeAndVerifyTests(unittest.TestCase):
             self.assertFalse((bad / "sheets").exists())
 
     def test_the_root_override_needs_git_ignore_confirmation_outside_tests(self):
-        os.environ["S13A_TESTING"] = "0"
+        s13_paths.TESTING = False
         with self.assertRaises(SystemExit) as ctx:
             sa.main(self.args(self.results / "x"))
         self.assertIn("check-ignore", str(ctx.exception))
+
+    def test_the_retired_environment_switch_does_not_bypass_the_check(self):
+        s13_paths.TESTING = False
+        os.environ["S13A_TESTING"] = "1"
+        self.addCleanup(os.environ.pop, "S13A_TESTING", None)
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(self.results / "x"))
+        self.assertIn("check-ignore", str(ctx.exception))
+        self.assertFalse((self.results / "x").exists())
 
     def test_verify_fails_on_files_the_manifest_does_not_list(self):
         out = self.sample("one")

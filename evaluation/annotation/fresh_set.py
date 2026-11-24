@@ -14,8 +14,8 @@ match, or an 8-gram Jaccard of at least 0.5, or a containment of at least 0.5 (s
 own n-grams; a prompt shorter than 8 tokens uses n-grams down to its own length), against the prompt-bearing
 files of the contamination sources; remove every prompt that matches a dataset marker. The default sources are
 evaluation/datasets/ of this checkout, evaluation/results/ of the main checkout (the frozen Stage 3 set, the s13*
-directories excluded) and the fuzzer curricula (the main checkout's evaluation/datasets/). --source adds to the
-defaults. A real freeze fails when a source is missing or holds no scanned file. The brief's quotas are then
+directories excluded). The fuzzer outputs are covered only through that results/ tree; pass any other curriculum
+path with --source. --source adds to the defaults. A real freeze fails when a source is missing or holds no scanned file. The brief's quotas are then
 checked on what remains.
 
 Outputs (never in Git, because they hold text) go under evaluation/results/s13a/ of the main checkout:
@@ -189,14 +189,13 @@ def source_files(root, excluded):
 
 def default_sources():
     return {"datasets": REPO_ROOT / "evaluation" / "datasets",
-            "results": MAIN_CHECKOUT / "evaluation" / "results",
-            "fuzzer_curricula": MAIN_CHECKOUT / "evaluation" / "datasets"}
+            "results": MAIN_CHECKOUT / "evaluation" / "results"}
 
 
 def resolve_sources(extra, no_defaults=False):
     """The defaults plus every --source LABEL=PATH (a repeated label replaces its default)."""
     if no_defaults and not s13_paths.under_tests():
-        raise SystemExit("--no-default-sources is only allowed under tests (S13A_TESTING=1)")
+        raise SystemExit("--no-default-sources is only allowed under tests")
     sources = {} if no_defaults else default_sources()
     for spec in extra or []:
         label, _, path = spec.partition("=")
@@ -307,7 +306,7 @@ def main(argv=None):
     p.add_argument("--source-kind", choices=SOURCE_KINDS, default="writers")
     p.add_argument("--source", action="append", metavar="LABEL=PATH",
                    help="extra contamination source (repeatable); added to the defaults")
-    p.add_argument("--no-default-sources", action="store_true", help="tests only (S13A_TESTING=1)")
+    p.add_argument("--no-default-sources", action="store_true", help="tests only (refused in a real run)")
     p.add_argument("--marker-pattern", action="append", default=[], metavar="REGEX")
     p.add_argument("--id-salt", default="s13a-fresh-set")
     args = p.parse_args(argv)

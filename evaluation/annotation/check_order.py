@@ -11,7 +11,8 @@ Usage (run from the repository root, on the branch that holds the stage commits)
 The order that must hold (each link a strict ancestor, verified with `git merge-base --is-ancestor`):
   set-manifest commit  ->  packet-manifest commit  ->  first label commit  ->  record commit
 Each commit is the first one that added the file (the earliest label file for the labels, the earliest
-record JSON for the record). When the record names its own freeze commits, they must equal the computed ones.
+record JSON for the record). Labels may be added in several commits, but modifying, deleting or renaming a label
+file after it was added fails the check. When the record names its own freeze commits, they must equal the computed ones.
 Exit 0 only when every link holds; exit 1 otherwise; exit 2 on a usage or Git error.
 """
 from __future__ import annotations
@@ -66,9 +67,11 @@ def check(repo, ref, set_manifest, packet_manifest, labels_dir, record, allow_mi
         if commits[older] and commits[newer] and not is_strict_ancestor(repo, commits[older], commits[newer]):
             problems.append(f"{older} is not a strict ancestor of {newer}")
     if commits["label_commit"]:
-        changed = git(repo, "diff", "--quiet", commits["label_commit"], ref, "--", labels_dir)
-        if changed.returncode != 0:
-            problems.append("the labels changed after the label commit")
+        # Labels may be added over several commits (pilot, main, adjudicated); only a modification, deletion, rename or
+        # type change of a file that already existed counts as a change after the freeze.
+        changed = git(repo, "log", ref, "--diff-filter=MDRT", "--format=%H", "--", labels_dir)
+        if changed.returncode != 0 or changed.stdout.strip():
+            problems.append("the labels changed after they were committed")
     if record:
         path = Path(repo) / record
         if path.is_file():
