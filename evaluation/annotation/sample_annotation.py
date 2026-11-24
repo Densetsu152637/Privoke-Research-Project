@@ -4,6 +4,7 @@
 Usage (host Python):
   python sample_annotation.py --input <fresh_eval.jsonl> --output-dir <dir> [--seed N]
       [--main-size 360] [--pilot-size 30] [--annotators A B] [--format csv|jsonl|both]
+      [--fail-on-marker] [--marker-pattern REGEX ...] [--normalise-marker folio]
 
 Outputs:
   <dir>/sheets/{pilot,main}_<annotator>.{csv,jsonl}  blank label columns, opaque ids and text only
@@ -120,12 +121,32 @@ def blinded_ids(case_ids, salt):
 
 
 DATASET_MARKER = re.compile(r"fresh_eval|release-\d+|AU3|folio-\d+", re.IGNORECASE)
+# The AU3 partition token that Stage 8 found in every fresh_eval text; 13a-0 normalises it to a constant.
+FOLIO_TOKEN = re.compile(r"(?<![\w-])fresh_eval-folio-\d+(?![\w-])", re.IGNORECASE)
 
 
-def blinding_audit(items):
+def marker_patterns(extra=()):
+    """The built-in marker pattern followed by any caller-supplied source-name patterns."""
+    return [DATASET_MARKER] + [re.compile(p, re.IGNORECASE) for p in extra]
+
+
+def jsonl_sha256(rows):
+    """Canonical hash of a row set (sorted keys, one JSON object per line)."""
+    blob = "".join(json.dumps(r, sort_keys=True, ensure_ascii=False) + "\n" for r in rows)
+    return hashlib.sha256(blob.encode("utf8")).hexdigest()
+
+
+def normalise_markers(rows, replacement):
+    """Replace every whole fresh_eval-folio-NN token in each text; identical for every annotator."""
+    return [{**r, "text": FOLIO_TOKEN.sub(replacement, r["text"])} for r in rows]
+
+
+def blinding_audit(items, extra_patterns=(), normalisation=None):
     """Annotator-facing texts that embed dataset or partition markers (coordinator decision needed)."""
-    flagged = [r["id"] for r in items if DATASET_MARKER.search(r["text"])]
-    return {"marker_pattern": DATASET_MARKER.pattern, "items_checked": len(items), "items_with_marker": len(flagged)}
+    patterns = marker_patterns(extra_patterns)
+    flagged = [r["id"] for r in items if any(p.search(r["text"]) for p in patterns)]
+    return {"patterns": [p.pattern for p in patterns], "items_checked": len(items),
+            "items_with_marker": len(flagged), "normalisation": normalisation}
 
 
 def provisional_targets(row):
@@ -152,12 +173,25 @@ def build(args):
     rows = load_rows(path)
     if len({r["id"] for r in rows}) != len(rows):
         raise SystemExit("duplicate case ids in input")
+    normalisation = None
+    if args.normalise_marker:
+        rows = normalise_markers(rows, args.normalise_marker)
+        normalisation = {"pattern": FOLIO_TOKEN.pattern, "replacement": args.normalise_marker,
+                         "original_sha256": digest, "normalised_sha256": jsonl_sha256(rows)}
     main, main_alloc = stratified_sample(rows, args.main_size, args.seed, "main", args.min_per_cell)
     taken = {r["id"] for r in main}
     rest = [r for r in rows if r["id"] not in taken]
     pilot, pilot_alloc = stratified_sample(rest, args.pilot_size, args.pilot_seed if args.pilot_seed is not None else args.seed, "pilot", 0)
     salt = args.id_salt or f"privoke-annotation-{args.seed}"
     ids = blinded_ids([r["id"] for r in main + pilot], salt)
+
+    audit = blinding_audit(main + pilot, args.marker_pattern, normalisation)
+    if audit["items_with_marker"]:
+        message = (f"{audit['items_with_marker']} of {audit['items_checked']} annotator-facing texts embed a dataset "
+                   "marker (partition name or scenario token)")
+        if args.fail_on_marker:
+            raise SystemExit(f"blinding gate failed: {message}; nothing was written")
+        print(f"warning: {message}; see blinding_audit in key/manifest.json", file=sys.stderr)
 
     population = defaultdict(int)
     for r in rows:
@@ -186,10 +220,6 @@ def build(args):
                 "provisional": provisional_targets(r),
             })
     schema.write_jsonl(out / "key" / "sampling_key.jsonl", key)
-    audit = blinding_audit(main + pilot)
-    if audit["items_with_marker"]:
-        print(f"warning: {audit['items_with_marker']} of {audit['items_checked']} annotator-facing texts embed a dataset "
-              "marker (partition name or scenario token); see blinding_audit in key/manifest.json", file=sys.stderr)
     manifest = {
         "version": VERSION, "blinding_audit": audit, "seed": args.seed, "id_salt_commitment": hashlib.sha256(salt.encode()).hexdigest(),
         "input_sha256": digest, "input_rows": len(rows), "annotators": args.annotators, "format": args.format,
@@ -217,6 +247,12 @@ def main(argv=None):
     p.add_argument("--format", choices=["csv", "jsonl", "both"], default="csv")
     p.add_argument("--id-salt", default=None)
     p.add_argument("--skip-hash-check", action="store_true")
+    p.add_argument("--fail-on-marker", action="store_true",
+                   help="exit non-zero, writing nothing, when any sampled text matches a marker pattern")
+    p.add_argument("--marker-pattern", action="append", default=[], metavar="REGEX",
+                   help="extra case-insensitive source-name pattern for the blinding audit (repeatable)")
+    p.add_argument("--normalise-marker", choices=["folio"], default=None,
+                   help="replace every whole fresh_eval-folio-NN token with this constant before sampling")
     manifest = build(p.parse_args(argv))
     print(json.dumps({k: manifest[k] for k in ("main_size", "pilot_size", "main_families", "input_sha256")}))
 

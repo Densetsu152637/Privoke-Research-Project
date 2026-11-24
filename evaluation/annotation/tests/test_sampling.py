@@ -108,5 +108,73 @@ class SamplerTests(unittest.TestCase):
         self.assertEqual(json.loads((out / "key/manifest.json").read_text())["blinding_audit"]["items_with_marker"], 0)
 
 
+class MarkerGateTests(SamplerTests):
+    """13a-0: hard marker gate, folio normalisation and extra source-name patterns."""
+
+    def marked_input(self, text_for):
+        rows = synthetic_rows()
+        for i, row in enumerate(rows):
+            row["text"] = text_for(i, row["text"])
+        schema.write_jsonl(self.input, rows)
+        return rows
+
+    def test_gate_fails_on_marker_and_writes_nothing(self):
+        self.marked_input(lambda i, t: f"{t} fresh_eval-folio-{i % 24:02d}")
+        out = Path(self.tmp.name) / "gate"
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(["--input", str(self.input), "--output-dir", str(out), "--skip-hash-check", "--main-size", "60",
+                     "--pilot-size", "12", "--min-per-cell", "2", "--fail-on-marker"])
+        self.assertIn("blinding gate failed", str(ctx.exception))
+        self.assertFalse(out.exists())
+
+    def test_gate_passes_on_clean_input_and_default_only_warns(self):
+        out = self.run_sampler("clean", "--fail-on-marker")
+        self.assertEqual(json.loads((out / "key/manifest.json").read_text())["blinding_audit"]["items_with_marker"], 0)
+        self.marked_input(lambda i, t: f"{t} fresh_eval-folio-07")
+        warned = self.run_sampler("warned")
+        self.assertGreater(json.loads((warned / "key/manifest.json").read_text())["blinding_audit"]["items_with_marker"], 0)
+
+    def test_normalisation_leaves_no_alternative_matching(self):
+        rows = self.marked_input(lambda i, t: f"{t} fresh_eval-folio-{i % 24:02d}")
+        normalised = sa.normalise_markers(rows, "folio")
+        for row, original in zip(normalised, rows):
+            self.assertTrue(row["text"].endswith(" folio"))
+            self.assertFalse(sa.DATASET_MARKER.search(row["text"]), row["text"])
+            self.assertEqual(row["id"], original["id"])
+        out = self.run_sampler("norm", "--fail-on-marker", "--normalise-marker", "folio")
+        audit = json.loads((out / "key/manifest.json").read_text())["blinding_audit"]
+        self.assertEqual(audit["items_with_marker"], 0)
+        norm = audit["normalisation"]
+        self.assertEqual(norm["replacement"], "folio")
+        self.assertEqual(norm["original_sha256"], __import__("hashlib").sha256(self.input.read_bytes()).hexdigest())
+        self.assertEqual(norm["normalised_sha256"], sa.jsonl_sha256(normalised))
+        self.assertNotEqual(norm["original_sha256"], norm["normalised_sha256"])
+        for who in "AB":
+            self.assertNotIn("fresh_eval", (out / f"sheets/main_{who}.csv").read_text(encoding="utf8"))
+
+    def test_normalisation_is_identical_for_every_annotator(self):
+        self.marked_input(lambda i, t: f"{t} fresh_eval-folio-{i % 24:02d}")
+        out = self.run_sampler("norm2", "--normalise-marker", "folio")
+        texts = {who: {r["item_id"]: r["text"] for r in schema.read_rows(out / f"sheets/main_{who}.csv")} for who in "AB"}
+        self.assertEqual(texts["A"], texts["B"])
+
+    def test_partial_replacement_fails_the_gate(self):
+        # Hand-edited texts that the whole-token normaliser must not silently accept.
+        for partial in ("fresh_eval-X", "xfresh_eval-folio-03", "folio-03"):
+            self.marked_input(lambda i, t, partial=partial: f"{t} {partial}")
+            with self.assertRaises(SystemExit, msg=partial):
+                sa.main(["--input", str(self.input), "--output-dir", str(Path(self.tmp.name) / "p"), "--skip-hash-check",
+                         "--main-size", "60", "--pilot-size", "12", "--min-per-cell", "2", "--fail-on-marker",
+                         "--normalise-marker", "folio"])
+
+    def test_extra_marker_pattern_is_part_of_the_gate(self):
+        self.marked_input(lambda i, t: f"{t} from the lakeside corpus")
+        self.run_sampler("nopattern", "--fail-on-marker")
+        with self.assertRaises(SystemExit):
+            self.run_sampler("pattern", "--fail-on-marker", "--marker-pattern", r"lakeside\s+corpus")
+        audit = sa.blinding_audit(synthetic_rows(), [r"lakeside"])
+        self.assertEqual(len(audit["patterns"]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
