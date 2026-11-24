@@ -17,12 +17,9 @@ use privoke_param_update::scheduler::{self, FuzzerRequestConfig, GrpcFuzzer, Pin
 use privoke_param_update::server;
 use privoke_param_update::service::ParamUpdateHandler;
 use privoke_param_update::util::log;
-use privoke_param_update::v3_guard::GuardGate;
-use privoke_param_update::v3_policy::{DriftBounds, DriftGate};
-use privoke_param_update::v3_publish::{Publisher, no_crash};
-use privoke_param_update::v3_retention::{RetentionGate, RetentionReleases};
-use privoke_param_update::v3_store::{ChainObserver, CheckpointHandler, CheckpointStore, CommitObserver, PinnedSources};
-use privoke_param_update::{Error, Result, SERVICE_NAME};
+use privoke_param_update::v3_publish::no_crash;
+use privoke_param_update::v3_store::{ChainObserver, CheckpointHandler, CheckpointStore, PinnedSources};
+use privoke_param_update::{Error, Result, SERVICE_NAME, build_observers, read_seed};
 use privoke_transport::startup::CloudTlsArgs;
 use privoke_transport::{Limits, RateLimit};
 
@@ -99,18 +96,6 @@ fn bootstrap(config: &ServiceConfig) -> Result<()> {
     Ok(())
 }
 
-/// The publication seed: 64 hexadecimal characters in a mounted secret file.
-fn read_seed(path: &std::path::Path) -> Result<[u8; 32]> {
-    let text = std::fs::read_to_string(path).map_err(|error| Error(format!("V3 publication key file: {error}")))?;
-    let text = text.trim();
-    let bytes: Option<Vec<u8>> = (text.len() == 64 && text.is_ascii())
-        .then(|| (0..64).step_by(2).map(|index| u8::from_str_radix(&text[index..index + 2], 16).ok()).collect::<Option<Vec<u8>>>())
-        .flatten();
-    bytes
-        .and_then(|bytes| bytes.try_into().ok())
-        .ok_or_else(|| Error("V3 publication key file must hold 64 hexadecimal characters.".to_string()))
-}
-
 /// The V3 checkpoint store and what the scheduler shares with it.
 struct Checkpoint {
     store: Arc<CheckpointStore>,
@@ -124,29 +109,8 @@ fn open_checkpoint(config: &V3Config, allocations: &std::path::Path) -> Result<C
     let sources = Arc::new(PinnedSources::from_root(&config.source_root, config.audience.clone()));
     let mut store =
         CheckpointStore::open(&config.store, sources.clone()).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
-    let mut publisher = None;
-    // Every commit is bounded, published or not.
-    let bounds = DriftBounds::load(&config.drift_bounds).map_err(|error| Error(format!("V3 drift bounds: {error}")))?;
-    log(format_args!("V3 drift bounds status={} evidence={}", bounds.status, bounds.evidence_sha256));
-    let mut observers: Vec<Arc<dyn CommitObserver>> = vec![Arc::new(DriftGate::new(bounds))];
-    // The guard is recomputed from the rows param-update rebuilds, for requests the scheduler allocated (its journal is the table).
-    observers.push(Arc::new(GuardGate::new(sources.clone(), Arc::new(JournalAllocations::new(allocations)))));
-    // The retention check is the costliest gate, so it follows the cheap ones; like them it runs before the transaction.
-    if let Some(retention) = &config.retention {
-        let releases =
-            RetentionReleases::load(&retention.root, &retention.bank).map_err(|error| Error(format!("V3 retention: {error}")))?;
-        log(format_args!("V3 retention gate on root={}", retention.root.display()));
-        observers.push(Arc::new(RetentionGate::new(releases)));
-    }
-    if let Some(publication) = &config.publication {
-        let seed = read_seed(&publication.key_file)?;
-        let signer = Arc::new(
-            Publisher::new(&publication.root, &publication.key_id, seed, no_crash())
-                .map_err(|error| Error(format!("V3 publisher: {error}")))?,
-        );
-        observers.push(signer.clone());
-        publisher = Some(signer);
-    }
+    let (observers, publisher) =
+        build_observers(config, sources.clone(), Arc::new(JournalAllocations::new(allocations)), no_crash(), None, None)?;
     store = store.with_observer(Arc::new(ChainObserver::new(observers)));
     // The routine root: each tier's pinned standard release, with the ORIGINAL it descends from (V3-R7).
     for (original, release) in &config.pinned {
