@@ -471,18 +471,53 @@ class TlVerdictTests(unittest.TestCase):
         answered = {"stats": {**self.refused, "application_bytes": 900}, "closed": True}
         self.assertEqual(harness.tl1_verdict(store_answer(), self.original, answered, store_answer())["observed"], "accepted")
 
-    def test_tl2_needs_unavailable_for_every_tested_record_and_a_working_control_after_each(self):
-        self.assertTrue(harness.tl2_variant_aborted(True, store_answer("UNAVAILABLE")))
-        self.assertFalse(harness.tl2_variant_aborted(True, store_answer("UNKNOWN")))
-        self.assertFalse(harness.tl2_variant_aborted(False, store_answer("UNAVAILABLE")))
-        self.assertFalse(harness.tl2_variant_aborted(True, store_answer()))
-        good = [{"aborted": True, "control_ok": True}] * 3
+    def test_tl2_variant_rule(self):
+        alert = {"alert_seen": True, "closed": True, "answered": False}
+        closed = {"alert_seen": False, "closed": True, "answered": False}
+        silent = {"alert_seen": False, "closed": False, "answered": False}
+        answered = {"alert_seen": True, "closed": True, "answered": True}
+        control = store_answer()
+
+        def aborted(flipped=True, code="UNAVAILABLE", reaction=alert, control=control, clean="NOT_FOUND"):
+            return harness.tl2_variant_aborted(flipped, store_answer(code), clean, reaction, control)
+
+        self.assertTrue(aborted())
+        self.assertTrue(aborted(code="UNKNOWN", reaction=alert))  # UNKNOWN with an observed alert
+        self.assertTrue(aborted(code="UNKNOWN", reaction=closed))  # or an observed close
+        self.assertFalse(aborted(code="UNKNOWN", reaction=silent))  # UNKNOWN with no alert or close
+        self.assertFalse(aborted(code="NOT_FOUND", reaction=alert))  # the clean code
+        self.assertFalse(aborted(code="UNKNOWN", reaction=answered))  # the server answered before ending
+        self.assertFalse(aborted(flipped=False))
+        self.assertFalse(aborted(code="INTERNAL"))
+        self.assertFalse(aborted(control=store_answer("UNAVAILABLE")))  # the clean control after it failed
+
+    def test_tl2_records_each_variant_and_the_verdict_names_the_tested_count(self):
+        reaction = {"alert_seen": True, "closed": False, "answered": False}
+        record = harness.tl2_variant_record(2, True, store_answer("UNKNOWN"), "NOT_FOUND", reaction, store_answer(), True)
+        self.assertEqual((record["client_code"], record["server_alert_seen"], record["server_closed"], record["control_code"], record["aborted"]),
+                         ("UNKNOWN", True, False, "NOT_FOUND", True))
+        good = [record] * 3
         verdict = harness.tl2_verdict(good)
         self.assertEqual(verdict["observed"], "rejected")
         self.assertIn("the 3 request records tested", verdict["message"])
-        self.assertEqual(harness.tl2_verdict(good + [{"aborted": False, "control_ok": True}])["observed"], "accepted")
-        self.assertEqual(harness.tl2_verdict(good + [{"aborted": True, "control_ok": False}])["code"], "HARNESS_ERROR")
+        self.assertEqual(harness.tl2_verdict(good + [{**record, "aborted": False}])["observed"], "accepted")
+        self.assertEqual(harness.tl2_verdict(good + [{**record, "control_ok": False}])["code"], "HARNESS_ERROR")
         self.assertEqual(harness.tl2_verdict([])["code"], "HARNESS_ERROR")
+
+    def test_the_proxy_reads_the_server_reaction_from_the_events(self):
+        proxy = pki_tools.RecordingProxy.__new__(pki_tools.RecordingProxy)
+        import threading as _threading
+
+        proxy._lock = _threading.Lock()
+        proxy.flip_seq, proxy.server_closed_seq = 3, 7
+        proxy.events = [(0, "c2s", 22, 200), (1, "s2c", 22, 90), (2, "s2c", 23, 600), (3, "c2s", 23, 80), (4, "s2c", 23, 24)]
+        self.assertEqual(proxy.server_reaction(), {"alert_seen": True, "closed": True, "answered": False})
+        proxy.events.append((5, "s2c", 23, 140))  # a record larger than an alert after the flip
+        self.assertTrue(proxy.server_reaction()["answered"])
+        proxy.flip_seq = None
+        self.assertEqual(proxy.server_reaction(), {"alert_seen": False, "closed": False, "answered": False})
+        proxy.flip_seq, proxy.server_closed_seq, proxy.events = 3, None, [(3, "c2s", 23, 80)]
+        self.assertEqual(proxy.server_reaction(), {"alert_seen": False, "closed": False, "answered": False})
 
     def test_tl3_needs_a_failed_handshake_no_request_byte_and_a_control_that_completes(self):
         refused = store_answer("UNAVAILABLE")

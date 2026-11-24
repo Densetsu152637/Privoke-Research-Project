@@ -3104,8 +3104,21 @@ def tl1_verdict(original: dict, original_stats: dict, replay: dict, clean_after:
     return {"observed": "accepted", "code": "OK", "message": "the server answered the replayed bytes"}
 
 
-def tl2_variant_aborted(flipped: bool, result: dict) -> bool:
-    return bool(flipped and result["observed"] == "rejected" and result["code"] == "UNAVAILABLE")
+def tl2_variant_aborted(flipped: bool, result: dict, clean_code: str, reaction: dict, control: dict) -> bool:
+    """A flipped record aborted the exchange when all three hold: the client got UNAVAILABLE or UNKNOWN and never the clean code; the proxy
+    saw the server end the connection (an alert, or a close) after the flipped record and before any record that answers the request;
+    and a clean exchange right after still reaches the store."""
+    failed = result["observed"] == "rejected" and result["code"] in ("UNAVAILABLE", "UNKNOWN") and result["code"] != clean_code
+    ended = (reaction["alert_seen"] or reaction["closed"]) and not reaction["answered"]
+    return bool(flipped and failed and ended and reached_the_store(control))
+
+
+def tl2_variant_record(record: int, flipped: bool, result: dict, clean_code: str, reaction: dict, control: dict, store_unchanged: bool) -> dict:
+    """One tested record: the client code, what the server was seen to do, the clean control's code and the verdict."""
+    return {"record": record, "flipped": flipped, "client_code": result["code"], "server_alert_seen": reaction["alert_seen"],
+            "server_closed": reaction["closed"], "server_answered": reaction["answered"], "control_code": control["code"],
+            "store_unchanged": store_unchanged, "control_ok": reached_the_store(control),
+            "aborted": tl2_variant_aborted(flipped, result, clean_code, reaction, control)}
 
 
 def tl2_verdict(variants: list[dict]) -> dict:
@@ -3176,19 +3189,23 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
         client = RustCheckpointClient(service, identity, port=proxy.port)
         try:
             result = client.outcome(lambda: client.commit(request_id, timeout=10))
+            time.sleep(0.3)
+            reaction = proxy.server_reaction()  # before the client closes the channel, which would also end the server side
         finally:
             client.close()
             proxy.close()
         control = clean_exchange()
         same = checkpoint_state(service, request_id) == before and before[0] == "unknown"
-        variants.append({"aborted": tl2_variant_aborted(proxy.flipped, result), "control_ok": reached_the_store(control)})
-        notes.append(f"record {record}: flipped={proxy.flipped} {result['code']}; clean exchange after it: {control['code']}; store_unchanged={same}")
+        variants.append(tl2_variant_record(record, proxy.flipped, result, original["code"], reaction, control, same))
+        notes.append(f"record {record}: flipped={proxy.flipped} client={result['code']} server_alert_seen={reaction['alert_seen']} server_closed={reaction['closed']} "
+                     f"server_answered={reaction['answered']}; clean control: {control['code']}; store_unchanged={same}")
         unchanged_all = unchanged_all and same
     verdict = tl2_verdict(variants if reached_the_store(original) else [])
     rows.append(authz_row("TL2", "tampered_request", "rust-tls",
                           f"One bit flipped in each client record the request depends on, through a loopback proxy (the connection aborts, no receipt). {VACUOUS_STORE_NOTE}",
                           "rejected_unchanged", identity, verdict, unchanged_all, codes=("CONNECTION_ABORTED",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started,
                           evidence=notes))
+    rows[-1]["variants"] = variants
 
     # TL3: a man in the middle presents a server certificate from a CA the client does not trust, for the right names.
     started = time.time()

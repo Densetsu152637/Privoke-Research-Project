@@ -379,7 +379,7 @@ class PrivokePki:
 # TLS record tools for the TL rows: a recording and tampering loopback proxy, a raw replay, a man in the middle
 # --------------------------------------------------------------------------------------
 
-TLS_HANDSHAKE, TLS_APPLICATION = 22, 23
+TLS_ALERT, TLS_HANDSHAKE, TLS_APPLICATION = 21, 22, 23
 TLS_CONTENT_TYPES = (20, 21, 22, 23)
 ALERT_RECORD_MAX = 32  # an encrypted TLS 1.3 alert is 24 bytes (5 header, 2 alert, 1 inner type, 16 tag)
 
@@ -431,7 +431,9 @@ class RecordingProxy:
     def __init__(self, upstream_port: int, *, flip_record: int | None = None):
         self.upstream_port, self.flip_record = upstream_port, flip_record
         self._lock = threading.Lock()
-        self.events: list[tuple[int, str, int]] = []  # (sequence, direction, content type), appended before each record is forwarded
+        self.events: list[tuple[int, str, int, int]] = []  # (sequence, direction, content type, bytes), appended before each record is forwarded
+        self.flip_seq: int | None = None  # the sequence of the event that carried the flipped record
+        self.server_closed_seq: int | None = None  # the sequence the next event would have had when the server side ended
         self.client_bytes = bytearray()
         self.server_bytes = bytearray()
         self.flipped = False
@@ -463,9 +465,10 @@ class RecordingProxy:
                 self._threads.append(thread)
                 thread.start()
 
-    def _log(self, direction: str, content_type: int) -> None:
+    def _log(self, direction: str, content_type: int, length: int) -> int:
         with self._lock:
-            self.events.append((len(self.events), direction, content_type))
+            self.events.append((len(self.events), direction, content_type, length))
+            return len(self.events) - 1
 
     def _pump(self, source: socket.socket, sink: socket.socket, direction: str) -> None:
         pending, application = b"", 0
@@ -484,11 +487,11 @@ class RecordingProxy:
                 consumed = 0
                 for content_type, offset, length in tls_records(pending):
                     record = pending[offset:offset + length]
-                    self._log(direction, content_type)
+                    sequence = self._log(direction, content_type, length)
                     if direction == "c2s" and content_type == TLS_APPLICATION:
                         application += 1
                         if self.flip_record == application and not self.flipped:
-                            record, self.flipped = flip_bit(record), True
+                            record, self.flipped, self.flip_seq = flip_bit(record), True, sequence
                     sink.sendall(record)
                     consumed = offset + length
                 pending = pending[consumed:]
@@ -498,6 +501,10 @@ class RecordingProxy:
         except OSError:
             pass
         finally:
+            if direction == "s2c":
+                with self._lock:
+                    if self.server_closed_seq is None:
+                        self.server_closed_seq = len(self.events)
             for end in (source, sink):
                 try:
                     end.shutdown(socket.SHUT_RDWR)
@@ -509,8 +516,23 @@ class RecordingProxy:
         request depends on. Records the client sent after the response (window updates, the close alert) are not counted."""
         with self._lock:
             events = list(self.events)
-        last_server = max((sequence for sequence, direction, kind in events if direction == "s2c" and kind == TLS_APPLICATION), default=-1)
-        return sum(1 for sequence, direction, kind in events if direction == "c2s" and kind == TLS_APPLICATION and sequence < last_server)
+        last_server = max((sequence for sequence, direction, kind, _ in events if direction == "s2c" and kind == TLS_APPLICATION), default=-1)
+        return sum(1 for sequence, direction, kind, _ in events if direction == "c2s" and kind == TLS_APPLICATION and sequence < last_server)
+
+    def server_reaction(self) -> dict:
+        """What the server did after the flipped record reached it, from the record sizes alone: `alert_seen` (a plaintext alert, or an
+        alert-sized protected record that ends the stream), `closed` (the server side of the connection ended after the flip) and
+        `answered` (a protected record larger than an alert followed the flip, which is how an answer to the request would look)."""
+        with self._lock:
+            events, flip, closed_at = list(self.events), self.flip_seq, self.server_closed_seq
+        if flip is None:
+            return {"alert_seen": False, "closed": False, "answered": False}
+        after = [(kind, length) for sequence, direction, kind, length in events if direction == "s2c" and sequence > flip]
+        closed = closed_at is not None and closed_at > flip
+        plaintext_alert = any(kind == TLS_ALERT for kind, _ in after)
+        protected_alert = bool(after) and after[-1][0] == TLS_APPLICATION and after[-1][1] <= ALERT_RECORD_MAX and closed
+        answered = any(kind == TLS_APPLICATION and length > ALERT_RECORD_MAX for kind, length in after)
+        return {"alert_seen": plaintext_alert or protected_alert, "closed": closed, "answered": answered}
 
     def captured(self) -> tuple[bytes, bytes]:
         with self._lock:
