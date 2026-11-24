@@ -948,7 +948,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - **The tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_update_security*.py"`. New tests cover the CK and TL families, the `denied_by` vocabulary and `--check-s13d-coverage`.
   - **The legacy record still reproduces:** `$PY evaluation/update_security_report.py --record paper/research/update-security-20261117.json --document paper/research/update-security-20261117.md` reproduces it unchanged.
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** 13d-1a done; 13d-1b pending (after 13c-2). Outcome 13d-1a: `1d898df`, `593ab4b`, `494ccfd`, `4462ee4`, merged into `feat/rust-rewrite` at `1edb6be`; 113 tests OK; live Docker check: CK1–CK7 and CK9 denied at their claimed layers, TL1 and TL3 refused, TL2 3 of 3 request-bearing records aborted (`TL2-handshake` reported separately); G8 0 violations. Implementation gate: 2 rounds, 6 findings accepted (TL1 empty-reply and liveness, vacuous store checks marked until 13d-1b, TL3 attempt and control, TL2 abort rule, evidence-based `denied_by`, coverage counting), 0 rejected. Root decision on TL2: a tampered request record aborts only if the client sees UNAVAILABLE or UNKNOWN, the server alerts or closes before any answer-sized record, and a clean control then returns NOT_FOUND; the tamper set is the request-bearing type-23 records; the clients disable gRPC retries. Pending for 13d-1b: CK8, the three positive controls, `TL1-candidate`.
 - **Handoff notes:** generate the host clients first (`$PY evaluation/setup-host.py`, which includes `experimental/v3.proto`). Keep the PKI in a scratch directory, delete it after the run, and never commit a key.
 
 ### 13d-2: Run and record (agent)
