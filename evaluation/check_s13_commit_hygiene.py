@@ -243,9 +243,22 @@ def added_lines_of_diff(repo: str, old: str, new: str, path: str) -> list[list[t
     return [h for h in hunks if h]
 
 
+def text_variants(raw: bytes) -> list[str]:
+    """Primary decoding first. A NUL-heavy file without a BOM adds UTF-16 LE/BE and NUL-stripped readings."""
+    out = [decode_bytes(raw)]
+    if raw and not is_utf16(raw) and raw.count(0) / len(raw) > 0.30:
+        out.append(raw.decode("utf-16-le", errors="replace").replace("\0", " "))
+        out.append(raw.decode("utf-16-be", errors="replace").replace("\0", " "))
+        out.append(raw.replace(b"\0", b"").decode("utf-8", errors="replace"))
+    return out
+
+
 def added_lines_by_set(old_blob: bytes | None, new_text: str) -> list[list[tuple[int, str]]]:
-    """Fallback for UTF-16 files, whose diff output is not line-readable: lines absent from the old text."""
-    old = set(decode_bytes(old_blob).splitlines()) if old_blob is not None else set()
+    """Fallback for NUL-heavy files, whose diff output is not line-readable: lines absent from the old text."""
+    old: set[str] = set()
+    if old_blob is not None:
+        for t in text_variants(old_blob):
+            old.update(ln.rstrip("\r") for ln in t.split("\n"))
     group: list[tuple[int, str]] = []
     groups: list[list[tuple[int, str]]] = []
     for no, line in enumerate(new_text.split("\n"), 1):
@@ -282,6 +295,9 @@ def not_ignored_probes(repo: str, tip: str) -> list[str]:
                if p and p.split(b"/")[-1] == b".gitignore"]
     with tempfile.TemporaryDirectory(prefix="s13h-ignore-") as tmp:
         subprocess.run(["git", "-C", tmp, "init", "-q"], check=True, stdout=subprocess.DEVNULL)
+        os.makedirs(os.path.join(tmp, ".git", "info"), exist_ok=True)
+        with open(os.path.join(tmp, ".git", "info", "exclude"), "w") as fh:
+            fh.write("")
         for rel in ignores:
             blob = show(repo, tip, rel)
             if blob is None:
@@ -292,7 +308,7 @@ def not_ignored_probes(repo: str, tip: str) -> list[str]:
                 fh.write(blob)
         missing = []
         for probe in OUTPUT_PROBES:
-            rc = subprocess.run(["git", "-C", tmp, "check-ignore", "-q", "--", probe],
+            rc = subprocess.run(["git", "-C", tmp, "-c", "core.excludesFile=", "check-ignore", "-q", "--", probe],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
             if rc != 0:
                 missing.append(probe)
@@ -317,7 +333,7 @@ def forbidden_fields(path: str, text: str) -> list[int]:
 
     lines = text.splitlines()
     if suffix == ".csv":
-        header = lines[0].lstrip("\ufeff") if lines else ""
+        header = next((ln.lstrip("\ufeff") for ln in lines if ln.lstrip("\ufeff").strip()), "")
         cols = [c.strip().strip("\"'").strip().lower() for c in HEADER_SPLIT_RE.split(header)]
         return [1] if any(c in FORBIDDEN_FIELDS for c in cols) else []
     found: set[str] = set()
@@ -378,7 +394,7 @@ def scan_pass(repo: str, old: str, new: str, grams: set[int], pins_new: dict[str
         blob = show(repo, new, path)
         if blob is None:
             raise UsageError(f"cannot read changed file {path} at {new}")
-        text = decode_bytes(blob)
+        variants = text_variants(blob)
 
         pinned_ok = False
         digest = hashlib.sha256(blob).hexdigest()
@@ -392,16 +408,20 @@ def scan_pass(repo: str, old: str, new: str, grams: set[int], pins_new: dict[str
 
         json_like = lower.endswith((".json", ".jsonl"))
         if json_like or lower.endswith(".csv"):
-            for no in forbidden_fields(path, text):
-                violations.append({"file": path, "rule": "forbidden_field", "line": no})
+            for text in variants:
+                for no in forbidden_fields(path, text):
+                    violations.append({"file": path, "rule": "forbidden_field", "line": no})
 
         use_grams = None if (lower.endswith(SOURCE_SUFFIXES) or pinned_ok) else grams
         if path in added:
-            scan_lines(path, [(i, ln.rstrip("\r")) for i, ln in enumerate(text.split("\n"), 1)],
-                       use_grams, json_like, violations)
-        elif is_utf16(blob):
-            for hunk in added_lines_by_set(show(repo, old, path), text):
-                scan_lines(path, hunk, use_grams, json_like, violations)
+            for text in variants:
+                scan_lines(path, [(i, ln.rstrip("\r")) for i, ln in enumerate(text.split("\n"), 1)],
+                           use_grams, json_like, violations)
+        elif is_utf16(blob) or len(variants) > 1:
+            old_blob = show(repo, old, path)
+            for text in variants:
+                for hunk in added_lines_by_set(old_blob, text):
+                    scan_lines(path, hunk, use_grams, json_like, violations)
         else:
             for hunk in added_lines_of_diff(repo, old, new, path):
                 scan_lines(path, hunk, use_grams, json_like, violations)
@@ -417,11 +437,15 @@ def check(repo: str, rng: str, gram_set: set[int], n_dirs: int, stage: str | Non
         violations.append({"file": ALLOWLIST_PATH, "rule": "allowlist_format", "line": 0})
     pins_base, _ = read_allowlist(repo, base)
 
-    if stage is not None:
+    def pin_scope(before: dict[str, str], after: dict[str, str]) -> None:
+        if stage is None:
+            return
         scope = STAGE_PIN_SCOPES[stage]
-        for p in sorted(set(pins_tip) | set(pins_base)):
-            if pins_tip.get(p) != pins_base.get(p) and not any(glob_match(p, pat) for pat in scope):
+        for p in sorted(set(before) | set(after)):
+            if after.get(p) != before.get(p) and not any(glob_match(p, pat) for pat in scope):
                 violations.append({"file": p, "rule": "pin_scope", "line": 0})
+
+    pin_scope(pins_base, pins_tip)
 
     files_checked = scan_pass(repo, base, tip, gram_set, pins_tip, {}, True, violations)
 
@@ -431,8 +455,10 @@ def check(repo: str, rng: str, gram_set: set[int], n_dirs: int, stage: str | Non
         parent = subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "-q", f"{c}^"],
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         old = parent.stdout.decode().strip() if parent.returncode == 0 else EMPTY_TREE
-        pins_c, _ = read_allowlist(repo, c)
-        scan_pass(repo, old, c, gram_set, {}, {**pins_tip, **pins_c}, False, violations)
+        # Pins edited inside the range are checked per commit, but only the base and tip pins are trusted.
+        pins_old = read_allowlist(repo, old)[0] if old != EMPTY_TREE else {}
+        pin_scope(pins_old, read_allowlist(repo, c)[0])
+        scan_pass(repo, old, c, gram_set, {}, {**pins_base, **pins_tip}, False, violations)
 
     for probe in not_ignored_probes(repo, tip):
         violations.append({"file": probe, "rule": "output_not_ignored", "line": 0})

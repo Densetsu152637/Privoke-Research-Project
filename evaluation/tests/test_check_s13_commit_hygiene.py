@@ -424,6 +424,44 @@ class HardeningTests(Fixture):
                                f"{self.base}...HEAD"], capture_output=True, text=True, env=env)
         self.assertEqual(proc.returncode, 1)
 
+    def test_intermediate_pin_cannot_hide_history(self):
+        d = self.local_dir()
+        body = PROMPT + "\n"
+        self.commit("add file and pin", {GUIDE: body, ALLOWLIST: json.dumps({GUIDE: sha(body)})})
+        self.git("rm", "-q", GUIDE)
+        self.write({ALLOWLIST: "{}"})
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "remove both")
+        rc, rep, _ = self.run_check("--local-inputs", d, "--stage", "13c-1")
+        self.assertEqual(rc, 1)
+        rules = {r for _, r in self.rules(rep)}
+        self.assertIn("pin_scope", rules)
+        self.assertIn("prompt_8gram", rules)
+
+    def test_bomless_utf16_le_and_be_caught(self):
+        d = self.local_dir()
+        self.commit("le", {"docs/le.md": (PROMPT + "\n").encode("utf-16-le")})
+        self.commit("be", {"docs/be.md": (PROMPT + "\n").encode("utf-16-be")})
+        self.expect(1, [("docs/be.md", "prompt_8gram"), ("docs/le.md", "prompt_8gram")],
+                    "--local-inputs", d)
+
+    def test_nul_interleaved_ascii_caught(self):
+        d = self.local_dir()
+        raw = bytes([0]).join(c.encode() for c in PROMPT) + bytes([0, 10])
+        self.commit("nul", {"docs/i.md": raw})
+        self.expect(1, [("docs/i.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_modified_bomless_utf16_caught(self):
+        d = self.local_dir()
+        self.commit("a", {"docs/m.md": "intro\n".encode("utf-16-le")})
+        base = self.git("rev-parse", "HEAD")
+        self.commit("b", {"docs/m.md": ("intro\n" + PROMPT + "\n").encode("utf-16-le")})
+        self.expect(1, [("docs/m.md", "prompt_8gram")], "--local-inputs", d, base=base)
+
+    def test_csv_header_after_blank_line(self):
+        self.commit("c", {"d/a.csv": "\n\ntext,id\n1,a\n"})
+        self.expect(1, [("d/a.csv", "forbidden_field")])
+
 
 if __name__ == "__main__":
     unittest.main()
