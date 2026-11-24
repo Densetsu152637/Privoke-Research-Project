@@ -1,6 +1,6 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applies N5). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
+Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applied N5; r6 applies N6). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
 This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
 
@@ -63,7 +63,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - Every new row of `tab:security_goals` and `tab:threat_defense` cites a Stage 13 record.
 - **S13-G8: no forbidden material is committed.** For every stage diff, on either branch, root runs `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..<stage-head>` from the `feat/nick-branch` tree, and it exits 0. The script is built in [13-H](#stage-13-h-commit-hygiene-check-agent-first). Over `git -C <repo> diff --name-only <range>`, it checks all of the following:
   - No committed JSON or CSV has a `text`, `prompt`, `body` or `notes` field or column.
-  - No committed file contains any 8-gram of a prompt from the local inputs. By default (`--local-inputs` omitted) these are every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The scan runs over those local files and reports counts only. If the default matches no directory, the script exits 0 and reports `local_inputs: 0` in its JSON. With `--require-local-inputs`, it exits 2 instead. Root passes that flag for the stages that touch prompts (13a-2 to 13a-5, 13b, 13e and 13f), so the scan cannot be silently skipped there.
+  - No committed file contains any 8-gram of a prompt from the local inputs. By default (`--local-inputs` omitted) these are every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The scan runs over those local files and reports counts only. If the default matches no directory, the script exits 0 and reports `local_inputs: 0` in its JSON. With `--require-local-inputs`, it exits 2 instead. Root passes that flag for the stage diffs that produce or consume prompt data (13a-3, 13a-5, 13b-2, 13b-3, 13e, 13f-1 and 13f-2), so the scan cannot be silently skipped there. `S13_LOCAL_INPUTS_ROOT` overrides the default scan root in normal runs as well as in tests.
   - No `*.safetensors`, `*.onnx`, `*.bin`, `*.pt` or `*.pth` file is added.
   - No line matches the key patterns:
     - `BEGIN (EC |RSA |OPENSSH |ENCRYPTED |)PRIVATE KEY`;
@@ -202,7 +202,18 @@ The imported files are new and byte-identical on both branches, so PR #6 cannot 
   - The harness asserts the executed layers of every response with a generalised form of `assert_executed_layers` (`evaluation/adversarial_evasion.py`). The expected set comes from the configuration, and the regex-first skip rule applies only when regex was requested.
   - A response whose executed layers differ from the expected set aborts the run.
   - Each harness refuses an empty list before sending it, and a test covers that refusal.
-- **Prompt-bearing data** (raw prompts, variants, sheets with text, the adjudication export, receiver bodies) live under `evaluation/results/s13<x>/`, which `evaluation/.gitignore` (`results/`) ignores. Commits carry only hashes, counts, opaque ids and labels.
+- **Prompt-bearing data.** Every prompt-bearing `s13*` output is written to the main checkout, at `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13<x>/`, whichever worktree runs the stage. That covers raw prompts, variants, sheets with text, the adjudication export, receiver bodies and per-item outputs. Each harness takes the directory as `--out <absolute path>`, so the G8 default scan root always sees it. `evaluation/.gitignore` (`results/`) ignores these directories. Commits carry only hashes, counts, opaque ids and labels.
+
+  The plan defines these directories:
+
+  | Directory | Holds |
+  | --- | --- |
+  | `s13a/` | `raw/`, `packet/` and `returned/` |
+  | `s13b/` | `pilot/` (the 20-probe timing pilot) and `run/` |
+  | `s13e/` | per-item ablation outputs |
+  | `s13f/` | timing samples |
+
+  `s13-host.lock` is a file, not a directory, so the scan glob `s13*/` never matches it.
 - **"Unchanged" means the authority, not the blob directory.** The store is unchanged when its `current` row, its `versions`, its `publications` (row count and highest sequence), the receipt of that request id, the version model-streaming serves and the client high-water mark are all unchanged. Rejected candidates can leave orphan blobs, because `stage` puts the payload before admission (`store.rs` `stage` → `put`, then `admit_candidate`). Records report orphan blobs but do not count them as a change.
 - **Host Python, Docker only for hosting.** Python clients and scoring run on the host. Docker hosts the services and the Rust tests, never test drivers.
 - **Host-heavy runs share one lock.** 13a-5 (PriVoke scoring), 13b-2, 13b-3, 13c-2, 13d-1b and 13d-2, 13e, 13f-1 and 13f-2 each acquire `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13-host.lock` (Git-ignored in the main checkout, shared by every worktree). Each run writes its stage id and process id into the lock and removes it on exit. A run refuses to start while the lock is held.
@@ -242,8 +253,11 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Depends on:** none. Branch `feat/asiaccs-s13h` from `origin/feat/nick-branch`. Root merges it before any other stage.
 - **Work:**
   - Write `evaluation/check_s13_commit_hygiene.py --repo <path> --range <a..b> [--local-inputs <dir>...]`.
-  - **Default inputs.** `--local-inputs` defaults to every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The 8-gram prompt scan therefore always runs from the standard G8 command. A test may override the default.
-  - **No local data.** When nothing matches, the script exits 0 and reports `local_inputs: 0`. This is the normal case for 13-H, 13a-0, 13a-1, 13c and 13d. `--require-local-inputs` turns that case into exit 2, and root passes it for 13a-2 to 13a-5, 13b, 13e and 13f.
+  - **Default inputs.** `--local-inputs` defaults to every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The 8-gram prompt scan therefore always runs from the standard G8 command. The environment variable `S13_LOCAL_INPUTS_ROOT` overrides the default root, in normal runs and in tests.
+  - **No local data.** When nothing matches, the script exits 0 and reports `local_inputs: 0`. This is the normal case for 13-H, 13a-0, 13a-1, 13c and 13d. `--require-local-inputs` turns that case into exit 2, and root passes it for 13a-3, 13a-5, 13b-2, 13b-3, 13e, 13f-1 and 13f-2.
+  - **Stages without the flag.**
+    - 13a-2 and 13a-4 are user stages with no commit, so G8 is "n/a, no stage diff" there.
+    - 13b-1 commits only harness code. Its pilot data in `s13b/pilot/` is still scanned whenever the default root finds it.
   - It applies the S13-G8 rules to `git -C <path> diff --name-only <a..b>` and the file contents in that range.
   - Root runs it from the nick tree, so it also checks the Rust-line stages. It imports nothing from the target repository.
 - **Owned paths:** `evaluation/check_s13_commit_hygiene.py`, `evaluation/tests/test_check_s13_commit_hygiene.py`.
@@ -252,7 +266,8 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - **Fixture tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_check_s13_commit_hygiene.py`. The fixture repositories include:
     - a `text` field;
     - a planted 8-gram passed through `--local-inputs`;
-    - a planted prompt caught **through the default**: the test points the default root, via an environment override used only by tests, at a fixture `s13x/` directory, and calls the script without `--local-inputs`;
+    - a planted prompt caught **through the default**: the test points `S13_LOCAL_INPUTS_ROOT` at a fixture root and calls the script without `--local-inputs`;
+    - a glob test: under a fixture root with one planted prompt in each of `s13a/raw/`, `s13a/packet/`, `s13a/returned/`, `s13b/pilot/`, `s13b/run/`, `s13e/` and `s13f/`, plus a `s13-host.lock` file, the default scan finds all seven directories and ignores the lock file;
     - a `.safetensors` file;
     - each key pattern (OPENSSH, ENCRYPTED, and a line with a 64-hex seed);
     - a sha256 on a line that is not about a key, which must not be flagged;
@@ -359,7 +374,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
      - categories use per-category binary kappa, exact-set agreement and Jaccard;
      - Krippendorff's alpha stays;
      - the bootstrap resamples `quota_cell` clusters;
-     - `to_adjudicate.csv` contains text, so it is written only under `evaluation/results/s13a/`.
+     - `to_adjudicate.csv` contains text, so it is written only under `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/returned/`.
      - New flags:
        - `--min-kappa <x> --fields <f1,f2,..>` exits non-zero when any listed field's kappa is below `x`;
        - `--check-adjudication <adjudicated.csv>` exits non-zero unless every disagreement has a `resolution` and an `adjudicator`.
@@ -423,7 +438,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Depends on:** 13a-1 (the brief).
 - **Owned paths:** none in Git. The prompts are delivered to `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/raw/`, which is Git-ignored.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
+  - **G8 hygiene:** n/a, no stage diff (a user stage with no commit).
   - **The quotas are met:** `$PY evaluation/annotation/fresh_set.py --input <raw> --dry-run --check-quotas` exits 0 and prints the quota counts.
   - **The declarations are in:** the user confirms in chat that every writer signed the declaration.
 - **User dependency:** USER does all of the following:
@@ -444,7 +459,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Depends on:** 13a-2.
 - **Work:**
   1. Run `fresh_set.py`. Root commits `docs/research/s13a/set_manifest.json` on `feat/asiaccs-s13a` together with the filled pre-registration. `feat/asiaccs-s13a` is the branch on which `check_order.py` evaluates the order. The label and record commits of 13a-5 land on the same branch.
-  2. Sample with `--fail-on-marker` into `evaluation/results/s13a/packet/`.
+  2. Sample with `--fail-on-marker` into `--out D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/packet/`.
   3. Root commits `docs/research/s13a/packet_manifest.json`, which holds the blank-sheet and key hashes, on `feat/asiaccs-s13a`. Only then does the user send out the sheets.
 - **Owned paths:**
   - `docs/research/s13a/set_manifest.json`;
@@ -453,7 +468,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Acceptance checks:**
   - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **The set manifest came first:** `git merge-base --is-ancestor $(git log -1 --format=%H -- docs/research/s13a/set_manifest.json) $(git log -1 --format=%H -- docs/research/s13a/packet_manifest.json)` exits 0.
-  - **The blinding audit is clean:** `$PY -c "import json,sys; m=json.load(open(sys.argv[1])); sys.exit(m['blinding_audit']['items_with_marker'])" evaluation/results/s13a/packet/key/manifest.json` exits 0.
+  - **The blinding audit is clean:** `$PY -c "import json,sys; m=json.load(open(sys.argv[1])); sys.exit(m['blinding_audit']['items_with_marker'])" "D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/packet/key/manifest.json"` exits 0.
   - **The sheets are deterministic:** a second sampler run into a scratch directory gives the same hashes as `packet_manifest.json` (`$PY evaluation/annotation/sample_annotation.py ... --verify-against docs/research/s13a/packet_manifest.json` exits 0).
 - **User dependency:** USER sends each annotator only their own `sheets/*_<annotator>.csv`. The coordinator keeps the key.
 - **Status:** pending.
@@ -463,13 +478,13 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 
 - **Objective:** human labels, agreement figures and adjudicated reference labels.
 - **Depends on:** 13a-3.
-- **Owned paths:** none in Git. Completed sheets and the adjudication file go to `evaluation/results/s13a/returned/`.
+- **Owned paths:** none in Git. Completed sheets and the adjudication file go to `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/returned/`.
 - **Work:**
   - Follow steps 3–8 of the [runbook](../research/annotation-packet-status-20261116.md#3-runbook-for-two-human-annotators-and-a-coordinator), with the v2 fields.
   - Agents run `compute_iaa.py` for the pilot and the main round when asked, and write `to_adjudicate.csv` locally. That file is never committed, because it holds text.
   - A human adjudicator decides every item.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
+  - **G8 hygiene:** n/a, no stage diff (a user stage with no commit).
   - **The sheets are valid:** `$PY evaluation/annotation/annotation_schema.py --validate <sheet> --schema 2` exits 0 for every returned sheet.
   - **The pilot agrees well enough:** in `pilot_iaa.json`, the kappa for `sensitive`, `audience` and `action` is at least 0.6. If not, there is one revision and a repeat. The check is `$PY evaluation/annotation/compute_iaa.py ... --min-kappa 0.6 --fields sensitive,audience,action`, which exits non-zero below the bar.
   - **Adjudication is complete:** `$PY evaluation/annotation/compute_iaa.py --check-adjudication <adjudicated.csv>` exits 0. Every disagreement must have a `resolution` and an `adjudicator`.
@@ -519,7 +534,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
        - The [F4 freeze record](../research/fresh-sets-freeze-v3-20261025.md) lists that same file and hash. It also records that F4 is disjoint from the flag-design sets: `development.jsonl` (dev-TUNE and dev-CHECK), the personalised synthetic set and the OpenAI synthetic set.
        - The harness checks that `frozen_set.jsonl` hashes to `5e4eac4c…` and that the manifest's `seed_file_sha256` equals `d4bed756…`. It stops if either check fails.
      - **Disjointness from 13a.** The sample must also be disjoint from the 13a set. The 13a contamination check confirms this.
-     - **Size.** `N_seed` is fixed after a 20-probe timing pilot so that one browser takes at most 8 hours, with a floor of 200.
+     - **Size.** `N_seed` is fixed after a 20-probe timing pilot so that one browser takes at most 8 hours, with a floor of 200. The pilot writes to `--out D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13b/pilot/`.
      - **Re-use.** Reusing the frozen Stage 3 items keeps the variant text identical to Stage 3.
   2. **Variants.**
      - The Stage 3 families come from `adversarial_evasion_transforms.py`, unchanged, at its recorded revision.
@@ -563,9 +578,9 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
    scope_label: "product pipeline (installed extension, end to end)"}
   ```
 
-  Prompt text is stored only under `evaluation/results/s13b/`.
+  Prompt text is stored only under `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13b/run/` (passed as `--out`).
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_evasion*.py"`. They cover:
     - outcome classification;
     - matching Stage 3's `summarise_pairs` on a fixture;
@@ -932,7 +947,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - `evaluation/layer_ablation.py`, `evaluation/layer_ablation_report.py`, `evaluation/tests/test_layer_ablation*.py`;
   - `paper/research/layer-ablation-<date>.{md,json}`, `docs/experiments/layer-ablation-<date>.md`.
 - **Interfaces and data shapes:**
-  - Rows: `{item_id, config, layers_requested, layers_executed, action, per_layer_action, error}`.
+  - Rows: `{item_id, config, layers_requested, layers_executed, action, per_layer_action, error}`. Per-item outputs go to `--out D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13e/`.
   - Each configuration's aggregates have the same form as the 13a arm metrics.
 - **Acceptance checks:**
   - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
@@ -981,7 +996,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - `extension/test/e2e-overhead-driver.mjs`;
   - `paper/research/e2e-overhead-<date>.{md,json}`, `docs/experiments/e2e-overhead-<date>.md`.
 - **Interfaces and data shapes:**
-  - Each sample: `{arm, browser, platform, interface, repeat, attended, prompt_id, t_submit_ms, t_receiver_ms|null, decision, layers_executed, request_sent, cpu_pct, rss_mb, host_load_before}`.
+  - Samples go to `--out D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13f/`. Each sample: `{arm, browser, platform, interface, repeat, attended, prompt_id, t_submit_ms, t_receiver_ms|null, decision, layers_executed, request_sent, cpu_pct, rss_mb, host_load_before}`.
   - p50, p95 and p99 with bootstrap intervals for each arm, browser and interface.
 - **Acceptance checks:**
   - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
