@@ -1,6 +1,6 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 r3 (r3 applies the six round-2 plan-gate findings O1–O6 and two nits). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
+Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applies the round-3 findings N1–N4). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
 This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
 
@@ -40,7 +40,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - `live_provider_runs` is empty, or names the user's approval.
 - **S13-G3 (13c): every listed update attack has an observed outcome on the real V3 path.**
   - `paper/research/v3-update-attacks-<date>.json` has at least one row for each of the 11 attack classes in [13c](#stage-13c-active-attacks-on-the-v3-guarded-update-path).
-  - Every variant that `rust/services/param-update/tests/s13c_rows.json` marks `wire_path: true` has a `leg:"container"` row against the real param-update and model-streaming containers. Each such row includes an observation of the version that model-streaming serves, or carries a `not_run_reason`. Crash points (C10) and at-rest corruption (C9e, C9f) are `wire_path: false`.
+  - Every variant that `rust/services/param-update/tests/s13c_rows.json` marks `wire_path: true`, and that is not CI-only, has a `leg:"container"` row against the real param-update and model-streaming containers. Each such row includes an observation of the version that model-streaming serves, or carries a `not_run_reason`. Crash points (C10) and at-rest corruption (C9e, C9f) are `wire_path: false`.
   - Each row names its rejecting check and records the active model before and after.
   - `$PY evaluation/v3_update_attacks_report.py --check <json>` exits 0.
   - `RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks` exits 0.
@@ -63,7 +63,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - Every new row of `tab:security_goals` and `tab:threat_defense` cites a Stage 13 record.
 - **S13-G8: no forbidden material is committed.** For every stage diff, on either branch, root runs `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..<stage-head>` from the `feat/nick-branch` tree, and it exits 0. The script is built in [13-H](#stage-13-h-commit-hygiene-check-agent-first). Over `git -C <repo> diff --name-only <range>`, it checks all of the following:
   - No committed JSON or CSV has a `text`, `prompt`, `body` or `notes` field or column.
-  - No committed file contains any 8-gram of a prompt from the local `evaluation/results/s13*/` inputs. The scan runs over the local files and reports counts only.
+  - No committed file contains any 8-gram of a prompt from the local inputs. By default (`--local-inputs` omitted) these are every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The scan runs over those local files and reports counts only. If the default matches no directory, the script exits 2 instead of passing silently.
   - No `*.safetensors`, `*.onnx`, `*.bin`, `*.pt` or `*.pth` file is added.
   - No line matches the key patterns:
     - `BEGIN (EC |RSA |OPENSSH |ENCRYPTED |)PRIVATE KEY`;
@@ -134,6 +134,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
 | Sub-stage | Build measured | Code branch (one worktree each) | Records committed on |
 | --- | --- | --- | --- |
 | 13a, 13b, 13e, 13f | Submission build: the Python runtime, extension and supervisor of `feat/nick-branch`, as in Stages 3, 5 and 11 | `feat/asiaccs-s13a`, `-s13b`, `-s13e`, `-s13f` from `origin/feat/nick-branch` | The same branches; root merges them into `feat/nick-branch` |
+| 13-H | None; this is the commit-hygiene tool | `feat/asiaccs-s13h` from `origin/feat/nick-branch` | No records; root merges it into `feat/nick-branch` first |
 | 13c, 13d | Rust build: param-update V3 store, model-streaming, transport | `feat/asiaccs-s13c` and `-s13d` from `origin/feat/rust-rewrite` | The same branches; root merges them into `feat/rust-rewrite`, then imports the records |
 
 **Coordination rules.**
@@ -209,13 +210,18 @@ The imported files are new and byte-identical on both branches, so PR #6 cannot 
 
 ## Time plan (estimates)
 
-Host-heavy runs follow this fixed order, one at a time, under the host lock: **13c-2 → 13d-1b and 13d-2 → 13b-2 → 13a-5 scoring → 13e → 13b-3 → 13f-1 → 13f-2**. A run that is not ready yet is skipped, and the next one in the order starts; nothing ever runs in parallel under the lock. Work that does not need the host, such as harness code and CI-only tests, runs in parallel.
+Host-heavy runs take the host lock one at a time. The **default order** is 13c-2 → 13d-1b and 13d-2 → 13b-2 → 13a-5 scoring → 13e → 13b-3 → 13f-1 → 13f-2. It is a default, not a hard sequence:
+- A run that is ready takes the next free slot.
+- When several runs are ready, the earlier one in the default order goes first, with one exception: **13a-5 scoring outranks 13b-2** when both are ready, because 13a is the highest-priority sub-stage.
+- Nothing ever runs in parallel under the lock.
+
+Work that does not need the host, such as harness code and CI-only tests, runs in parallel.
 
 | Window | Agent work | User work |
 | --- | --- | --- |
 | 24–28 Nov | 13-H; 13a-0, 13a-1; 13c-1 (CI); 13d-1a; 13b-1 | Answer D1–D4, D6 and D9; recruit people; check ethics; supply or approve the worked examples |
 | 28 Nov – 2 Dec | 13a-3 when prompts arrive; under the host lock: 13c-2 (28 Nov – 1 Dec), then 13d-1b and 13d-2 (1–2 Dec) | Writers deliver prompts (13a-2); annotators run the pilot and the main round (13a-4) |
-| 2–5 Dec | under the host lock: 13b-2 (2–3 Dec), 13a-5 scoring (3–4 Dec), 13e if 13a is frozen (4–5 Dec) | Adjudication (13a-4) by 3 Dec; 13b-3 (5 Dec, host lock) |
+| 2–5 Dec | under the host lock, in whatever order the runs become ready: 13b-2 (about 1 day), 13a-5 scoring as soon as the labels are frozen (about half a day; it goes before 13b-2 if both are waiting), then 13e if 13a is frozen (about half a day) | Adjudication (13a-4) by 3 Dec; 13b-3 (5 Dec, host lock) |
 | 5–6 Dec | 13f-1 (host lock, idle host) | 13f-2 (host lock) |
 | 6–10 Dec | 13-P paper integration; Stage 9 repeat | Review the paper; approve the push |
 
@@ -236,6 +242,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Depends on:** none. Branch `feat/asiaccs-s13h` from `origin/feat/nick-branch`. Root merges it before any other stage.
 - **Work:**
   - Write `evaluation/check_s13_commit_hygiene.py --repo <path> --range <a..b> [--local-inputs <dir>...]`.
+  - **Default inputs.** `--local-inputs` defaults to every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The 8-gram prompt scan therefore always runs from the standard G8 command. A test may override the default.
   - It applies the S13-G8 rules to `git -C <path> diff --name-only <a..b>` and the file contents in that range.
   - Root runs it from the nick tree, so it also checks the Rust-line stages. It imports nothing from the target repository.
 - **Owned paths:** `evaluation/check_s13_commit_hygiene.py`, `evaluation/tests/test_check_s13_commit_hygiene.py`.
@@ -243,7 +250,8 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Acceptance checks:**
   - **Fixture tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_check_s13_commit_hygiene.py`. The fixture repositories include:
     - a `text` field;
-    - a planted 8-gram;
+    - a planted 8-gram passed through `--local-inputs`;
+    - a planted prompt caught **through the default**: the test points the default root, via an environment override used only by tests, at a fixture `s13x/` directory, and calls the script without `--local-inputs`;
     - a `.safetensors` file;
     - each key pattern (OPENSSH, ENCRYPTED, and a line with a 64-hex seed);
     - a sha256 on a line that is not about a key, which must not be flagged;
@@ -432,9 +440,9 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Objective:** turn the raw prompts into a frozen set and blinded sheets, in an order that the commit history proves.
 - **Depends on:** 13a-2.
 - **Work:**
-  1. Run `fresh_set.py`. Root commits `docs/research/s13a/set_manifest.json` together with the filled pre-registration.
+  1. Run `fresh_set.py`. Root commits `docs/research/s13a/set_manifest.json` on `feat/asiaccs-s13a` together with the filled pre-registration. `feat/asiaccs-s13a` is the branch on which `check_order.py` evaluates the order. The label and record commits of 13a-5 land on the same branch.
   2. Sample with `--fail-on-marker` into `evaluation/results/s13a/packet/`.
-  3. Root commits `docs/research/s13a/packet_manifest.json`, which holds the blank-sheet and key hashes. Only then does the user send out the sheets.
+  3. Root commits `docs/research/s13a/packet_manifest.json`, which holds the blank-sheet and key hashes, on `feat/asiaccs-s13a`. Only then does the user send out the sheets.
 - **Owned paths:**
   - `docs/research/s13a/set_manifest.json`;
   - `docs/research/s13a/packet_manifest.json`;
@@ -469,7 +477,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 ## Stage 13a-5: Freeze the labels, score and record (agent)
 
 - **Objective:** freeze the labels, then score PriVoke and write the HUMANEVAL record.
-- **Depends on:** 13a-4, and the host lock for PriVoke scoring (after 13b-2).
+- **Depends on:** 13a-4, and the host lock for PriVoke scoring. When both are ready, 13a-5 goes before 13b-2.
 - **Work:**
   1. Write the label-only CSVs (no `text`, no `notes`) for each annotator and for the adjudicated set into `docs/research/s13a/labels/`.
   2. Root commits them with `iaa.json` and their sha256 values. This is the freeze commit, and it comes before any PriVoke run on these items.
@@ -648,10 +656,17 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - **Outputs.**
     - With `S13C_OUT` set, both tests write their rows as JSON. They assert each row's expected outcome, so CI fails on any regression.
     - CI bundles use stand-in weights and test scorers, so they are **not** used against the containers. 13c-2 builds the container-leg candidates.
-  - **Row manifest.** `rust/services/param-update/tests/s13c_rows.json` lists every variant id, with its `attack_class`, `expected`, `chain` and a `wire_path` flag.
-    - Crash points (C10) and at-rest corruption (C9e, C9f) are `wire_path: false`. Every other variant is `true`.
-    - The Rust tests and `v3_update_attacks_report.py --check` both read the manifest.
-    - `--check` fails when a manifest id has no row, or a row has no manifest id.
+  - **Row manifest.** `rust/services/param-update/tests/s13c_rows.json` lists every variant id with these fields: `{id, attack_class, expected, chain, surface: param-update|model-streaming|client|store, wire_path, legs, ci_only_reason}`.
+    - **`wire_path: false` rows:**
+      - the crash points (C10a–e, surface `store`);
+      - at-rest corruption: C9e (surface `store`), C9f-serve (surface `model-streaming`) and C9f-client (surface `client`);
+      - the client-only rows C2c, C2d, C4f and CS1–CS4 (surface `client`, except CS1, which is `model-streaming` serving a planted directory). These run in the CI legs only: `s13c_client_admission` and the in-process model-streaming read.
+    - **CI-only rows.** These have `legs: ["ci"]` and a written `ci_only_reason`, and are not run in the container leg:
+      - **C1b:** it needs two distinct genuine candidates on one base, and the real leg builds only one.
+      - **C1d:** it needs a deployment without the Publisher, and the container leg runs the `main.rs` chain with publication configured.
+    - **`wire_path: true` rows:** every other variant, with surface `param-update` or `model-streaming`.
+    - **Readers.** The param-update tests read the manifest. `s13c_client_admission` (runtime-supervisor) reads the same file by path: `CARGO_MANIFEST_DIR/../param-update/tests/s13c_rows.json`, using its `surface: client` rows. `v3_update_attacks_report.py --check` reads it too.
+    - **`--check` fails** when a manifest id has no row, when a row has no manifest id, or when a `wire_path: true` row that is not CI-only has neither a `container` row nor a `not_run_reason`.
 - **Attack-to-check map.** Every check named here was read with `git show origin/feat/rust-rewrite:<path>`. `store.rs` means `rust/services/param-update/src/v3_store/store.rs`, and `v3.rs` means `rust/crates/privoke-contracts/src/v3.rs`.
   - **Reason order.** Admission errors come first. They raise `INVALID_ARGUMENT` before any transaction and leave no receipt; this includes `validate_execution` and the commit-identity check. Next, the observer refusals in `prepare` are computed. Inside the transaction, the receipt reason is `stale_base` first, then `guard_rejected` (`v3::publication_passes`), and only then the first `prepare` refusal.
   - **Isolation.** Each row isolates one fault. Rows that combine faults are labelled `combined`.
@@ -724,7 +739,14 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
       - Built in the real leg by a real routine fit, following `rust/services/v3-fuzzer/tests/scheduler_real.rs`, and written with `S13C_EXPORT_CANDIDATES=<scratch dir>`.
       - It drives the positive controls (publisher commit applied, runtime stage accepted, and the 13d controls).
       - It drives C2a over the wire.
-      - The late-gate rows (C1a, C1b, C3a, C8a and C11) are mutations of it.
+      - The late-gate rows (C1a, C3a, C8a and C11) are mutations of it. C1b is CI-only.
+    - **Order of the genuine-candidate sequence on one container stack.** Let P be the pin (current at start) and G the genuine candidate, with parent P and evidence naming request `r1`. All allocations go in with `s13c_journal_seed` before the run.
+      1. **Positive control.** Commit G as `r1` (expected base P) → `applied`. The current version becomes G, and the served version is G with a new sequence.
+      2. **C3a.** Commit G again under a new id `r4` with G's own evidence, which still names `r1` → `INVALID_ARGUMENT` "Commit identity differs from candidate/fit evidence.". No receipt; unchanged.
+      3. **C1a.** G′ is G's blob with its evidence rewritten to name request `r3` (a new evidence blob and manifest; parent P; allocation `r3` with expected base P). Commit G′ as `r3` → `rejected`/`stale_base`, because the current version is G, not P. Unchanged.
+      4. **Rollback control (this is "the later update").** `RollbackModel` to P as `publisher`, request `r2` → `applied`. The current version becomes P, at a higher sequence.
+      5. **C2a.** Resend the exact `r1` commit → the stored receipt (`receipt_status=applied`) and no swap. The current version stays P, so the expected value is `noop_unchanged`.
+      6. **C8a and C11.** Run the late-gate mutations of G from base P (allocations with expected base P). Each must be rejected with P unchanged.
     - **If the genuine build fails** (for example `guard_rejected` by the trainer-evidence rule, as happened in V3-R6 and V3-R7):
       - those rows become `not_run`, with the reason and the failed request id recorded;
       - they are never replaced with stand-in bundles.
@@ -746,6 +768,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Owned paths:**
   - `rust/services/param-update/tests/s13c_update_attacks_real.rs`;
   - the `s13c_journal_seed` helper in that test;
+  - the record field `fit_timings: [{request_id, tier, scope, wall_seconds, cpus, outcome}]`, holding the wall-clock time of every real-leg fit, successful or not (for planning; it is not a result).
   - `paper/research/v3-update-attacks-<date>.{md,json}`;
   - `docs/experiments/v3-update-attacks-<date>.md`.
 - **Acceptance checks:**
