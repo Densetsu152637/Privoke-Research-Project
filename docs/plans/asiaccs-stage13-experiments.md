@@ -1,6 +1,6 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applied N5; r6 applied N6; r7 applies N7). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
+Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applied N5; r6 applied N6; r7 applied N7; r8 applies N8). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
 This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
 
@@ -63,10 +63,10 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - Every new row of `tab:security_goals` and `tab:threat_defense` cites a Stage 13 record.
 - **S13-G8: no forbidden material is committed.** For every stage diff, on either branch, root runs `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..<stage-head>` from the `feat/nick-branch` tree, and it exits 0. The script is built in [13-H](#stage-13-h-commit-hygiene-check-agent-first). Over `git -C <repo> diff --name-only <range>`, it checks all of the following:
   - No committed JSON or CSV has a `text`, `prompt`, `body` or `notes` field or column.
-  - No committed **data-type file** contains any 8-gram of a prompt from the local inputs.
-    - **What is scanned:** `*.json`, `*.jsonl`, `*.csv` and `*.txt` files, plus every file under `paper/research/` and `docs/experiments/`.
-    - **Other source and doc files** are checked only by the name, key and weight rules, so harness code and templates do not raise false positives.
-    - **Allowlisted files** are exempt from the 8-gram rule only while their sha256 matches the pin in the script's config. A pinned file whose hash differs fails the check.
+  - No committed file other than source code contains any 8-gram of a prompt from the local inputs.
+    - **What is scanned:** every file except `*.py`, `*.rs` and `*.mjs`. That includes `*.json`, `*.jsonl`, `*.csv`, `*.txt`, and `*.md` and `*.tex` anywhere in the repository.
+    - **`*.py`, `*.rs` and `*.mjs`** are checked only by the name, key and weight rules, so harness code and templates do not cause false positives.
+    - **Allowlisted files** are exempt from the 8-gram rule only while their sha256 matches the pin in `evaluation/s13_allowlist.json`. A pinned file whose hash differs fails the check.
 
     The local inputs are defined as follows. By default (`--local-inputs` omitted) these are every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The scan runs over those local files and reports counts only. If the default matches no directory, the script exits 0 and reports `local_inputs: 0` in its JSON. With `--require-local-inputs`, it exits 2 instead. Root passes that flag for the stage diffs that produce or consume prompt data (13a-3, 13a-5, 13b-2, 13b-3, 13e, 13f-1 and 13f-2), so the scan cannot be silently skipped there. `S13_LOCAL_INPUTS_ROOT` overrides the default scan root in normal runs as well as in tests.
   - No `*.safetensors`, `*.onnx`, `*.bin`, `*.pt` or `*.pth` file is added.
@@ -264,8 +264,8 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - 13a-2 and 13a-4 are user stages with no commit, so G8 is "n/a, no stage diff" there.
     - 13b-1 commits only harness code. Its pilot data in `s13b/pilot/` is still scanned whenever the default root finds it.
   - It applies the S13-G8 rules to `git -C <path> diff --name-only <a..b>` and the file contents in that range.
-  - **8-gram scope.** The 8-gram rule applies only to data-type files: `*.json`, `*.jsonl`, `*.csv` and `*.txt`, plus the records under `paper/research/` and `docs/experiments/`. Source and doc files (`*.py`, `*.rs`, `*.mjs`, `*.md` outside those two directories) are checked only by the name, key and weight rules.
-  - **Declared allowlist.** The allowlist lives in the script's config, `S13_ALLOWLIST = {path: sha256}`. A changed pin means a reviewed commit. The initial entries are:
+  - **8-gram scope.** The 8-gram rule applies to every file except `*.py`, `*.rs` and `*.mjs`. That includes `*.json`, `*.jsonl`, `*.csv`, `*.txt`, and `*.md` and `*.tex` anywhere. The exempt source files are checked only by the name, key and weight rules.
+  - **Declared allowlist.** The pins live in a separate file, `evaluation/s13_allowlist.json` (`{path: sha256}`). 13-H creates the file and owns its format. 13a-1 and 13b-1 also own it, each only to add the pin for the file it creates. Root reviews every pin change at merge. The entries are:
     - `evaluation/e2e_evasion_transforms.py` (the 13b template module);
     - `docs/research/s13a-writer-brief-<date>.md`;
     - `docs/research/annotation-guideline-v2-<date>.md`.
@@ -273,7 +273,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     Each pin is added by the stage that creates the file. An allowlisted path that is in the range and whose hash differs from its pin is a violation (`rule: allowlist_pin`).
   - **Speed.** The 8-grams of all local inputs are built once, as a set of 64-bit hashes of normalised token 8-grams. Each scanned file is then checked by set lookup, without comparing it pairwise with the prompts.
   - Root runs it from the nick tree, so it also checks the Rust-line stages. It imports nothing from the target repository.
-- **Owned paths:** `evaluation/check_s13_commit_hygiene.py`, `evaluation/tests/test_check_s13_commit_hygiene.py`.
+- **Owned paths:** `evaluation/check_s13_commit_hygiene.py`, `evaluation/s13_allowlist.json` (created empty, `{}`), `evaluation/tests/test_check_s13_commit_hygiene.py`.
 - **Interfaces and data shapes:** the script prints `{range, files_checked, local_inputs, violations:[{file, rule, line}]}` as JSON. It exits 1 on any violation, and 2 when `--require-local-inputs` is set and `local_inputs` is 0.
 - **Acceptance checks:**
   - **Fixture tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_check_s13_commit_hygiene.py`. The fixture repositories include:
@@ -281,6 +281,8 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - a planted 8-gram passed through `--local-inputs`;
     - a template `.py` that shares an 8-gram with a local variant **passes**, because source files skip the 8-gram rule;
     - a record JSON under `paper/research/` with a planted prompt **fails**;
+    - a `docs/research/*.md` file with a planted prompt **fails**;
+    - a `paper/main.tex` line with a planted prompt **fails**;
     - an allowlisted file whose hash differs from its pin **fails** with `allowlist_pin`, and one that matches its pin passes;
     - a planted prompt caught **through the default**: the test points `S13_LOCAL_INPUTS_ROOT` at a fixture root and calls the script without `--local-inputs`;
     - a glob test: under a fixture root with one planted prompt in each of `s13a/raw/`, `s13a/packet/`, `s13a/returned/`, `s13b/pilot/`, `s13b/run/`, `s13e/` and `s13f/`, plus a `s13-host.lock` file, the default scan finds all seven directories and ignores the lock file;
@@ -409,6 +411,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   9. **Interface.** A CSV checked by the validator. A local HTML form is optional.
 - **Owned paths:**
   - `evaluation/annotation/{fresh_set.py,score_privoke.py,human_eval_report.py,check_order.py}` (new);
+  - `evaluation/s13_allowlist.json`: only the pins for the writer brief and guideline v2;
   - `evaluation/annotation/{annotation_schema.py,compute_iaa.py,agreement.py,sample_annotation.py}`;
   - `evaluation/annotation/tests/test_{fresh_set,fleiss,score_privoke,human_eval_report,check_order,sampling,agreement}.py`;
   - `docs/research/s13a-*.md` and `docs/research/annotation-guideline-v2-<date>.md`.
@@ -581,6 +584,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
      - Root then decides between making V3 balanced available locally (the default) and running a separately labelled regex+NER arm.
 - **Owned paths:**
   - `evaluation/e2e_evasion.py`, `evaluation/e2e_evasion_transforms.py`, `evaluation/e2e_evasion_report.py`;
+  - `evaluation/s13_allowlist.json`: only the pin for `evaluation/e2e_evasion_transforms.py`;
   - `extension/test/e2e-evasion-driver.mjs` (new; the Stage 11 driver is not edited);
   - `evaluation/tests/test_e2e_evasion*.py`.
 - **Interfaces and data shapes:** one row per item and browser, holding ids only:
