@@ -2755,7 +2755,7 @@ CLAIMED_LAYER = {
     "R10-summary-unregistered": REGISTRY, "R10-summary-reporter": ROLE, "R10-summary-public": SURFACE,
     "X13-revoked": REVOCATION, "X13-corrupt-crl-keeps-revocation": REVOCATION, "X13-denylist-open-connection": REGISTRY, "X13-denylist-new-connection": REGISTRY,
     "CK1": ROLE, "CK2": ROLE, "CK3": ROLE, "CK4": ROLE, "CK5": TLS, "CK6": REVOCATION, "CK7": REGISTRY, "CK9": SURFACE, "CK9-submit-update": SURFACE,
-    "TL1": TLS, "TL2": TLS, "TL3": TLS,
+    "TL1": TLS, "TL2": TLS, "TL2-handshake": TLS, "TL3": TLS,
 }
 # The messages the transport's authorisation layer produces (`rust/crates/privoke-transport/src/authz.rs` and `registry.rs`).
 REGISTRY_MESSAGES = ("identity is not registered", "identity is revoked", "registration has expired")
@@ -2906,7 +2906,7 @@ class RustCheckpointService(RustUpdateService):
 class RustCheckpointClient:
     """A gRPC client of the update service's listener: the V3 `CheckpointService`, `TrainingService` and the V1 update service."""
 
-    def __init__(self, service: RustCheckpointService, identity: str | None, *, port: int | None = None, root: bytes | None = None):
+    def __init__(self, service: RustCheckpointService, identity: str | None, *, port: int | None = None, root: bytes | None = None, retries: bool = True):
         import grpc
         from privoke.experimental import v3_pb2 as pb3, v3_pb2_grpc as rpc3
         from privoke.v1 import parameters_pb2 as pb, parameters_pb2_grpc as rpc
@@ -2915,7 +2915,8 @@ class RustCheckpointClient:
         certificate, key = service.pki.certs[identity] if identity else (None, None)
         credentials = grpc.ssl_channel_credentials(root_certificates=root or service.pki.server_ca.cert, private_key=key, certificate_chain=certificate)
         self.channel = grpc.secure_channel(f"127.0.0.1:{port or service.port}", credentials,
-                                           options=(("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 64 * 1024 * 1024)))
+                                           options=(("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 64 * 1024 * 1024),
+                                                    *(() if retries else (("grpc.enable_retries", 0),))))
         self.checkpoint = rpc3.CheckpointServiceStub(self.channel)
         self.training = rpc3.TrainingServiceStub(self.channel)
         self.updates = rpc.ParamUpdateServiceStub(self.channel)
@@ -3113,11 +3114,12 @@ def tl2_variant_aborted(flipped: bool, result: dict, clean_code: str, reaction: 
     return bool(flipped and failed and ended and reached_the_store(control))
 
 
-def tl2_variant_record(record: int, flipped: bool, result: dict, clean_code: str, reaction: dict, control: dict, store_unchanged: bool) -> dict:
+def tl2_variant_record(record: int, flipped: bool, result: dict, clean_code: str, reaction: dict, control: dict, store_unchanged: bool,
+                       record_type: int = 23, record_bytes: int = 0) -> dict:
     """One tested record: the client code, what the server was seen to do, the clean control's code and the verdict."""
     return {"record": record, "flipped": flipped, "client_code": result["code"], "server_alert_seen": reaction["alert_seen"],
             "server_closed": reaction["closed"], "server_answered": reaction["answered"], "control_code": control["code"],
-            "store_unchanged": store_unchanged, "control_ok": reached_the_store(control),
+            "store_unchanged": store_unchanged, "record_type": record_type, "record_bytes": record_bytes, "control_ok": reached_the_store(control),
             "aborted": tl2_variant_aborted(flipped, result, clean_code, reaction, control)}
 
 
@@ -3163,7 +3165,9 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
     client = RustCheckpointClient(service, identity, port=proxy.port)
     try:
         original = client.outcome(lambda: client.commit(request_id))
-        request_records = proxy.client_application_records_before_response()
+        request_set = proxy.request_records()
+        answer_size = pki_tools.answer_bytes(list(proxy.events))
+        flight_bytes = next((length for _, direction, kind, length in proxy.events if direction == "c2s" and kind == 23), 0)
         time.sleep(0.3)
     finally:
         client.close()
@@ -3180,32 +3184,46 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
                           evidence=[f"original: {original['code']}; clean exchange after the replay: {clean_after['code']}", f"original server stream: {original_stats}",
                                     f"replay sent {len(sent)} bytes; server stream: {replay['stats']}; closed: {replay['closed']}"]))
 
-    # TL2: flip one bit of the ciphertext of each client record the request depends on, one connection per record, each followed by a clean exchange.
-    started, variants, notes, unchanged_all = time.time(), [], [], True
-    for record in range(1, min(max(request_records, 1), TL_TAMPER_LIMIT) + 1):
+    # TL2: flip one bit of the ciphertext of each client record that carries the request (the HTTP/2 preface, SETTINGS, HEADERS and DATA, found
+    # in the clean exchange above), one connection per record, each followed by a clean exchange. TL2-handshake flips the handshake flight.
+    def tamper(record: int, size: int) -> dict:
         request_id = f"s13d-tl2-{record}-{uuid.uuid4().hex[:8]}"
         before = checkpoint_state(service, request_id)
         proxy = pki_tools.RecordingProxy(service.port, flip_record=record)
-        client = RustCheckpointClient(service, identity, port=proxy.port)
+        client = RustCheckpointClient(service, identity, port=proxy.port, retries=False)
         try:
             result = client.outcome(lambda: client.commit(request_id, timeout=10))
             time.sleep(0.3)
-            reaction = proxy.server_reaction()  # before the client closes the channel, which would also end the server side
+            reaction = proxy.server_reaction(answer_size)  # before the client closes the channel, which would also end the server side
         finally:
             client.close()
             proxy.close()
         control = clean_exchange()
         same = checkpoint_state(service, request_id) == before and before[0] == "unknown"
-        variants.append(tl2_variant_record(record, proxy.flipped, result, original["code"], reaction, control, same))
-        notes.append(f"record {record}: flipped={proxy.flipped} client={result['code']} server_alert_seen={reaction['alert_seen']} server_closed={reaction['closed']} "
-                     f"server_answered={reaction['answered']}; clean control: {control['code']}; store_unchanged={same}")
-        unchanged_all = unchanged_all and same
-    verdict = tl2_verdict(variants if reached_the_store(original) else [])
+        return tl2_variant_record(record, proxy.flipped, result, original["code"], reaction, control, same, 23, size)
+
+    def describe(variant: dict) -> str:
+        return (f"record {variant['record']} (type {variant['record_type']}, {variant['record_bytes']} bytes): flipped={variant['flipped']} client={variant['client_code']} "
+                f"server_alert_seen={variant['server_alert_seen']} server_closed={variant['server_closed']} server_answered={variant['server_answered']}; "
+                f"clean control: {variant['control_code']}; store_unchanged={variant['store_unchanged']}")
+
+    started = time.time()
+    variants = [tamper(item["record"], item["bytes"]) for item in request_set] if reached_the_store(original) else []
+    if reached_the_store(original) and not request_set:
+        verdict = harness_error("no client record was found between the handshake flight and the server's answer in the clean exchange")
+    else:
+        verdict = tl2_verdict(variants)
     rows.append(authz_row("TL2", "tampered_request", "rust-tls",
-                          f"One bit flipped in each client record the request depends on, through a loopback proxy (the connection aborts, no receipt). {VACUOUS_STORE_NOTE}",
-                          "rejected_unchanged", identity, verdict, unchanged_all, codes=("CONNECTION_ABORTED",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started,
-                          evidence=notes))
+                          f"One bit flipped in each client record that carries the request, through a loopback proxy (the connection aborts, no receipt). {VACUOUS_STORE_NOTE}",
+                          "rejected_unchanged", identity, verdict, all(item["store_unchanged"] for item in variants), codes=("CONNECTION_ABORTED",),
+                          gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, evidence=[describe(item) for item in variants]))
     rows[-1]["variants"] = variants
+    started = time.time()
+    flight = [tamper(1, flight_bytes)] if reached_the_store(original) else []
+    rows.append(authz_row("TL2-handshake", "tampered_request", "rust-tls", "Extra to TL2: one bit flipped in the client's handshake flight (Certificate, CertificateVerify, Finished). "
+                          + VACUOUS_STORE_NOTE, "rejected_unchanged", identity, tl2_verdict(flight), all(item["store_unchanged"] for item in flight), codes=("CONNECTION_ABORTED",),
+                          gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, evidence=[describe(item) for item in flight]))
+    rows[-1]["variants"] = flight
 
     # TL3: a man in the middle presents a server certificate from a CA the client does not trust, for the right names.
     started = time.time()

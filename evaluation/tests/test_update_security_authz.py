@@ -519,6 +519,50 @@ class TlVerdictTests(unittest.TestCase):
         proxy.flip_seq, proxy.server_closed_seq, proxy.events = 3, None, [(3, "c2s", 23, 80)]
         self.assertEqual(proxy.server_reaction(), {"alert_seen": False, "closed": False, "answered": False})
 
+    # The layout of a clean exchange observed against the real service: the client flight (553), the preface and SETTINGS (104), the
+    # server's SETTINGS (55), the client's SETTINGS acknowledgement (31), HEADERS and DATA of the request (574), the server's
+    # acknowledgement (44) and its answer (136).
+    CLEAN = [(0, "c2s", 22, 250), (1, "s2c", 22, 160), (2, "s2c", 20, 6), (3, "s2c", 23, 631), (4, "c2s", 20, 6), (5, "c2s", 23, 553), (6, "c2s", 23, 104),
+             (7, "s2c", 23, 55), (8, "c2s", 23, 31), (9, "c2s", 23, 574), (10, "s2c", 23, 44), (11, "s2c", 23, 136)]
+
+    def test_a_chunk_that_holds_several_records_is_split_into_records(self):
+        record = lambda kind, size: bytes([kind, 3, 3, size >> 8, size & 255]) + bytes(size)  # noqa: E731
+        chunk = record(23, 553) + record(23, 104) + record(23, 31) + record(23, 574)[:300]  # the last record is cut by the chunk
+        self.assertEqual([(kind, length) for kind, _, length in pki_tools.tls_records(chunk)], [(23, 558), (23, 109), (23, 36)])
+        self.assertEqual(len(pki_tools.tls_records(chunk + record(23, 574)[300:])), 4)
+
+    def test_the_tamper_set_is_the_request_records_between_the_flight_and_the_answer(self):
+        self.assertEqual(pki_tools.tamper_set(self.CLEAN), [{"record": 2, "type": 23, "bytes": 104}, {"record": 3, "type": 23, "bytes": 31},
+                                                            {"record": 4, "type": 23, "bytes": 574}])
+
+    def test_the_tamper_set_leaves_out_the_flight_the_handshake_records_and_whatever_follows_the_answer(self):
+        events = self.CLEAN + [(12, "c2s", 23, 40), (13, "c2s", 21, 24)]  # a window update and the close alert, after the answer
+        self.assertEqual([item["record"] for item in pki_tools.tamper_set(events)], [2, 3, 4])
+        self.assertTrue(all(item["record"] != 1 for item in pki_tools.tamper_set(events)))
+        self.assertTrue(all(item["bytes"] != 250 for item in pki_tools.tamper_set(events)))  # the ClientHello is a handshake record, not data
+
+    def test_an_empty_tamper_set_is_a_harness_error_and_never_a_pass(self):
+        for events in ([], [(0, "c2s", 22, 250)], self.CLEAN[:6], [event for event in self.CLEAN if event[1] == "c2s"], [(5, "c2s", 23, 553), (11, "s2c", 23, 136)]):
+            self.assertEqual(pki_tools.tamper_set(events), [], events)
+        self.assertEqual(harness.tl2_verdict([])["code"], "HARNESS_ERROR")
+
+    def test_the_servers_own_settings_are_not_an_answer_to_a_tampered_request(self):
+        self.assertEqual(pki_tools.answer_bytes(self.CLEAN), 136)
+        proxy = pki_tools.RecordingProxy.__new__(pki_tools.RecordingProxy)
+        import threading as _threading
+
+        proxy._lock = _threading.Lock()
+        proxy.flip_seq, proxy.server_closed_seq = 1, 6
+        proxy.events = [(0, "c2s", 23, 553), (1, "c2s", 23, 104), (2, "s2c", 23, 55), (3, "s2c", 23, 44), (4, "s2c", 23, 24)]
+        self.assertFalse(proxy.server_reaction(136)["answered"])
+        self.assertTrue(proxy.server_reaction(136)["alert_seen"])
+        proxy.events.append((5, "s2c", 23, 136))
+        self.assertTrue(proxy.server_reaction(136)["answered"])
+
+    def test_a_server_record_the_size_of_an_alert_is_not_an_answer(self):
+        events = [(0, "c2s", 23, 553), (1, "c2s", 23, 104), (2, "s2c", 23, 24)]
+        self.assertEqual(pki_tools.tamper_set(events), [])
+
     def test_tl3_needs_a_failed_handshake_no_request_byte_and_a_control_that_completes(self):
         refused = store_answer("UNAVAILABLE")
         seen = {"handshakes_completed": 0, "handshakes_failed": 1, "application_bytes": 0}

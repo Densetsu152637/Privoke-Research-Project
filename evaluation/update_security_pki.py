@@ -437,6 +437,7 @@ class RecordingProxy:
         self.client_bytes = bytearray()
         self.server_bytes = bytearray()
         self.flipped = False
+        self._accepted = 0
         self._sockets: list[socket.socket] = []
         self._stop = threading.Event()
         self._listener = socket.socket()
@@ -454,6 +455,10 @@ class RecordingProxy:
                 client, _ = self._listener.accept()
             except (socket.timeout, OSError):
                 continue
+            if self.flip_record is not None and self._accepted >= 1:
+                client.close()  # a tampering run corrupts one connection; the client's transparent retry must not turn into a clean answer
+                continue
+            self._accepted += 1
             try:
                 upstream = socket.create_connection(("127.0.0.1", self.upstream_port), timeout=5)
             except OSError:
@@ -511,6 +516,12 @@ class RecordingProxy:
                 except OSError:
                     pass
 
+    def request_records(self) -> list[dict]:
+        """The client records a request is made of, from this proxy's log of one clean exchange (see `tamper_set`)."""
+        with self._lock:
+            events = list(self.events)
+        return tamper_set(events)
+
     def client_application_records_before_response(self) -> int:
         """Client application-data records the server had to receive before it sent its last application record: the records a
         request depends on. Records the client sent after the response (window updates, the close alert) are not counted."""
@@ -519,10 +530,11 @@ class RecordingProxy:
         last_server = max((sequence for sequence, direction, kind, _ in events if direction == "s2c" and kind == TLS_APPLICATION), default=-1)
         return sum(1 for sequence, direction, kind, _ in events if direction == "c2s" and kind == TLS_APPLICATION and sequence < last_server)
 
-    def server_reaction(self) -> dict:
+    def server_reaction(self, answer_bytes: int = 0) -> dict:
         """What the server did after the flipped record reached it, from the record sizes alone: `alert_seen` (a plaintext alert, or an
         alert-sized protected record that ends the stream), `closed` (the server side of the connection ended after the flip) and
-        `answered` (a protected record larger than an alert followed the flip, which is how an answer to the request would look)."""
+        `answered` (a protected record at least as large as the answer of the clean exchange, `answer_bytes`, followed the flip; the server's own
+        SETTINGS and acknowledgements are larger than an alert but smaller than an answer)."""
         with self._lock:
             events, flip, closed_at = list(self.events), self.flip_seq, self.server_closed_seq
         if flip is None:
@@ -531,7 +543,7 @@ class RecordingProxy:
         closed = closed_at is not None and closed_at > flip
         plaintext_alert = any(kind == TLS_ALERT for kind, _ in after)
         protected_alert = bool(after) and after[-1][0] == TLS_APPLICATION and after[-1][1] <= ALERT_RECORD_MAX and closed
-        answered = any(kind == TLS_APPLICATION and length > ALERT_RECORD_MAX for kind, length in after)
+        answered = any(kind == TLS_APPLICATION and length > max(ALERT_RECORD_MAX, answer_bytes - 1) for kind, length in after)
         return {"alert_seen": plaintext_alert or protected_alert, "closed": closed, "answered": answered}
 
     def captured(self) -> tuple[bytes, bytes]:
@@ -547,6 +559,28 @@ class RecordingProxy:
                 pass
         for thread in self._threads:
             thread.join(timeout=2)
+
+
+def answer_bytes(events: list[tuple[int, str, int, int]]) -> int:
+    """The size of the server's answer in the log of a clean exchange: its last response-sized protected record."""
+    answers = [(sequence, length) for sequence, direction, kind, length in events if direction == "s2c" and kind == TLS_APPLICATION and length > ALERT_RECORD_MAX]
+    return max(answers)[1] if answers else 0
+
+
+def tamper_set(events: list[tuple[int, str, int, int]]) -> list[dict]:
+    """The client records that carry a request, from the ordered record log of one clean exchange. A record is in the set when it is
+    protected application data (type 23), is not the client's handshake flight (the first type-23 record: Certificate, CertificateVerify
+    and Finished), and was sent before the server's answer, the last response-sized (larger than an alert) protected record the server
+    sent before the call returned. Each member is `{"record": k, "type": 23, "bytes": n}` with `k` the 1-based position among the client's
+    type-23 records (the flight is 1), which is the index `RecordingProxy(flip_record=k)` flips. Empty when there is no flight or no
+    answer: a sweep that tested nothing must not pass."""
+    client = [(sequence, length) for sequence, direction, kind, length in events if direction == "c2s" and kind == TLS_APPLICATION]
+    answers = [sequence for sequence, direction, kind, length in events if direction == "s2c" and kind == TLS_APPLICATION and length > ALERT_RECORD_MAX]
+    if len(client) < 2 or not answers:
+        return []
+    answer = max(answers)
+    return [{"record": position, "type": TLS_APPLICATION, "bytes": length} for position, (sequence, length) in enumerate(client, 1)
+            if position > 1 and sequence < answer]
 
 
 def replay_bytes(port: int, data: bytes, *, wait: float = 4.0) -> dict:
