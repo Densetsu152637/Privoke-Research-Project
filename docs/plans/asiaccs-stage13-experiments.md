@@ -318,7 +318,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - no matching local inputs with `--require-local-inputs`: exit 2.
   - **The stage's own diff is clean:** `$PY evaluation/check_s13_commit_hygiene.py --repo . --range origin/feat/nick-branch..HEAD --stage 13-H` exits 0.
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** done. Outcome: merged at `fe67f08` (implementation `176c096`..`3cd43e4`; 51 tests OK; G8 self-scan 0 violations). Implementation gate: 4 rounds, 10 findings accepted (UTF-16/NUL, Unicode and escape normalisation, BOM field checks, ignore probes, empty-input guard, a vacuous test, per-commit history scan, intermediate pins, padded UTF-16), 0 rejected; improvements declined (speculative or covered).
 - **Handoff notes:**
   - Every later stage lists the G8 line among its acceptance checks.
   - Root runs that line, because the leaf's branch (for example a Rust-line branch) may not contain the script.
