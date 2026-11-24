@@ -1,5 +1,8 @@
 """Golden generator for the fuzzer's ORIGINAL retention evidence (`rust/services/fuzzer/src/retention.rs`, RUST-S21F item 2).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracles are `privoke_model.sensitive_retention.validate_trace` and `execution_phases` and
 `training.sensitive_retention_evidence.validate_source_bindings`. The bases are two retained ORIGINAL retention cycles of the iterative
 fuzzer study (a gate-only and a hinge policy of the efficient profile): the runtime's raw trace (ids, packed classifications,

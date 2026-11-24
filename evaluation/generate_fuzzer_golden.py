@@ -1,5 +1,8 @@
 """Golden generator for the Rust fuzzer service (`rust/services/fuzzer`, stage 21).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The module stays because `generate_v3_fuzzer_golden.py` imports its fake channel and context.
+
 The oracle is the maintained Python fuzzer, `services/privoke-fuzzer/src/fuzzer_service.py`, run in process on the host.
 Its two network dependencies are replaced by recorded answers, so no stack, model or analysis service is needed and no
 detector layer runs (the cycle only requests the semantic layer, and the recorded response says so):

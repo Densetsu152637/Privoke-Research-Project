@@ -33,6 +33,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 REPO = Path(__file__).resolve().parents[1]
 CRATE = REPO / "rust" / "crates" / "privoke-training"
 FIXTURE = CRATE / "tests" / "fixtures" / "tiny_training_golden.json"
+# The routes fixture's Rust consumer and the fixture itself were deleted in stage V3-R8b; `routes` still writes it here.
 ROUTES_FIXTURE = CRATE / "tests" / "fixtures" / "tiny_training_routes_golden.json"
 SEED = 20261119
 LABELS = {

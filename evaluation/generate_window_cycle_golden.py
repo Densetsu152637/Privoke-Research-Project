@@ -1,5 +1,8 @@
 """Local golden generator for the Rust fuzzer's frozen-window cycle (`rust/services/fuzzer`, stage 21, RUST-S21H item 1).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracle is the maintained Python fuzzer, `services/privoke-fuzzer/src/fuzzer_service.py` with `training/window_cycle.py` and
 `training/window_evidence.py`, run in process as `generate_full_adam_cycle_golden.py` does: the client runtime is replaced by the
 response bytes of a real retained window cycle and the parameter-update service by a fake. The retained cycles are the three

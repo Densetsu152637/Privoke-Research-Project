@@ -51,3 +51,4 @@ extension/dist-firefox/
 /rust/services/v3-runtime/tests/local/
 /rust/crates/privoke-semantic/tests/local/
 /rust/services/runtime/tests/local/
+/rust/services/fuzzer/tests/local/

@@ -550,6 +550,8 @@ def route_cases(worker: Worker) -> list[dict]:
     return cases
 
 
+# Historical (stage V3-R8b): the routes golden, its Rust test and the seven route-only worker models were deleted with the V1
+# gradient dispatch; running `write_routes` recreates them as untracked files.
 def write_routes(out: Path, models_out: Path = MODELS_OUT) -> dict:
     bootstrap()
     artifacts = route_models(models_out)
