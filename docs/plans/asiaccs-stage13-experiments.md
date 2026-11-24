@@ -783,7 +783,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - **The client admission test passes:** `RUSTDOCK cargo test -p privoke-runtime-supervisor --release --locked --test s13c_client_admission` exits 0.
   - **The report tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_v3_update_attacks_report.py`.
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** done. Outcome: merged into `feat/rust-rewrite` at `bc6be30` (`f116284`, `6d45538`, `e05ba63`): 50 manifest rows, 43 wire and store rows in `s13c_update_attacks` plus 7 client rows, all passing in Docker; full param-update package and clippy clean; G8 0 violations. Implementation gate: 2 rounds, 4 findings accepted. Deviations recorded: C3b is `noop_unchanged` (the second stage is idempotent and returns OK); C10c serves `refused:UNAVAILABLE` until `reconcile` (fail closed, never partial); C11c and C11d are labelled defence in depth, because CI stubs admission source validation and production refuses them at stage with INVALID_ARGUMENT (13c-2 records that admission-level refusal next to the CI GuardGate row); the retention branch of `build_observers` is untested in CI (no bank fixture), and the test inserts its own RetentionGate with the committed allowances.
 - **Handoff notes:**
   - The V1 rows of `update_security.py --target rust --rust-service param-update` (A1–E7, R1, R2, R5) only show that `SubmitParameterUpdate` is `UNIMPLEMENTED`. They are not 13c evidence.
   - Never use `PRODUCTION_KEYS` or the production key. Test keys enter only through dev-dependencies, which CI's `cargo tree` check enforces.
