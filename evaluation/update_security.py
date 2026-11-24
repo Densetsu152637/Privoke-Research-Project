@@ -1330,6 +1330,10 @@ class RustPki:
         self.crl = write_client_crl(self.client_ca)
         self.registered_ids = [self.ids[name] for name in ("registered", "second-registered", "expired", "future", "no-eku", "server-only", "foreign")]
 
+    def revoke(self, label: str) -> bytes:
+        """Revoke one issued certificate in the CA database and return the new signed CRL (the CRL number advances)."""
+        return revoke_certificate(self.client_ca, label)
+
     def publish(self, directory: Path) -> Path:
         """Write the files the server reads. Keys are synthetic, so they are world-readable for the container's user."""
         directory.mkdir(parents=True, exist_ok=True)
@@ -1480,6 +1484,8 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
             client.close()
         unchanged = snapshot_store() == before
         result.pop("response", None)
+        if getattr(service, "post_check", None) and result.get("code") == "UNAVAILABLE":  # stage 13d: a refusal needs a live service
+            result = refused_with_service_down(result, service.post_check())
         rows.append({"id": row_id, "class": cls, "path": path, "description": description, "expected": expected, "observed": result["observed"],
                      "code": result["code"], "message": result["message"], "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None,
                      "identity": identity or "no client certificate", "property_met": evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged),
@@ -1581,6 +1587,9 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
     # R4: a foreign-CA certificate with a valid (registered) subject.
     row("R4", "impersonation", U, "A certificate from a foreign CA carrying a registered installation's subject is refused at the handshake.",
         "rejected_unchanged", "foreign", package(""), codes=refused, gap="GAP-IDENTITY-SELF-ASSERTED")
+    if "self-signed" in service.pki.certs:  # stage 13d: a certificate nobody signed, carrying a registered subject
+        row("R4-self-signed", "invalid_certificate", U, "A self-signed certificate carrying a registered installation's subject is refused at the handshake.",
+            "rejected_unchanged", "self-signed", package(""), codes=refused, gap="GAP-NO-CREDENTIAL-MECHANISM")
 
     # R7: GetModelPackage, a newly public RPC.
     row("R7-no-cert", R, U, "GetModelPackage without a client certificate.", "rejected_unchanged", None, package(""), codes=refused,
@@ -2057,6 +2066,15 @@ def revoke_certificate(authority, label: str) -> bytes:
     return (authority.dir / "crl.pem").read_bytes()
 
 
+def alive(probe) -> bool:
+    """Whether a call from a valid identity still succeeds (the service is up)."""
+    try:
+        probe()
+        return True
+    except Exception:  # noqa: BLE001 - any failure means not alive
+        return False
+
+
 def plaintext_row(row_id: str, description: str, path: str, port: int, kind: str, *, gap: str = "GAP-LOOPBACK-PLAINTEXT-POLICY") -> dict:
     """R6: a call without TLS to a mutual-TLS listener must fail at the connection, never reach a handler."""
     import grpc
@@ -2160,7 +2178,7 @@ class RustTelemetryClient:
             return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
 
 
-def run_telemetry_rows(args, work: Path, pki: RustStackPki) -> list[dict]:
+def run_telemetry_rows(args, work: Path, pki: RustStackPki, *, check_alive: bool = False) -> list[dict]:
     """R10 and the telemetry half of R6 against the Rust telemetry container. The "store unchanged" check is the exact sample count."""
     rows: list[dict] = []
     service = RustTelemetryService(work, pki, image=args.rust_telemetry_image)
@@ -2184,6 +2202,8 @@ def run_telemetry_rows(args, work: Path, pki: RustStackPki) -> list[dict]:
                 result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
             finally:
                 client.close()
+            if check_alive and result.get("code") == "UNAVAILABLE":  # stage 13d: a refusal needs a live service
+                result = refused_with_service_down(result, alive(samples))
             unchanged = samples() == before
             rows.append({"id": row_id, "class": "unauthorized_retrieval" if "summary" in row_id else "invalid_credentials", "path": "rust-telemetry",
                          "description": description, "expected": expected, "observed": result["observed"], "code": result["code"], "message": result["message"],
@@ -2231,11 +2251,12 @@ def run_telemetry_rows(args, work: Path, pki: RustStackPki) -> list[dict]:
     return rows
 
 
-def run_x13_rows(args, work: Path, pki: RustStackPki, models_dir: Path, release_dir: Path) -> list[dict]:
-    """X13 live: revocation, a corrupt CRL and the registry deny list take effect without restarting the real service."""
+def run_x13_rows(args, work: Path, pki: RustStackPki, models_dir: Path, release_dir: Path, *, no_v3: bool = True) -> list[dict]:
+    """X13 live: revocation, a corrupt CRL and the registry deny list take effect without restarting the real service.
+    `no_v3=False` (stage 13d) serves the standard V3 packages too; the rows themselves stream the legacy model either way."""
     from privoke.v1 import parameters_pb2 as pb
 
-    service = RustService(work, pki, models_dir, release_dir, image=args.rust_image, binary=args.rust_binary, no_v3=True,
+    service = RustService(work, pki, models_dir, release_dir, image=args.rust_image, binary=args.rust_binary, no_v3=no_v3,
                           reload_poll_secs=X13_POLL_SECONDS, name="pki-x13")
     rows: list[dict] = []
 
@@ -2282,7 +2303,7 @@ def run_x13_rows(args, work: Path, pki: RustStackPki, models_dir: Path, release_
                 "x13-denied", result, result["observed"] == "accepted")
 
             # 1. Revoke one installation in the CA and swap the CRL atomically; no restart.
-            replace_atomically(crl_path, revoke_certificate(pki.client_ca, "x13-revoked"))
+            replace_atomically(crl_path, pki.revoke("x13-revoked"))
             result, seconds = until("x13-revoked", "rejected", "UNAVAILABLE")
             add("X13-revoked", "A revoked installation's new handshake fails after the CRL is swapped, without a restart.", "rejected_unchanged", "x13-revoked",
                 result, result["observed"] == "rejected" and result["code"] == "UNAVAILABLE", seconds=seconds, codes=("UNAVAILABLE",))
@@ -2524,7 +2545,7 @@ def run_stack_target(args) -> int:
         model.stop()
     for row in rows:
         row["service"] = "model-streaming"
-    for label, produce in (("param-update", lambda: run_rust_update_rows(args, work, pki)), ("telemetry", lambda: run_telemetry_rows(args, work, pki)),
+    for label, produce in (("param-update", lambda: run_rust_update_rows(args, work, pki)), ("telemetry", lambda: run_telemetry_rows(args, work, pki, check_alive=True)),
                            ("model-streaming", lambda: run_x13_rows(args, work, pki, models_dir.resolve(), release_dir.resolve())),
                            ("startup", lambda: run_startup_rows(args, pki, work))):
         produced = produce()
@@ -2698,6 +2719,659 @@ def run_client_lineage_target(args) -> int:
     return 0 if not unmet and not missing and not unexpected else 1
 
 
+# --------------------------------------------------------------------------------------
+# Stage 13d-1a, `docs/plans/asiaccs-stage13-experiments.md`: authentication and authorisation against the Rust stack. Selected with
+# `--target rust --rust-service authz`. Legitimate principals come from `privoke-pki`; deliberately invalid credentials come from the
+# OpenSSL helper. It re-runs the model-streaming, telemetry and revocation families with the V3 packages present, adds the
+# CheckpointService rows (CK) and the TLS replay and tamper rows (TL), and records, for every request, the layer that denied it
+# (`denied_by`). Rows that need the genuine 13c candidate (CK8 and the positive controls) are `not_run`, pending 13d-1b.
+# --------------------------------------------------------------------------------------
+
+import uuid  # noqa: E402
+
+import update_security_pki as pki_tools  # noqa: E402
+import update_security_report as report_tools  # noqa: E402
+
+AUTHZ_RECORD_PREFIX = "AUTHZ"
+AUTHZ_RECORD_SCOPE_LABELS = ("transport (Rust)", "update path (Rust V3)")
+CHECKPOINT_MODEL = "privoke-v3-balanced"
+CHECKPOINT_NO_CANDIDATE = hashlib.sha256(b"s13d-no-candidate").hexdigest()
+CHECKPOINT_POLL_SECONDS = 1
+TL_WAIT_SECONDS = 4.0
+TL_TAMPER_LIMIT = 8
+TLS, REVOCATION, REGISTRY, ROLE, SURFACE, APPLICATION, CLIENT_ADMISSION, NOT_DENIED = report_tools.DENIED_BY
+
+# The layer each row expects to refuse its request. The harness derives the layer from what it observed (status code and message);
+# a row whose observed layer differs from this claim is recorded with the observed layer and its property is unmet.
+CLAIMED_LAYER = {
+    "T1": TLS, "T2": APPLICATION, "T3": TLS, "T4": APPLICATION, "T5": APPLICATION, "T6": APPLICATION, "T7": APPLICATION, "T8": TLS, "T9": APPLICATION,
+    "T10": APPLICATION, "T11": APPLICATION, "T12": TLS,
+    "R3-expired": TLS, "R3-not-yet-valid": TLS, "R3-no-client-auth-eku": TLS, "R3-server-auth-only": TLS, "R4": TLS, "R4-self-signed": TLS,
+    "R7-no-cert": TLS, "R7-unregistered": REGISTRY, "R7-reporter": ROLE, "R7-traversal": APPLICATION, "R7-unknown": APPLICATION,
+    "R8-no-cert": TLS, "R8-unregistered": REGISTRY, "R8-reporter": ROLE, "R8-wrong-pin": APPLICATION, "R8-not-allowlisted": APPLICATION,
+    "R9-get-model-parameters": SURFACE, "R9-submit-update": SURFACE, "R9-update-status": SURFACE,
+    "X8": REGISTRY, "I2": ROLE, "I3": APPLICATION, "I4": SURFACE,
+    "R10-no-cert": TLS, "R10-installation": ROLE, "R10-unregistered": REGISTRY, "R10-summary-no-cert": TLS, "R10-summary-installation": ROLE,
+    "R10-summary-unregistered": REGISTRY, "R10-summary-reporter": ROLE, "R10-summary-public": SURFACE,
+    "X13-revoked": REVOCATION, "X13-corrupt-crl-keeps-revocation": REVOCATION, "X13-denylist-open-connection": REGISTRY, "X13-denylist-new-connection": REGISTRY,
+    "CK1": ROLE, "CK2": ROLE, "CK3": ROLE, "CK4": ROLE, "CK5": TLS, "CK6": REVOCATION, "CK7": REGISTRY, "CK9": SURFACE, "CK9-submit-update": SURFACE,
+    "TL1": TLS, "TL2": TLS, "TL2-handshake": TLS, "TL3": TLS,
+}
+# The messages the transport's authorisation layer produces (`rust/crates/privoke-transport/src/authz.rs` and `registry.rs`).
+REGISTRY_MESSAGES = ("identity is not registered", "identity is revoked", "registration has expired")
+ROLE_MESSAGE = "role may not call this method"
+CLAIM_MESSAGE = "claimed identity differs from the client certificate"
+SURFACE_MESSAGE = "method is not served on this listener"
+
+# Rows that do not exist until 13c-2 has produced the genuine candidate. They are listed so that the record names what is pending.
+PENDING_ROWS = (
+    ("TL1-candidate", "replayed_request", "The recorded TLS 1.3 bytes of an authenticated CommitCandidate that carries a valid 13c candidate, replayed on a new connection: the store-unchanged half is not vacuous."),
+    ("CK8", "impersonation", "CommitCandidate from a valid trainer carrying a valid 13c candidate with an unallocated request id (application layer; cross-identity misuse)."),
+    ("CK-positive-publisher-commit", "control", "A publisher commits an allocated valid candidate (applied)."),
+    ("CK-positive-publisher-rollback", "control", "A publisher rolls back to the pin (applied)."),
+    ("CK-positive-runtime-stage", "control", "A runtime stages a checkpoint (accepted)."),
+)
+PENDING_REASON = "pending 13d-1b: needs the genuine real-weight candidate, its rejection-only derivatives and the s13c_journal_seed allocation helper, which 13c-2 exports"
+
+
+UNKNOWN_LAYER = report_tools.UNCLASSIFIED
+# Statuses the stores and services themselves produce for a request that got past the transport's authorisation.
+APPLICATION_CODES = frozenset({"NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION", "ALREADY_EXISTS", "OUT_OF_RANGE", "RESOURCE_EXHAUSTED", "ABORTED"})
+
+
+def observed_layer(row: dict) -> str | None:
+    """The layer that refused the request, from what the harness observed: the status code, and for the authorisation layer's
+    PERMISSION_DENIED and UNIMPLEMENTED the message that identifies the layer. A status nothing here recognises is `unknown`, never
+    `application`. `None` when no request was refused."""
+    if row.get("observed") in report_tools.NOT_RUN_OUTCOMES:
+        return None
+    if row.get("observed") == "accepted":
+        return NOT_DENIED
+    code, message = row.get("code"), row.get("message") or ""
+    if code in report_tools.HANDSHAKE_CODES:
+        return TLS
+    if code == "PERMISSION_DENIED":
+        if ROLE_MESSAGE in message:
+            return ROLE
+        if any(text in message for text in REGISTRY_MESSAGES):
+            return REGISTRY
+        return APPLICATION if CLAIM_MESSAGE in message else UNKNOWN_LAYER
+    if code == "UNIMPLEMENTED":
+        return SURFACE if SURFACE_MESSAGE in message else UNKNOWN_LAYER
+    return APPLICATION if code in APPLICATION_CODES else UNKNOWN_LAYER
+
+
+REVOCATION_BASELINES = {"CK6": "CK6-baseline"}
+
+
+def revocation_corroborated(row: dict, rows: list[dict]) -> bool:
+    """A TLS refusal is a revocation only when the same identity was served before the CRL changed: its baseline row was accepted."""
+    baseline = REVOCATION_BASELINES.get(row["id"]) or (f"X13-baseline-{row.get('identity')}" if row["id"].startswith("X13-") else None)
+    return any(other["id"] == baseline and other["observed"] == "accepted" for other in rows)
+
+
+def assign_denied_by(row: dict, rows: list[dict] = ()) -> tuple[str | None, bool]:
+    """(the layer to record, whether it contradicts the row's claim). Rows that assert a property of a log or a process carry none.
+    A TLS refusal of a row that claims `revocation` is revocation only with corroboration (see `revocation_corroborated`); without it
+    the layer stays `tls_handshake` and contradicts the claim."""
+    if row.get("expected") not in report_tools.LAYERED_EXPECTATIONS:
+        return None, False
+    layer = observed_layer(row)
+    if layer is None or row.get("expected") == "positive_control":
+        return layer, False
+    claim = claimed_layer(row["id"])
+    if claim == REVOCATION and layer == TLS and revocation_corroborated(row, rows):
+        layer = REVOCATION
+    return layer, layer == UNKNOWN_LAYER or (bool(claim) and layer not in (claim, NOT_DENIED))
+
+
+def model_health(service) -> None:
+    client = RustClient(service, "registered")
+    try:
+        if client.models.Health(client.pb.HealthRequest(), timeout=5).status != "SERVING":
+            raise RuntimeError("not serving")
+    finally:
+        client.close()
+
+
+def checkpoint_health(service, identity: str = "publisher") -> None:
+    client = RustCheckpointClient(service, identity)
+    try:
+        client.health(timeout=5)
+    finally:
+        client.close()
+
+
+def refused_with_service_down(result: dict, alive: bool) -> dict:
+    """A handshake refusal only counts when a valid identity can still reach the service afterwards; otherwise the service was down."""
+    if result.get("code") == "UNAVAILABLE" and not alive:
+        return harness_error("the service did not answer a valid identity after the row, so the refusal proves nothing")
+    return result
+
+
+def claimed_layer(row_id: str) -> str | None:
+    """The layer a row expects to refuse its request (every plaintext R6 row expects the TLS layer)."""
+    return CLAIMED_LAYER.get(row_id, TLS if row_id.startswith("R6-") else None)
+
+
+def credential_issuer_of(identity: str | None, pki) -> str:
+    """The tool behind the credential a row presented; a row that names several identities has one issuer only if they agree."""
+    names = [part.strip() for part in (identity or "").split(",")]
+    issuers = {pki.credential_issuer(name) for name in names}
+    return issuers.pop() if len(issuers) == 1 else pki_tools.ISSUER_NONE
+
+
+def finalize_authz_rows(rows: list[dict], pki) -> list[dict]:
+    """Give every row its service, scope label, credential issuer and `denied_by`; a contradiction with the claimed layer is unmet."""
+    for row in rows:
+        checkpoint = row["path"] == "rust-checkpoint"
+        row.setdefault("service", "param-update" if checkpoint else "model-streaming")
+        row.setdefault("scope_label", AUTHZ_RECORD_SCOPE_LABELS[1] if checkpoint else AUTHZ_RECORD_SCOPE_LABELS[0])
+        row.setdefault("credential_issuer", credential_issuer_of(row.get("identity"), pki))
+        if row.get("denied_by") is None:
+            layer, mismatch = assign_denied_by(row, rows)
+            row["denied_by"] = layer
+            if mismatch:
+                row["property_met"] = False
+                row["message"] = f"{row['message']} [the denying layer is {layer}, not the claimed {claimed_layer(row['id'])}, or is not corroborated]"
+    return rows
+
+
+def pending_rows() -> list[dict]:
+    return [{"id": row_id, "class": cls, "path": "rust-tls" if row_id.startswith("TL") else "rust-checkpoint", "description": text,
+             "expected": "rejected_unchanged" if row_id in ("CK8", "TL1-candidate") else "positive_control",
+             "observed": "not_run", "code": "NOT_RUN", "message": PENDING_REASON, "model_unchanged": None, "expected_codes": None,
+             "identity": "trainer" if row_id in ("CK8", "TL1-candidate") else "publisher" if "publisher" in row_id else "runtime", "property_met": None, "gap": None, "evidence": [],
+             "duration_s": 0.0, "denied_by": None, "credential_issuer": pki_tools.ISSUER_PKI} for row_id, cls, text in PENDING_ROWS]
+
+
+class RustCheckpointService(RustUpdateService):
+    """The Rust update service in its container with the V3 `CheckpointService` enabled over an empty store: the checkpoint rows are
+    refused before any store is read, so no candidate is needed (13d-1a). The store lives in the container's own filesystem."""
+
+    def __init__(self, work: Path, pki, name: str, *, image: str, reload_poll_secs: int = CHECKPOINT_POLL_SECONDS):
+        super().__init__(work, pki, name, image=image, binary=None)
+        self.reload_poll_secs = reload_poll_secs
+
+    def _settings(self, models: str, data: str) -> dict[str, str]:
+        return {**super()._settings(models, data), "V3_STORE": "/v3-store", "V3_SOURCE_ROOT": "/config", "V3_DRIFT_BOUNDS": "/config/v3-drift-bounds.toml"}
+
+    def command_arguments(self, base: str) -> list[str]:
+        return [*super().command_arguments(base), "--reload-poll-secs", str(self.reload_poll_secs)]
+
+    def started_at(self) -> str:
+        return subprocess.run(["docker", "inspect", "-f", "{{.State.StartedAt}}", self.container], text=True, stdout=subprocess.PIPE).stdout.strip()
+
+
+class RustCheckpointClient:
+    """A gRPC client of the update service's listener: the V3 `CheckpointService`, `TrainingService` and the V1 update service."""
+
+    def __init__(self, service: RustCheckpointService, identity: str | None, *, port: int | None = None, root: bytes | None = None, retries: bool = True):
+        import grpc
+        from privoke.experimental import v3_pb2 as pb3, v3_pb2_grpc as rpc3
+        from privoke.v1 import parameters_pb2 as pb, parameters_pb2_grpc as rpc
+
+        self.grpc, self.pb, self.pb3 = grpc, pb, pb3
+        certificate, key = service.pki.certs[identity] if identity else (None, None)
+        credentials = grpc.ssl_channel_credentials(root_certificates=root or service.pki.server_ca.cert, private_key=key, certificate_chain=certificate)
+        self.channel = grpc.secure_channel(f"127.0.0.1:{port or service.port}", credentials,
+                                           options=(("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 64 * 1024 * 1024),
+                                                    *(() if retries else (("grpc.enable_retries", 0),))))
+        self.checkpoint = rpc3.CheckpointServiceStub(self.channel)
+        self.training = rpc3.TrainingServiceStub(self.channel)
+        self.updates = rpc.ParamUpdateServiceStub(self.channel)
+
+    def close(self):
+        self.channel.close()
+
+    def commit(self, request_id: str, *, timeout: float = 15):
+        sha = CHECKPOINT_NO_CANDIDATE
+        return self.checkpoint.CommitCandidate(self.pb3.Commit(request_id=request_id, model_id=CHECKPOINT_MODEL, expected_base=sha, candidate=sha, evidence=sha),
+                                               timeout=timeout)
+
+    def rollback(self, request_id: str, *, timeout: float = 15):
+        return self.checkpoint.RollbackModel(self.pb3.Rollback(request_id=request_id, model_id=CHECKPOINT_MODEL, manifest=CHECKPOINT_NO_CANDIDATE), timeout=timeout)
+
+    def stage(self, *, timeout: float = 15):
+        chunk = self.pb3.Chunk(sha256=hashlib.sha256(b"abc").hexdigest(), offset=0, total_bytes=3, data=b"abc")
+        return self.checkpoint.StageCheckpoint(iter([chunk]), timeout=timeout)
+
+    def health(self, *, timeout: float = 10):
+        return self.checkpoint.Health(self.pb3.HealthRequest(), timeout=timeout)
+
+    def outcome(self, fn):
+        try:
+            result = fn()
+            return {"observed": "accepted", "code": "OK", "message": type(result).__name__}
+        except self.grpc.RpcError as error:
+            return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
+
+
+def checkpoint_state(service: RustCheckpointService, request_id: str) -> tuple[str, str]:
+    """What a request would have changed in the store, observed through a registered publisher: the receipt of the request id and whether
+    the candidate's blob exists. Both stay `unknown` and `NOT_FOUND` when nothing was admitted."""
+    client = RustCheckpointClient(service, "publisher")
+    try:
+        status = client.checkpoint.GetCommitStatus(client.pb3.StatusRequest(request_id=request_id), timeout=10).status
+        try:
+            next(iter(client.checkpoint.FetchBlob(client.pb3.Ref(sha256=CHECKPOINT_NO_CANDIDATE), timeout=10)), None)
+            blob = "present"
+        except client.grpc.RpcError as error:
+            blob = error.code().name
+        return status, blob
+    finally:
+        client.close()
+
+
+def authz_row(row_id, cls, path, description, expected, identity, result, unchanged, *, codes=None, gap=None, started=None, evidence=None,
+              credential_issuer=None, denied_by=None) -> dict:
+    """One row of the 13d families, in the shape of every other row of this harness."""
+    row = {"id": row_id, "class": cls, "path": path, "description": description, "expected": expected, "observed": result["observed"], "code": result["code"],
+           "message": result["message"], "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None,
+           "identity": identity or "no client certificate", "property_met": evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged),
+           "gap": gap, "evidence": evidence or [], "duration_s": round(time.time() - started, 3) if started else 0.0}
+    if credential_issuer:
+        row["credential_issuer"] = credential_issuer
+    if denied_by:
+        row["denied_by"] = denied_by
+    return row
+
+
+def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | None = None) -> list[dict]:
+    """CK1 to CK7 and CK9 against `CheckpointService`, following the policy in `rust/services/param-update/src/server.rs`. Every row is a live call;
+    "store unchanged" is the absence of a receipt for its request id and of a staged blob for its candidate. CK8 and the positive controls
+    need the genuine 13c candidate and are `not_run` (pending 13d-1b)."""
+    rows: list[dict] = []
+    service = service or RustCheckpointService(work, pki, "checkpoint", image=args.rust_update_image)
+    refused, denied, unimplemented = ("UNAVAILABLE",), ("PERMISSION_DENIED",), ("UNIMPLEMENTED",)
+    path, request_ids = "rust-checkpoint", []
+
+    def unique(row_id: str) -> str:
+        request_ids.append(f"s13d-{row_id.lower()}-{uuid.uuid4().hex[:10]}")
+        return request_ids[-1]
+
+    def attempt(row_id, cls, description, identity, call, *, codes, gap=None, expected="rejected_unchanged"):
+        request_id = unique(row_id)
+        before, started = checkpoint_state(service, request_id), time.time()
+        client = RustCheckpointClient(service, identity)
+        try:
+            result = client.outcome(lambda: call(client, request_id))
+        except Exception as error:  # a harness failure must be visible, never a silent pass
+            result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
+        finally:
+            client.close()
+        if result.get("code") == "UNAVAILABLE":  # a refused handshake counts only when a valid identity still reaches the service
+            result = refused_with_service_down(result, alive(lambda: checkpoint_health(service)))
+        unchanged = checkpoint_state(service, request_id) == before and before[0] == "unknown"
+        rows.append(authz_row(row_id, cls, path, description + (f" {VACUOUS_STORE_NOTE}" if expected == "rejected_unchanged" else ""), expected, identity, result,
+                              unchanged, codes=codes, gap=gap, started=started))
+
+    commit = lambda client, request_id: client.commit(request_id)  # noqa: E731
+    try:
+        service.start()
+        for label in ("publisher", "trainer", "runtime"):
+            attempt(f"CK0-{label}-health", "control", f"The {label} service identity reaches CheckpointService.Health (positive control: the denials below are not a configuration failure).",
+                    label, lambda client, request_id: client.health(), codes=None, expected="positive_control")
+        attempt("CK1", "unauthorized_update", "CommitCandidate as a runtime service.", "runtime", commit, codes=denied, gap="GAP-NO-PUBLISHER-AUTH")
+        attempt("CK2", "unauthorized_publication", "RollbackModel as a trainer service.", "trainer", lambda client, request_id: client.rollback(request_id),
+                codes=denied, gap="GAP-NO-PUBLISHER-AUTH")
+        attempt("CK3", "impersonation", "CommitCandidate with a registered installation certificate.", "registered", commit, codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        attempt("CK4", "impersonation", "CommitCandidate with the shared reporter credential.", "reporter", commit, codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        attempt("CK5", "invalid_credentials", "StageCheckpoint with no client certificate.", None, lambda client, request_id: client.stage(), codes=refused,
+                gap="GAP-NO-PUBLISHER-AUTH")
+        attempt("CK9", "unauthorized_update", "An RPC the policy does not list (TrainingService.FitCandidate), called by a publisher.", "publisher",
+                lambda client, request_id: client.training.FitCandidate(client.pb3.FitRequest(request_id=request_id, model_id=CHECKPOINT_MODEL, base=CHECKPOINT_NO_CANDIDATE), timeout=15),
+                codes=unimplemented, gap="GAP-NO-PUBLISHER-AUTH")
+        attempt("CK9-submit-update", "unauthorized_update", "The removed V1 SubmitParameterUpdate on the update listener, called by a publisher.", "publisher",
+                lambda client, request_id: client.updates.SubmitParameterUpdate(client.pb.ParameterUpdateRequest(source_id="server-fuzzer", model_id=LEGACY_MODEL, base_version="v1"), timeout=15),
+                codes=unimplemented, gap="GAP-NO-PUBLISHER-AUTH")
+        rows.append(plaintext_row("R6-checkpoint", "A plaintext call to the update service port that serves CheckpointService.", path, service.port, "update"))
+
+        # CK6: revoke a trainer in the CA, swap the CRL atomically, and a new handshake fails with no restart.
+        crl_path, registry_path = service.pki_dir / "crl.pem", service.pki_dir / "registry.toml"
+        first_start = service.started_at()
+        attempt("CK6-baseline", "control", "The trainer that will be revoked reaches CheckpointService.Health before the CRL changes (positive control).",
+                "ck-revoked-trainer", lambda client, request_id: client.health(), codes=None, expected="positive_control")
+        replace_atomically(crl_path, pki.revoke("ck-revoked-trainer"))
+        started, request_id = time.time(), unique("CK6")
+        before, result = checkpoint_state(service, request_id), None
+        while time.time() - started < X13_DEADLINE_SECONDS:
+            client = RustCheckpointClient(service, "ck-revoked-trainer")
+            try:
+                result = client.outcome(lambda: client.commit(request_id))
+            finally:
+                client.close()
+            if result["observed"] == "rejected" and result["code"] == "UNAVAILABLE":
+                break
+            time.sleep(0.5)
+        rows.append(authz_row("CK6", "unauthorized_publication", path, "CommitCandidate from a revoked trainer after an atomic CRL swap, with no restart. " + VACUOUS_STORE_NOTE, "rejected_unchanged",
+                              "ck-revoked-trainer", result, checkpoint_state(service, request_id) == before and before[0] == "unknown", codes=refused,
+                              gap="GAP-NO-REVOCATION", started=started))
+
+        # CK7: deny-list a trainer whose connection is already open; the next request on it is refused.
+        held = RustCheckpointClient(service, "ck-denied-trainer")
+        try:
+            baseline = held.outcome(lambda: held.health())
+            rows.append(authz_row("CK7-baseline", "control", path, "The trainer that will be deny-listed has an open, working connection (positive control).", "positive_control",
+                                  "ck-denied-trainer", baseline, True))
+            deny = f'\n[[deny]]\nurn = "{URN_SERVICE}ck-denied-trainer"\nreason = "update-security CK7"\n'
+            replace_atomically(registry_path, registry_path.read_bytes() + deny.encode())
+            started, request_id, result = time.time(), unique("CK7"), None
+            before = checkpoint_state(service, request_id)
+            while time.time() - started < X13_DEADLINE_SECONDS:
+                result = held.outcome(lambda: held.commit(request_id))
+                if result["observed"] == "rejected" and result["code"] == "PERMISSION_DENIED":
+                    break
+                time.sleep(0.5)
+            rows.append(authz_row("CK7", "unauthorized_publication", path, "CommitCandidate from a deny-listed trainer on a connection that was already open. " + VACUOUS_STORE_NOTE, "rejected_unchanged",
+                                  "ck-denied-trainer", result, checkpoint_state(service, request_id) == before and before[0] == "unknown", codes=denied,
+                                  gap="GAP-NO-REVOCATION", started=started))
+        finally:
+            held.close()
+        unchanged = service.started_at() == first_start
+        rows.append({"id": "CK-no-restart", "class": "expired_credentials", "path": path, "expected": "same_process", "observed": "rejected" if unchanged else "accepted",
+                     "code": "OK", "message": "the update service was never restarted" if unchanged else "the update service restarted during the run",
+                     "description": "Neither the CRL swap nor the deny-list entry needed a restart.", "model_unchanged": None, "expected_codes": None,
+                     "identity": "operator", "property_met": unchanged, "gap": "GAP-NO-REVOCATION", "evidence": [], "duration_s": 0.0})
+        rows.extend(run_tls_rows(service, pki, work))
+    finally:
+        service.stop()
+    rows.extend(pending_rows())
+    return rows
+
+
+VACUOUS_STORE_NOTE = ("The store-unchanged check is vacuous until 13d-1b: the store is empty, so an admitted request and a refused one leave the same state.")
+STORE_ANSWER_CODE = "NOT_FOUND"  # what the empty store answers to a commit of a candidate that was never staged ("Checkpoint object is not in this private catalog.")
+
+
+def reached_the_store(result: dict) -> bool:
+    """The request got past TLS, the registry and the role policy and was answered by the store itself."""
+    return result["observed"] == "rejected" and result["code"] == STORE_ANSWER_CODE
+
+
+def harness_error(message: str) -> dict:
+    return {"observed": "not_run", "code": "HARNESS_ERROR", "message": message}
+
+
+def tl1_verdict(original: dict, original_stats: dict, replay: dict, clean_after: dict) -> dict:
+    """TL1: refused only when the replayed bytes got a TLS refusal, the original really reached the store, and a fresh clean exchange
+    afterwards still works (otherwise the service was down and the silence proves nothing: a harness error, not a refusal)."""
+    if not reached_the_store(clean_after):
+        return harness_error(f"the clean exchange after the replay failed ({clean_after['code']}), so the replay result proves nothing")
+    if not reached_the_store(original):
+        return harness_error(f"the original exchange never reached the store ({original['code']})")
+    if pki_tools.replay_refused(original_stats, replay["stats"], replay["closed"]):
+        return {"observed": "rejected", "code": "CONNECTION_ABORTED", "message": "the recorded bytes got a TLS alert and no response"}
+    return {"observed": "accepted", "code": "OK", "message": "the server answered the replayed bytes"}
+
+
+def tl2_variant_aborted(flipped: bool, result: dict, clean_code: str, reaction: dict, control: dict) -> bool:
+    """A flipped record aborted the exchange when all three hold: the client got UNAVAILABLE or UNKNOWN and never the clean code; the proxy
+    saw the server end the connection (an alert, or a close) after the flipped record and before any record that answers the request;
+    and a clean exchange right after still reaches the store."""
+    failed = result["observed"] == "rejected" and result["code"] in ("UNAVAILABLE", "UNKNOWN") and result["code"] != clean_code
+    ended = (reaction["alert_seen"] or reaction["closed"]) and not reaction["answered"]
+    return bool(flipped and failed and ended and reached_the_store(control))
+
+
+def tl2_variant_record(record: int, flipped: bool, result: dict, clean_code: str, reaction: dict, control: dict, store_unchanged: bool,
+                       record_type: int = 23, record_bytes: int = 0) -> dict:
+    """One tested record: the client code, what the server was seen to do, the clean control's code and the verdict."""
+    return {"record": record, "flipped": flipped, "client_code": result["code"], "server_alert_seen": reaction["alert_seen"],
+            "server_closed": reaction["closed"], "server_answered": reaction["answered"], "control_code": control["code"],
+            "store_unchanged": store_unchanged, "record_type": record_type, "record_bytes": record_bytes, "control_ok": reached_the_store(control),
+            "aborted": tl2_variant_aborted(flipped, result, clean_code, reaction, control)}
+
+
+def tl2_verdict(variants: list[dict]) -> dict:
+    """TL2: every tested variant flipped a bit, aborted with UNAVAILABLE and was followed by a clean exchange that reached the store."""
+    if not variants:
+        return harness_error("no request record was tested")
+    if not all(item["control_ok"] for item in variants):
+        return harness_error("a clean exchange after a variant failed, so the variant result proves nothing")
+    if all(item["aborted"] for item in variants):
+        return {"observed": "rejected", "code": "CONNECTION_ABORTED", "message": f"every one-bit change to the {len(variants)} request records tested aborted the connection"}
+    return {"observed": "accepted", "code": "OK", "message": f"a tampered request was not aborted (of {len(variants)} records tested)"}
+
+
+def tl3_verdict(result: dict, seen: dict, control_completed: bool) -> dict:
+    """TL3: the client refused (UNAVAILABLE) after the man in the middle saw a failed handshake and no request byte; it counts only when the
+    same certificate completes a handshake with a client that trusts its CA."""
+    if not control_completed:
+        return harness_error("the control handshake with the foreign CA did not complete, so the refusal is not about the CA")
+    refused = (result["observed"] == "rejected" and result["code"] == "UNAVAILABLE" and seen["handshakes_failed"] >= 1
+               and seen["handshakes_completed"] == 0 and seen["application_bytes"] == 0)
+    if refused:
+        return {"observed": "rejected", "code": "UNAVAILABLE", "message": "the client refused the server certificate"}
+    return {"observed": "accepted", "code": "OK", "message": "the client talked to the man in the middle, or no failed handshake was seen"}
+
+
+def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
+    """TL1 to TL3: the attacker is on the network path, holds no key, and can record, replay and corrupt bytes."""
+    rows: list[dict] = []
+    identity = "trainer"
+
+    def clean_exchange() -> dict:
+        client = RustCheckpointClient(service, identity)
+        try:
+            return client.outcome(lambda: client.commit(f"s13d-clean-{uuid.uuid4().hex[:10]}"))
+        finally:
+            client.close()
+
+    # TL1: record an authenticated CommitCandidate through the proxy, then replay the recorded client bytes on a new connection.
+    started, request_id = time.time(), f"s13d-tl1-{uuid.uuid4().hex[:10]}"
+    before = checkpoint_state(service, request_id)
+    proxy = pki_tools.RecordingProxy(service.port)
+    client = RustCheckpointClient(service, identity, port=proxy.port)
+    try:
+        original = client.outcome(lambda: client.commit(request_id))
+        request_set = proxy.request_records()
+        answer_size = pki_tools.answer_bytes(list(proxy.events))
+        flight_bytes = next((length for _, direction, kind, length in proxy.events if direction == "c2s" and kind == 23), 0)
+        time.sleep(0.3)
+    finally:
+        client.close()
+        proxy.close()
+    sent, answered = proxy.captured()
+    replay = pki_tools.replay_bytes(service.port, sent, wait=TL_WAIT_SECONDS)
+    original_stats = pki_tools.stream_stats(answered)
+    clean_after = clean_exchange()
+    unchanged = checkpoint_state(service, request_id) == before and before[0] == "unknown"
+    rows.append(authz_row("TL1", "replayed_request", "rust-tls",
+                          f"The recorded TLS 1.3 bytes of an authenticated CommitCandidate, replayed on a new connection (no receipt). {VACUOUS_STORE_NOTE}",
+                          "rejected_unchanged", identity, tl1_verdict(original, original_stats, replay, clean_after), unchanged, codes=("CONNECTION_ABORTED",),
+                          gap="GAP-NO-CREDENTIAL-MECHANISM", started=started,
+                          evidence=[f"original: {original['code']}; clean exchange after the replay: {clean_after['code']}", f"original server stream: {original_stats}",
+                                    f"replay sent {len(sent)} bytes; server stream: {replay['stats']}; closed: {replay['closed']}"]))
+
+    # TL2: flip one bit of the ciphertext of each client record that carries the request (the HTTP/2 preface, SETTINGS, HEADERS and DATA, found
+    # in the clean exchange above), one connection per record, each followed by a clean exchange. TL2-handshake flips the handshake flight.
+    def tamper(record: int, size: int) -> dict:
+        request_id = f"s13d-tl2-{record}-{uuid.uuid4().hex[:8]}"
+        before = checkpoint_state(service, request_id)
+        proxy = pki_tools.RecordingProxy(service.port, flip_record=record)
+        client = RustCheckpointClient(service, identity, port=proxy.port, retries=False)
+        try:
+            result = client.outcome(lambda: client.commit(request_id, timeout=10))
+            time.sleep(0.3)
+            reaction = proxy.server_reaction(answer_size)  # before the client closes the channel, which would also end the server side
+        finally:
+            client.close()
+            proxy.close()
+        control = clean_exchange()
+        same = checkpoint_state(service, request_id) == before and before[0] == "unknown"
+        return tl2_variant_record(record, proxy.flipped, result, original["code"], reaction, control, same, 23, size)
+
+    def describe(variant: dict) -> str:
+        return (f"record {variant['record']} (type {variant['record_type']}, {variant['record_bytes']} bytes): flipped={variant['flipped']} client={variant['client_code']} "
+                f"server_alert_seen={variant['server_alert_seen']} server_closed={variant['server_closed']} server_answered={variant['server_answered']}; "
+                f"clean control: {variant['control_code']}; store_unchanged={variant['store_unchanged']}")
+
+    started = time.time()
+    variants = [tamper(item["record"], item["bytes"]) for item in request_set] if reached_the_store(original) else []
+    if reached_the_store(original) and not request_set:
+        verdict = harness_error("no client record was found between the handshake flight and the server's answer in the clean exchange")
+    else:
+        verdict = tl2_verdict(variants)
+    rows.append(authz_row("TL2", "tampered_request", "rust-tls",
+                          f"One bit flipped in each client record that carries the request, through a loopback proxy (the connection aborts, no receipt). {VACUOUS_STORE_NOTE}",
+                          "rejected_unchanged", identity, verdict, all(item["store_unchanged"] for item in variants), codes=("CONNECTION_ABORTED",),
+                          gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, evidence=[describe(item) for item in variants]))
+    rows[-1]["variants"] = variants
+    started = time.time()
+    flight = [tamper(1, flight_bytes)] if reached_the_store(original) else []
+    rows.append(authz_row("TL2-handshake", "tampered_request", "rust-tls", "Extra to TL2: one bit flipped in the client's handshake flight (Certificate, CertificateVerify, Finished). "
+                          + VACUOUS_STORE_NOTE, "rejected_unchanged", identity, tl2_verdict(flight), all(item["store_unchanged"] for item in flight), codes=("CONNECTION_ABORTED",),
+                          gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, evidence=[describe(item) for item in flight]))
+    rows[-1]["variants"] = flight
+
+    # TL3: a man in the middle presents a server certificate from a CA the client does not trust, for the right names.
+    started = time.time()
+    mitm = pki_tools.MitmListener(pki.mitm[0], pki.mitm[1], work / "mitm")
+    try:
+        client = RustCheckpointClient(service, identity, port=mitm.port)
+        try:
+            result = client.outcome(lambda: client.commit(f"s13d-tl3-{uuid.uuid4().hex[:10]}", timeout=10))
+        finally:
+            client.close()
+        time.sleep(0.3)
+        seen = mitm.stats()
+        control_client = RustCheckpointClient(service, identity, port=mitm.port, root=pki.foreign_ca.cert)
+        try:
+            control_client.outcome(lambda: control_client.commit(f"s13d-tl3-control-{uuid.uuid4().hex[:8]}", timeout=5))
+        finally:
+            control_client.close()
+        time.sleep(0.3)
+        after_control = mitm.stats()
+    finally:
+        mitm.close()
+    completed = after_control["handshakes_completed"] > seen["handshakes_completed"]
+    rows.append(authz_row("TL3", "tampered_request", "rust-tls", "A man in the middle presents a server certificate that is not from the server CA: the client refuses before it sends a request.",
+                          "rejected_unchanged", "trainer (client) against a foreign-CA server certificate", tl3_verdict(result, seen, completed),
+                          True, codes=("UNAVAILABLE",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, credential_issuer=pki_tools.ISSUER_OPENSSL,
+                          evidence=[f"man in the middle saw {seen}"]))
+    rows.append(authz_row("TL3-control", "control", "rust-tls", "The same server certificate completes a handshake with a client that trusts its CA (positive control: the refusal above is about the CA).",
+                          "positive_control", "trainer (client) trusting the foreign CA", {"observed": "accepted" if completed else "rejected", "code": "OK" if completed else "UNAVAILABLE",
+                                                                                          "message": "the handshake completed" if completed else "the handshake did not complete"},
+                          True, credential_issuer=pki_tools.ISSUER_OPENSSL, evidence=[f"man in the middle saw {after_control}"]))
+    return rows
+
+
+def authz_gaps(rows: list[dict], static: list[dict]) -> list[dict]:
+    """The gap table of AUTHZ: the stage 9 gaps that a row of this record exercised, and the two records it extends."""
+    gaps = [gap for gap in gap_table(rows, static) if gap["rows"]]
+    gaps.append({"id": "UPDSEC-20261116", "status": "cited", "claimed_status": "cited", "rows": [], "rows_that_ran": [], "rows_unmet": [], "static": [],
+                 "reason": "The Go-era record: guarded-update and authentication rows against the Python services. This record repeats its authentication classes against the Rust stack."})
+    gaps.append({"id": "UPDSEC-20261117", "status": "cited", "claimed_status": "cited", "rows": [], "rows_that_ran": [], "rows_unmet": [], "static": [],
+                 "reason": "The Rust-stack record. Its nine V3 rows that were not_run without the standard packages (T7, T9, T10, R8-wrong-pin, R8-not-allowlisted, I3, X1, X1b, X1c) are run here."})
+    return gaps
+
+
+def authz_record(args, rows: list[dict], pki, static: list[dict], commands: list[str], not_established: list[str], logs: str) -> dict:
+    """The record of one run, with the shared Stage 13 header (`schema`, `study_id`, `chain`, `build`, `host`, ...)."""
+    import platform
+
+    today = time.strftime("%Y%m%d", time.gmtime())
+    summary = summarize(rows)
+    branch = subprocess.run(["git", "branch", "--show-current"], cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.strip()
+    skipped = [row["id"] for row in rows if row["observed"] in report_tools.NOT_RUN_OUTCOMES]
+    return {
+        "schema": report_tools.AUTHZ_SCHEMA, "study_id": f"{AUTHZ_RECORD_PREFIX}-{today}", "id": f"{AUTHZ_RECORD_PREFIX}-{today}",
+        "title": "Authentication and authorisation against the Rust stack", "target": "rust", "service": "authz",
+        "chain": {"threat": "An attacker with no credentials, wrong credentials or stolen low-privilege credentials.",
+                  "defense": "Mutual TLS with the rustls verifier and CRL hot reload; the registry; the role policy; the RPC surface; the V3 store's application checks.",
+                  "experiment": "Negative rows from a host Python client against the Rust containers on loopback.",
+                  "metric": "For each attack, denial (required) and the denying layer (denied_by).",
+                  "evidence": f"{AUTHZ_RECORD_PREFIX}-{today}"},
+        "build": {"branch": branch, "sha": git_revision(), "clean": tree_is_clean()},
+        "host": {"python": sys.version.split()[0], "platform": platform.platform(), "grpc": __import__("grpc").__version__,
+                 "openssl": subprocess.run([pki_tools.find_openssl(), "version"], text=True, stdout=subprocess.PIPE).stdout.strip(),
+                 "images": {"model-streaming": args.rust_image, "param-update": args.rust_update_image, "telemetry": args.rust_telemetry_image}},
+        "run_dates": [time.strftime("%Y-%m-%d", time.gmtime())], "commands": [" ".join(sys.argv), *commands],
+        "scope_label": sorted({row["scope_label"] for row in rows}), "not_established": not_established, "user_actions": [],
+        "generated_unix": int(time.time()), "revision": git_revision(),
+        "fixture": {"legacy_model": LEGACY_MODEL, "v3_model": V3_MODEL, "standard_v3_packages": "absent" if args.no_v3 else "present"},
+        "credential_issuers": dict(sorted(pki.issuers.items())), "attack_map": [{"attack": name, "rows": list(matchers), "cross_references": list(cross)}
+                                                                          for name, matchers, cross in report_tools.S13D_ATTACKS],
+        "rows_not_run": skipped, "attacks": rows, "summary": summary, "static_evidence": static, "gaps": authz_gaps(rows, static),
+        "coverage": report_tools.s13d_coverage({"attacks": rows}), "container_log_tail": logs[-2000:],
+    }
+
+
+def run_authz_rows(args, work: Path, pki, models_dir: Path, release_dir: Path) -> tuple[list[dict], str]:
+    """Every family of 13d-1a, each against its own container, started and stopped in turn."""
+    rows: list[dict] = []
+    model = RustService(work, pki, models_dir.resolve(), release_dir.resolve(), image=args.rust_image, binary=None, no_v3=args.no_v3)
+    try:
+        model.start()
+        model.post_check = lambda: alive(lambda: model_health(model))
+        produced = run_rust_rows(model, models_dir, release_dir)
+        for label, port in (("public", model.public_port), ("internal", model.internal_port)):
+            produced.append(plaintext_row(f"R6-model-main-{label}", f"A plaintext call to the {label} model-streaming port.", "rust-public", port, "model"))
+        logs = model.logs()
+    finally:
+        model.stop()
+    for row in produced:
+        row["service"] = "model-streaming"
+    rows.extend(produced)
+    for label, produce in (("telemetry", lambda: run_telemetry_rows(args, work, pki)),
+                           ("model-streaming", lambda: run_x13_rows(args, work, pki, models_dir.resolve(), release_dir.resolve(), no_v3=args.no_v3)),
+                           ("param-update", lambda: run_checkpoint_rows(args, work, pki))):
+        produced = produce()
+        for row in produced:
+            row["service"] = label
+        rows.extend(produced)
+    return rows, logs
+
+
+def run_authz_target(args) -> int:
+    """`--target rust --rust-service authz`: the whole 13d-1a row set against the Rust containers on loopback, one record."""
+    if args.pki_binary is None and args.pki_linux_binary is None:
+        print("name the privoke-pki build: --pki-binary (a host executable) or --pki-linux-binary (run in a container)", file=sys.stderr)
+        return 2
+    release_dir = args.release_dir
+    if not args.no_v3 and not release_dir.is_dir():
+        print(f"standard release store not found: {release_dir} (pass --no-v3 when the packages are unavailable)", file=sys.stderr)
+        return 2
+    scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
+    work = Path(tempfile.mkdtemp(prefix="updsec-authz-", dir=scratch_parent))
+    try:
+        if args.no_v3:
+            release_dir = work / "no-v3-releases"
+            release_dir.mkdir()
+        release_before = release_fingerprint(release_dir)
+        pki_root = work / "pki-root"
+        pki_root.mkdir()
+        tool = pki_tools.PkiTool(pki_root, binary=args.pki_binary, linux_binary=args.pki_linux_binary, runner_image=args.pki_runner_image)
+        pki = pki_tools.PrivokePki(pki_root, tool)
+        models_dir = work / "models"
+        models_dir.mkdir()
+        shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", models_dir / f"{LEGACY_MODEL}.json")
+        rows, logs = run_authz_rows(args, work, pki, models_dir, release_dir)
+        static = rust_static_evidence()
+        not_established = [
+            "CK8 and the positive controls (a publisher's applied commit and rollback, a runtime's accepted stage) need the genuine real-weight 13c candidate; "
+            "they are not_run, pending 13d-1b.",
+            "Application-level replay and tamper are the 13c rows C2a, C2b and C9, cross-referenced here, not repeated.",
+            "The store-unchanged half of the TL1, TL2 and CK rows is vacuous until 13d-1b: the store is empty, so an admitted request and a refused one leave "
+            "the same state. TL1-candidate, on a valid 13c candidate, is pending 13d-1b.",
+            "The TL rows show that the TLS record layer refuses replayed and altered bytes; they say nothing about the supervisor's client admission (13c).",
+        ]
+        if args.no_v3:
+            not_established.append("The standard V3 packages were absent: the rows that need them are not_run and are not evidence.")
+        rows = finalize_authz_rows(rows, pki)
+        record = authz_record(args, rows, pki, static, tool.commands, not_established, logs)
+        record["standard_release_store_unchanged"] = release_before == release_fingerprint(release_dir)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    summary, coverage = record["summary"], record["coverage"]
+    print(f"{summary['total_rows']} rows ({len(record['rows_not_run'])} not run); property unmet: {summary['property_unmet_ids']}; "
+          f"coverage problems: {coverage['problems']}; unmet (not_denied): {coverage['unmet_properties']}; pending 13d-1b: {coverage['pending_13d_1b']}")
+    return 0 if not summary["property_unmet_ids"] and coverage["ok"] and record["standard_release_store_unchanged"] else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", choices=("go", "rust"), default="go",
@@ -2710,9 +3384,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rust-image", default=RUST_DEFAULT_IMAGE, help="--target rust: the built Rust model-streaming image")
     parser.add_argument("--rust-binary", type=Path, default=None,
                         help="--target rust: run this host binary instead of the container (development only; the stage 3 gate uses the container)")
-    parser.add_argument("--rust-service", choices=("model-streaming", "param-update", "all", "client-lineage"), default="model-streaming",
+    parser.add_argument("--rust-service", choices=("model-streaming", "param-update", "all", "client-lineage", "authz"), default="model-streaming",
                         help="--target rust: which Rust service's rows to run (model-streaming: stage 3, the default; param-update: stage 5; "
-                             "all: the whole stack, stage 9; client-lineage: the V3-R4a supervisor lineage rows)")
+                             "all: the whole stack, stage 9; client-lineage: the V3-R4a supervisor lineage rows; "
+                             "authz: stage 13d, authentication and authorisation with the denying layer of every row)")
+    parser.add_argument("--pki-binary", type=Path, default=None, help="--rust-service authz: a host `privoke-pki` executable")
+    parser.add_argument("--pki-linux-binary", type=Path, default=None,
+                        help="--rust-service authz: a Linux `privoke-pki` build (for example rust/target-docker/release/privoke-pki), run in a container")
+    parser.add_argument("--pki-runner-image", default=pki_tools.PKI_RUNNER_IMAGE, help="--rust-service authz: the image that runs --pki-linux-binary")
     parser.add_argument("--lineage-rows", type=Path, default=None,
                         help="--rust-service client-lineage: the rows file the Rust lineage tests wrote (PRIVOKE_LINEAGE_ROWS_OUT); "
                              "without it the target runs the tests with cargo itself")
@@ -2729,6 +3408,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.target == "rust" and args.rust_service == "authz":
+        args.output = args.output or ROOT / ".tmp/update-security-rust-authz.json"
+        return run_authz_target(args)
     if args.target == "rust" and args.rust_service == "all":
         args.output = args.output or ROOT / ".tmp/update-security-rust-stack.json"
         return run_stack_target(args)
