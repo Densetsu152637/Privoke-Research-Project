@@ -379,6 +379,7 @@ The user stated that nginx is not needed because the system uses microservices, 
 - **Rule for every sub-stage:** each experiment answers one named security or privacy question in the paper, and its record follows the chain Threat → Defense → Experiment → Metric → Evidence. No experiment is added only to increase the result count.
 - **Priority order:** 13a, 13b, 13c, 13d, then 13e and 13f if time allows. The supervisor most strongly wants 13a–13d before submission.
 - **Relation to earlier stages:** 13a extends Stage 8; 13b extends Stage 3; 13c and 13d extend Stage 4 and re-run it against the Rust stack, whose mTLS and PKI address the missing mechanisms that Stage 4 recorded.
+- **Implementation plan:** [asiaccs-stage13-experiments.md](asiaccs-stage13-experiments.md). It covers the sub-stage split into agent-run and user-attended parts, the build each sub-stage measures and the branch strategy, the 13c attack-to-check map, the open decisions, and the paper integration with the Stage 9 repeat. This section stays the requirement; the plan says how to carry it out. On PKI: the plan issues the legitimate 13d identities with `privoke-pki` and creates the deliberately invalid ones (expired, foreign CA, no client-auth EKU) with the OpenSSL helper of `evaluation/update_security_pki.py`.
 
 ### 13a: Independent human-annotated contextual privacy test set
 
