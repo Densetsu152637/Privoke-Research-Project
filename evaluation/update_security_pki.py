@@ -379,7 +379,7 @@ class PrivokePki:
 # TLS record tools for the TL rows: a recording and tampering loopback proxy, a raw replay, a man in the middle
 # --------------------------------------------------------------------------------------
 
-TLS_APPLICATION = 23
+TLS_HANDSHAKE, TLS_APPLICATION = 22, 23
 TLS_CONTENT_TYPES = (20, 21, 22, 23)
 ALERT_RECORD_MAX = 32  # an encrypted TLS 1.3 alert is 24 bytes (5 header, 2 alert, 1 inner type, 16 tag)
 
@@ -403,13 +403,16 @@ def stream_stats(data: bytes) -> dict:
     records = tls_records(data)
     application = [length for content_type, _, length in records if content_type == TLS_APPLICATION]
     return {"bytes": len(data), "records": len(records), "application_records": len(application), "application_bytes": sum(application),
-            "last_record_bytes": records[-1][2] if records else 0}
+            "last_record_bytes": records[-1][2] if records else 0, "first_record_type": records[0][0] if records else None}
 
 
 def replay_refused(original: dict, replay: dict, closed: bool) -> bool:
     """A replayed ClientHello gets a fresh server random, so the recorded Finished cannot verify and the server aborts with an alert. The
-    replay is refused when the server closed the connection, the last thing it sent was an alert-sized record, and it sent less
-    protected data than it did for the original exchange (no post-handshake tickets and no HTTP/2 response, so no receipt)."""
+    replay is refused when the server answered at all (the stream starts with a handshake record and holds at least two records, so a
+    silent or empty stream is not a refusal), closed the connection, ended with an alert-sized record, and sent less protected data
+    than it did for the original exchange (no post-handshake tickets and no HTTP/2 response, so no receipt)."""
+    if replay.get("first_record_type") != TLS_HANDSHAKE or replay.get("records", 0) < 2:
+        return False
     return bool(closed and replay["last_record_bytes"] <= ALERT_RECORD_MAX and replay["application_bytes"] < original["application_bytes"])
 
 

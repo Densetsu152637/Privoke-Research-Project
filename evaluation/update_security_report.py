@@ -30,6 +30,7 @@ LAYER_CODES = {"tls_handshake": HANDSHAKE_CODES, "revocation": HANDSHAKE_CODES, 
                "role_policy": frozenset({"PERMISSION_DENIED"}), "rpc_surface": frozenset({"UNIMPLEMENTED"}), "not_denied": frozenset({"OK"})}
 # Rows whose request reached (or could reach) a handler carry a layer; a row that asserts a property of a log or a process does not.
 LAYERED_EXPECTATIONS = ("rejected_unchanged", "positive_control")
+UNCLASSIFIED = "unknown"  # a refusal whose layer the harness could not identify: recorded, never counted, always a problem
 NOT_RUN_OUTCOMES = ("not_run", "not_applicable")
 CREDENTIAL_ISSUERS = ("privoke-pki", "openssl-helper", "none")
 SCOPE_LABELS = ("product pipeline (in-process)", "product pipeline (installed extension, end to end)", "LLM-only (semantic)",
@@ -37,7 +38,7 @@ SCOPE_LABELS = ("product pipeline (in-process)", "product pipeline (installed ex
 RECORD_HEADER = ("schema", "study_id", "chain", "build", "host", "run_dates", "commands", "scope_label", "not_established", "user_actions")
 CROSS_REFERENCED_RECORDS = ("UPDSEC-20261116", "UPDSEC-20261117")
 # Rows that need the genuine 13c candidate; they are recorded as not_run (pending 13d-1b), never as a failure.
-PENDING_13D_1B = ("CK8", "CK-positive-publisher-commit", "CK-positive-publisher-rollback", "CK-positive-runtime-stage")
+PENDING_13D_1B = ("TL1-candidate", "CK8", "CK-positive-publisher-commit", "CK-positive-publisher-rollback", "CK-positive-runtime-stage")
 # (attack, row matchers (exact id or fnmatch pattern), cross-references to the 13c record that AUTHZ cites)
 S13D_ATTACKS = (
     ("Invalid credentials", ("R3-*", "R4", "R4-self-signed"), ()),
@@ -67,6 +68,8 @@ def denied_by_problems(row: dict) -> list[str]:
         return [f"{row['id']}: a row that did not run carries denied_by {layer!r}"] if layer is not None else []
     if expected not in LAYERED_EXPECTATIONS:
         return [f"{row['id']}: a property row carries denied_by {layer!r}"] if layer is not None else []
+    if layer == UNCLASSIFIED:
+        return [f"{row['id']}: the denying layer could not be identified (code {code})"]
     if layer not in DENIED_BY:
         return [f"{row['id']}: denied_by {layer!r} is not in the vocabulary"]
     allowed = LAYER_CODES.get(layer)
@@ -88,7 +91,7 @@ def s13d_coverage(record: dict) -> dict:
     attacks, problems = [], []
     for name, matchers, cross in S13D_ATTACKS:
         matched = [row for row in rows if any(fnmatch.fnmatchcase(row["id"], matcher) for matcher in matchers)]
-        counted = [row for row in matched if row_ran(row) and row.get("denied_by") in DENIED_BY]
+        counted = [row for row in matched if row_ran(row) and row.get("expected") == "rejected_unchanged" and row.get("denied_by") in DENIED_BY]
         attacks.append({"attack": name, "matchers": list(matchers), "rows": [row["id"] for row in matched], "counted": [row["id"] for row in counted],
                         "denied_by": sorted({row["denied_by"] for row in counted}), "cross_references": list(cross), "covered": bool(counted)})
         if not counted:

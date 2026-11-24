@@ -1484,6 +1484,8 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
             client.close()
         unchanged = snapshot_store() == before
         result.pop("response", None)
+        if getattr(service, "post_check", None) and result.get("code") == "UNAVAILABLE":  # stage 13d: a refusal needs a live service
+            result = refused_with_service_down(result, service.post_check())
         rows.append({"id": row_id, "class": cls, "path": path, "description": description, "expected": expected, "observed": result["observed"],
                      "code": result["code"], "message": result["message"], "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None,
                      "identity": identity or "no client certificate", "property_met": evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged),
@@ -2064,6 +2066,15 @@ def revoke_certificate(authority, label: str) -> bytes:
     return (authority.dir / "crl.pem").read_bytes()
 
 
+def alive(probe) -> bool:
+    """Whether a call from a valid identity still succeeds (the service is up)."""
+    try:
+        probe()
+        return True
+    except Exception:  # noqa: BLE001 - any failure means not alive
+        return False
+
+
 def plaintext_row(row_id: str, description: str, path: str, port: int, kind: str, *, gap: str = "GAP-LOOPBACK-PLAINTEXT-POLICY") -> dict:
     """R6: a call without TLS to a mutual-TLS listener must fail at the connection, never reach a handler."""
     import grpc
@@ -2167,7 +2178,7 @@ class RustTelemetryClient:
             return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
 
 
-def run_telemetry_rows(args, work: Path, pki: RustStackPki) -> list[dict]:
+def run_telemetry_rows(args, work: Path, pki: RustStackPki, *, check_alive: bool = False) -> list[dict]:
     """R10 and the telemetry half of R6 against the Rust telemetry container. The "store unchanged" check is the exact sample count."""
     rows: list[dict] = []
     service = RustTelemetryService(work, pki, image=args.rust_telemetry_image)
@@ -2191,6 +2202,8 @@ def run_telemetry_rows(args, work: Path, pki: RustStackPki) -> list[dict]:
                 result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
             finally:
                 client.close()
+            if check_alive and result.get("code") == "UNAVAILABLE":  # stage 13d: a refusal needs a live service
+                result = refused_with_service_down(result, alive(samples))
             unchanged = samples() == before
             rows.append({"id": row_id, "class": "unauthorized_retrieval" if "summary" in row_id else "invalid_credentials", "path": "rust-telemetry",
                          "description": description, "expected": expected, "observed": result["observed"], "code": result["code"], "message": result["message"],
@@ -2532,7 +2545,7 @@ def run_stack_target(args) -> int:
         model.stop()
     for row in rows:
         row["service"] = "model-streaming"
-    for label, produce in (("param-update", lambda: run_rust_update_rows(args, work, pki)), ("telemetry", lambda: run_telemetry_rows(args, work, pki)),
+    for label, produce in (("param-update", lambda: run_rust_update_rows(args, work, pki)), ("telemetry", lambda: run_telemetry_rows(args, work, pki, check_alive=True)),
                            ("model-streaming", lambda: run_x13_rows(args, work, pki, models_dir.resolve(), release_dir.resolve())),
                            ("startup", lambda: run_startup_rows(args, pki, work))):
         produced = produce()
@@ -2752,6 +2765,7 @@ SURFACE_MESSAGE = "method is not served on this listener"
 
 # Rows that do not exist until 13c-2 has produced the genuine candidate. They are listed so that the record names what is pending.
 PENDING_ROWS = (
+    ("TL1-candidate", "replayed_request", "The recorded TLS 1.3 bytes of an authenticated CommitCandidate that carries a valid 13c candidate, replayed on a new connection: the store-unchanged half is not vacuous."),
     ("CK8", "impersonation", "CommitCandidate from a valid trainer carrying a valid 13c candidate with an unallocated request id (application layer; cross-identity misuse)."),
     ("CK-positive-publisher-commit", "control", "A publisher commits an allocated valid candidate (applied)."),
     ("CK-positive-publisher-rollback", "control", "A publisher rolls back to the pin (applied)."),
@@ -2760,9 +2774,15 @@ PENDING_ROWS = (
 PENDING_REASON = "pending 13d-1b: needs the genuine real-weight candidate, its rejection-only derivatives and the s13c_journal_seed allocation helper, which 13c-2 exports"
 
 
+UNKNOWN_LAYER = report_tools.UNCLASSIFIED
+# Statuses the stores and services themselves produce for a request that got past the transport's authorisation.
+APPLICATION_CODES = frozenset({"NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION", "ALREADY_EXISTS", "OUT_OF_RANGE", "RESOURCE_EXHAUSTED", "ABORTED"})
+
+
 def observed_layer(row: dict) -> str | None:
     """The layer that refused the request, from what the harness observed: the status code, and for the authorisation layer's
-    PERMISSION_DENIED the message that tells the registry from the role policy. `None` when no request was refused."""
+    PERMISSION_DENIED and UNIMPLEMENTED the message that identifies the layer. A status nothing here recognises is `unknown`, never
+    `application`. `None` when no request was refused."""
     if row.get("observed") in report_tools.NOT_RUN_OUTCOMES:
         return None
     if row.get("observed") == "accepted":
@@ -2775,29 +2795,63 @@ def observed_layer(row: dict) -> str | None:
             return ROLE
         if any(text in message for text in REGISTRY_MESSAGES):
             return REGISTRY
-        return APPLICATION
+        return APPLICATION if CLAIM_MESSAGE in message else UNKNOWN_LAYER
     if code == "UNIMPLEMENTED":
-        return SURFACE
-    return APPLICATION
+        return SURFACE if SURFACE_MESSAGE in message else UNKNOWN_LAYER
+    return APPLICATION if code in APPLICATION_CODES else UNKNOWN_LAYER
 
 
-def claimed_layer(row_id: str) -> str | None:
-    """The layer a row expects to refuse its request (every plaintext R6 row expects the TLS layer)."""
-    return CLAIMED_LAYER.get(row_id, TLS if row_id.startswith("R6-") else None)
+REVOCATION_BASELINES = {"CK6": "CK6-baseline"}
 
 
-def assign_denied_by(row: dict) -> tuple[str | None, bool]:
+def revocation_corroborated(row: dict, rows: list[dict]) -> bool:
+    """A TLS refusal is a revocation only when the same identity was served before the CRL changed: its baseline row was accepted."""
+    baseline = REVOCATION_BASELINES.get(row["id"]) or (f"X13-baseline-{row.get('identity')}" if row["id"].startswith("X13-") else None)
+    return any(other["id"] == baseline and other["observed"] == "accepted" for other in rows)
+
+
+def assign_denied_by(row: dict, rows: list[dict] = ()) -> tuple[str | None, bool]:
     """(the layer to record, whether it contradicts the row's claim). Rows that assert a property of a log or a process carry none.
-    A TLS refusal of a row that claims `revocation` is revocation: the handshake is the same, the claim names why the certificate failed."""
+    A TLS refusal of a row that claims `revocation` is revocation only with corroboration (see `revocation_corroborated`); without it
+    the layer stays `tls_handshake` and contradicts the claim."""
     if row.get("expected") not in report_tools.LAYERED_EXPECTATIONS:
         return None, False
     layer = observed_layer(row)
     if layer is None or row.get("expected") == "positive_control":
         return layer, False
     claim = claimed_layer(row["id"])
-    if claim == REVOCATION and layer == TLS:
+    if claim == REVOCATION and layer == TLS and revocation_corroborated(row, rows):
         layer = REVOCATION
-    return layer, bool(claim) and layer not in (claim, NOT_DENIED)
+    return layer, layer == UNKNOWN_LAYER or (bool(claim) and layer not in (claim, NOT_DENIED))
+
+
+def model_health(service) -> None:
+    client = RustClient(service, "registered")
+    try:
+        if client.models.Health(client.pb.HealthRequest(), timeout=5).status != "SERVING":
+            raise RuntimeError("not serving")
+    finally:
+        client.close()
+
+
+def checkpoint_health(service, identity: str = "publisher") -> None:
+    client = RustCheckpointClient(service, identity)
+    try:
+        client.health(timeout=5)
+    finally:
+        client.close()
+
+
+def refused_with_service_down(result: dict, alive: bool) -> dict:
+    """A handshake refusal only counts when a valid identity can still reach the service afterwards; otherwise the service was down."""
+    if result.get("code") == "UNAVAILABLE" and not alive:
+        return harness_error("the service did not answer a valid identity after the row, so the refusal proves nothing")
+    return result
+
+
+def claimed_layer(row_id: str) -> str | None:
+    """The layer a row expects to refuse its request (every plaintext R6 row expects the TLS layer)."""
+    return CLAIMED_LAYER.get(row_id, TLS if row_id.startswith("R6-") else None)
 
 
 def credential_issuer_of(identity: str | None, pki) -> str:
@@ -2815,18 +2869,19 @@ def finalize_authz_rows(rows: list[dict], pki) -> list[dict]:
         row.setdefault("scope_label", AUTHZ_RECORD_SCOPE_LABELS[1] if checkpoint else AUTHZ_RECORD_SCOPE_LABELS[0])
         row.setdefault("credential_issuer", credential_issuer_of(row.get("identity"), pki))
         if row.get("denied_by") is None:
-            layer, mismatch = assign_denied_by(row)
+            layer, mismatch = assign_denied_by(row, rows)
             row["denied_by"] = layer
             if mismatch:
                 row["property_met"] = False
-                row["message"] = f"{row['message']} [the denying layer is {layer}, not the claimed {claimed_layer(row['id'])}]"
+                row["message"] = f"{row['message']} [the denying layer is {layer}, not the claimed {claimed_layer(row['id'])}, or is not corroborated]"
     return rows
 
 
 def pending_rows() -> list[dict]:
-    return [{"id": row_id, "class": cls, "path": "rust-checkpoint", "description": text, "expected": "rejected_unchanged" if row_id == "CK8" else "positive_control",
+    return [{"id": row_id, "class": cls, "path": "rust-tls" if row_id.startswith("TL") else "rust-checkpoint", "description": text,
+             "expected": "rejected_unchanged" if row_id in ("CK8", "TL1-candidate") else "positive_control",
              "observed": "not_run", "code": "NOT_RUN", "message": PENDING_REASON, "model_unchanged": None, "expected_codes": None,
-             "identity": "trainer" if row_id == "CK8" else "publisher" if "publisher" in row_id else "runtime", "property_met": None, "gap": None, "evidence": [],
+             "identity": "trainer" if row_id in ("CK8", "TL1-candidate") else "publisher" if "publisher" in row_id else "runtime", "property_met": None, "gap": None, "evidence": [],
              "duration_s": 0.0, "denied_by": None, "credential_issuer": pki_tools.ISSUER_PKI} for row_id, cls, text in PENDING_ROWS]
 
 
@@ -2944,8 +2999,11 @@ def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | 
             result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
         finally:
             client.close()
+        if result.get("code") == "UNAVAILABLE":  # a refused handshake counts only when a valid identity still reaches the service
+            result = refused_with_service_down(result, alive(lambda: checkpoint_health(service)))
         unchanged = checkpoint_state(service, request_id) == before and before[0] == "unknown"
-        rows.append(authz_row(row_id, cls, path, description, expected, identity, result, unchanged, codes=codes, gap=gap, started=started))
+        rows.append(authz_row(row_id, cls, path, description + (f" {VACUOUS_STORE_NOTE}" if expected == "rejected_unchanged" else ""), expected, identity, result,
+                              unchanged, codes=codes, gap=gap, started=started))
 
     commit = lambda client, request_id: client.commit(request_id)  # noqa: E731
     try:
@@ -2985,7 +3043,7 @@ def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | 
             if result["observed"] == "rejected" and result["code"] == "UNAVAILABLE":
                 break
             time.sleep(0.5)
-        rows.append(authz_row("CK6", "unauthorized_publication", path, "CommitCandidate from a revoked trainer after an atomic CRL swap, with no restart.", "rejected_unchanged",
+        rows.append(authz_row("CK6", "unauthorized_publication", path, "CommitCandidate from a revoked trainer after an atomic CRL swap, with no restart. " + VACUOUS_STORE_NOTE, "rejected_unchanged",
                               "ck-revoked-trainer", result, checkpoint_state(service, request_id) == before and before[0] == "unknown", codes=refused,
                               gap="GAP-NO-REVOCATION", started=started))
 
@@ -3004,7 +3062,7 @@ def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | 
                 if result["observed"] == "rejected" and result["code"] == "PERMISSION_DENIED":
                     break
                 time.sleep(0.5)
-            rows.append(authz_row("CK7", "unauthorized_publication", path, "CommitCandidate from a deny-listed trainer on a connection that was already open.", "rejected_unchanged",
+            rows.append(authz_row("CK7", "unauthorized_publication", path, "CommitCandidate from a deny-listed trainer on a connection that was already open. " + VACUOUS_STORE_NOTE, "rejected_unchanged",
                                   "ck-denied-trainer", result, checkpoint_state(service, request_id) == before and before[0] == "unknown", codes=denied,
                                   gap="GAP-NO-REVOCATION", started=started))
         finally:
@@ -3021,13 +3079,69 @@ def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | 
     return rows
 
 
+VACUOUS_STORE_NOTE = ("The store-unchanged check is vacuous until 13d-1b: the store is empty, so an admitted request and a refused one leave the same state.")
+STORE_ANSWER_CODE = "NOT_FOUND"  # what the empty store answers to a commit of a candidate that was never staged ("Checkpoint object is not in this private catalog.")
+
+
+def reached_the_store(result: dict) -> bool:
+    """The request got past TLS, the registry and the role policy and was answered by the store itself."""
+    return result["observed"] == "rejected" and result["code"] == STORE_ANSWER_CODE
+
+
+def harness_error(message: str) -> dict:
+    return {"observed": "not_run", "code": "HARNESS_ERROR", "message": message}
+
+
+def tl1_verdict(original: dict, original_stats: dict, replay: dict, clean_after: dict) -> dict:
+    """TL1: refused only when the replayed bytes got a TLS refusal, the original really reached the store, and a fresh clean exchange
+    afterwards still works (otherwise the service was down and the silence proves nothing: a harness error, not a refusal)."""
+    if not reached_the_store(clean_after):
+        return harness_error(f"the clean exchange after the replay failed ({clean_after['code']}), so the replay result proves nothing")
+    if not reached_the_store(original):
+        return harness_error(f"the original exchange never reached the store ({original['code']})")
+    if pki_tools.replay_refused(original_stats, replay["stats"], replay["closed"]):
+        return {"observed": "rejected", "code": "CONNECTION_ABORTED", "message": "the recorded bytes got a TLS alert and no response"}
+    return {"observed": "accepted", "code": "OK", "message": "the server answered the replayed bytes"}
+
+
+def tl2_variant_aborted(flipped: bool, result: dict) -> bool:
+    return bool(flipped and result["observed"] == "rejected" and result["code"] == "UNAVAILABLE")
+
+
+def tl2_verdict(variants: list[dict]) -> dict:
+    """TL2: every tested variant flipped a bit, aborted with UNAVAILABLE and was followed by a clean exchange that reached the store."""
+    if not variants:
+        return harness_error("no request record was tested")
+    if not all(item["control_ok"] for item in variants):
+        return harness_error("a clean exchange after a variant failed, so the variant result proves nothing")
+    if all(item["aborted"] for item in variants):
+        return {"observed": "rejected", "code": "CONNECTION_ABORTED", "message": f"every one-bit change to the {len(variants)} request records tested aborted the connection"}
+    return {"observed": "accepted", "code": "OK", "message": f"a tampered request was not aborted (of {len(variants)} records tested)"}
+
+
+def tl3_verdict(result: dict, seen: dict, control_completed: bool) -> dict:
+    """TL3: the client refused (UNAVAILABLE) after the man in the middle saw a failed handshake and no request byte; it counts only when the
+    same certificate completes a handshake with a client that trusts its CA."""
+    if not control_completed:
+        return harness_error("the control handshake with the foreign CA did not complete, so the refusal is not about the CA")
+    refused = (result["observed"] == "rejected" and result["code"] == "UNAVAILABLE" and seen["handshakes_failed"] >= 1
+               and seen["handshakes_completed"] == 0 and seen["application_bytes"] == 0)
+    if refused:
+        return {"observed": "rejected", "code": "UNAVAILABLE", "message": "the client refused the server certificate"}
+    return {"observed": "accepted", "code": "OK", "message": "the client talked to the man in the middle, or no failed handshake was seen"}
+
+
 def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
     """TL1 to TL3: the attacker is on the network path, holds no key, and can record, replay and corrupt bytes."""
     rows: list[dict] = []
-    path, identity = "rust-checkpoint", "trainer"
+    identity = "trainer"
 
-    def reached_the_store(result: dict) -> bool:
-        return result["observed"] == "rejected" and result["code"] not in ("UNAVAILABLE", "PERMISSION_DENIED", "UNIMPLEMENTED", "UNAUTHENTICATED")
+    def clean_exchange() -> dict:
+        client = RustCheckpointClient(service, identity)
+        try:
+            return client.outcome(lambda: client.commit(f"s13d-clean-{uuid.uuid4().hex[:10]}"))
+        finally:
+            client.close()
 
     # TL1: record an authenticated CommitCandidate through the proxy, then replay the recorded client bytes on a new connection.
     started, request_id = time.time(), f"s13d-tl1-{uuid.uuid4().hex[:10]}"
@@ -3044,19 +3158,17 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
     sent, answered = proxy.captured()
     replay = pki_tools.replay_bytes(service.port, sent, wait=TL_WAIT_SECONDS)
     original_stats = pki_tools.stream_stats(answered)
-    refused = pki_tools.replay_refused(original_stats, replay["stats"], replay["closed"])
+    clean_after = clean_exchange()
     unchanged = checkpoint_state(service, request_id) == before and before[0] == "unknown"
-    verdict = {"observed": "rejected" if refused else "accepted", "code": "CONNECTION_ABORTED" if refused else "OK",
-               "message": "the recorded bytes got a TLS alert and no response" if refused else "the server answered the replayed bytes"}
-    row = authz_row("TL1", "replayed_request", "rust-tls", "The recorded TLS 1.3 bytes of an authenticated CommitCandidate, replayed on a new connection (no receipt).",
-                    "rejected_unchanged", identity, verdict, unchanged, codes=("CONNECTION_ABORTED",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started,
-                    evidence=[f"original reached the store: {reached_the_store(original)} ({original['code']})", f"original server stream: {original_stats}",
-                              f"replay sent {len(sent)} bytes; server stream: {replay['stats']}; closed: {replay['closed']}"])
-    row["property_met"] = bool(row["property_met"] and reached_the_store(original))
-    rows.append(row)
+    rows.append(authz_row("TL1", "replayed_request", "rust-tls",
+                          f"The recorded TLS 1.3 bytes of an authenticated CommitCandidate, replayed on a new connection (no receipt). {VACUOUS_STORE_NOTE}",
+                          "rejected_unchanged", identity, tl1_verdict(original, original_stats, replay, clean_after), unchanged, codes=("CONNECTION_ABORTED",),
+                          gap="GAP-NO-CREDENTIAL-MECHANISM", started=started,
+                          evidence=[f"original: {original['code']}; clean exchange after the replay: {clean_after['code']}", f"original server stream: {original_stats}",
+                                    f"replay sent {len(sent)} bytes; server stream: {replay['stats']}; closed: {replay['closed']}"]))
 
-    # TL2: flip one bit of the ciphertext of each client record the request depends on, one connection per record.
-    started, variants, aborted_all, unchanged_all = time.time(), [], True, True
+    # TL2: flip one bit of the ciphertext of each client record the request depends on, one connection per record, each followed by a clean exchange.
+    started, variants, notes, unchanged_all = time.time(), [], [], True
     for record in range(1, min(max(request_records, 1), TL_TAMPER_LIMIT) + 1):
         request_id = f"s13d-tl2-{record}-{uuid.uuid4().hex[:8]}"
         before = checkpoint_state(service, request_id)
@@ -3067,14 +3179,16 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
         finally:
             client.close()
             proxy.close()
-        aborted = proxy.flipped and result["observed"] == "rejected" and result["code"] != original["code"]
+        control = clean_exchange()
         same = checkpoint_state(service, request_id) == before and before[0] == "unknown"
-        variants.append(f"record {record}: flipped={proxy.flipped} {result['code']} (the clean exchange: {original['code']}) store_unchanged={same}")
-        aborted_all, unchanged_all = aborted_all and aborted, unchanged_all and same
-    verdict = {"observed": "rejected" if aborted_all else "accepted", "code": "CONNECTION_ABORTED" if aborted_all else "OK",
-               "message": f"every one-bit change to the {len(variants)} request records aborted the connection" if aborted_all else "a tampered request was answered"}
-    rows.append(authz_row("TL2", "tampered_request", "rust-tls", "One bit flipped in each client record the request depends on, through a loopback proxy (the connection aborts, no receipt).",
-                          "rejected_unchanged", identity, verdict, unchanged_all, codes=("CONNECTION_ABORTED",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, evidence=variants))
+        variants.append({"aborted": tl2_variant_aborted(proxy.flipped, result), "control_ok": reached_the_store(control)})
+        notes.append(f"record {record}: flipped={proxy.flipped} {result['code']}; clean exchange after it: {control['code']}; store_unchanged={same}")
+        unchanged_all = unchanged_all and same
+    verdict = tl2_verdict(variants if reached_the_store(original) else [])
+    rows.append(authz_row("TL2", "tampered_request", "rust-tls",
+                          f"One bit flipped in each client record the request depends on, through a loopback proxy (the connection aborts, no receipt). {VACUOUS_STORE_NOTE}",
+                          "rejected_unchanged", identity, verdict, unchanged_all, codes=("CONNECTION_ABORTED",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started,
+                          evidence=notes))
 
     # TL3: a man in the middle presents a server certificate from a CA the client does not trust, for the right names.
     started = time.time()
@@ -3096,14 +3210,11 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
         after_control = mitm.stats()
     finally:
         mitm.close()
-    refused = result["observed"] == "rejected" and result["code"] == "UNAVAILABLE" and seen["application_bytes"] == 0 and seen["handshakes_completed"] == 0
+    completed = after_control["handshakes_completed"] > seen["handshakes_completed"]
     rows.append(authz_row("TL3", "tampered_request", "rust-tls", "A man in the middle presents a server certificate that is not from the server CA: the client refuses before it sends a request.",
-                          "rejected_unchanged", "trainer (client) against a foreign-CA server certificate",
-                          {"observed": "rejected" if refused else "accepted", "code": result["code"] if refused else "OK",
-                           "message": "the client refused the server certificate" if refused else "the client talked to the man in the middle"},
+                          "rejected_unchanged", "trainer (client) against a foreign-CA server certificate", tl3_verdict(result, seen, completed),
                           True, codes=("UNAVAILABLE",), gap="GAP-NO-CREDENTIAL-MECHANISM", started=started, credential_issuer=pki_tools.ISSUER_OPENSSL,
                           evidence=[f"man in the middle saw {seen}"]))
-    completed = after_control["handshakes_completed"] > seen["handshakes_completed"]
     rows.append(authz_row("TL3-control", "control", "rust-tls", "The same server certificate completes a handshake with a client that trusts its CA (positive control: the refusal above is about the CA).",
                           "positive_control", "trainer (client) trusting the foreign CA", {"observed": "accepted" if completed else "rejected", "code": "OK" if completed else "UNAVAILABLE",
                                                                                           "message": "the handshake completed" if completed else "the handshake did not complete"},
@@ -3158,6 +3269,7 @@ def run_authz_rows(args, work: Path, pki, models_dir: Path, release_dir: Path) -
     model = RustService(work, pki, models_dir.resolve(), release_dir.resolve(), image=args.rust_image, binary=None, no_v3=args.no_v3)
     try:
         model.start()
+        model.post_check = lambda: alive(lambda: model_health(model))
         produced = run_rust_rows(model, models_dir, release_dir)
         for label, port in (("public", model.public_port), ("internal", model.internal_port)):
             produced.append(plaintext_row(f"R6-model-main-{label}", f"A plaintext call to the {label} model-streaming port.", "rust-public", port, "model"))
@@ -3206,6 +3318,8 @@ def run_authz_target(args) -> int:
             "CK8 and the positive controls (a publisher's applied commit and rollback, a runtime's accepted stage) need the genuine real-weight 13c candidate; "
             "they are not_run, pending 13d-1b.",
             "Application-level replay and tamper are the 13c rows C2a, C2b and C9, cross-referenced here, not repeated.",
+            "The store-unchanged half of the TL1, TL2 and CK rows is vacuous until 13d-1b: the store is empty, so an admitted request and a refused one leave "
+            "the same state. TL1-candidate, on a valid 13c candidate, is pending 13d-1b.",
             "The TL rows show that the TLS record layer refuses replayed and altered bytes; they say nothing about the supervisor's client admission (13c).",
         ]
         if args.no_v3:

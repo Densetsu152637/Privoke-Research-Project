@@ -162,6 +162,12 @@ class DeniedByTests(unittest.TestCase):
                  ({"observed": "rejected", "code": "UNIMPLEMENTED", "message": "method is not served on this listener"}, "rpc_surface"),
                  ({"observed": "rejected", "code": "NOT_FOUND", "message": "x"}, "application"),
                  ({"observed": "rejected", "code": "INVALID_ARGUMENT", "message": "x"}, "application"),
+                 ({"observed": "rejected", "code": "FAILED_PRECONDITION", "message": "x"}, "application"),
+                 ({"observed": "rejected", "code": "UNKNOWN", "message": "x"}, "unknown"),
+                 ({"observed": "rejected", "code": "INTERNAL", "message": "x"}, "unknown"),
+                 ({"observed": "rejected", "code": "DEADLINE_EXCEEDED", "message": "x"}, "unknown"),
+                 ({"observed": "rejected", "code": "PERMISSION_DENIED", "message": "something else"}, "unknown"),
+                 ({"observed": "rejected", "code": "UNIMPLEMENTED", "message": "unrecognised"}, "unknown"),
                  ({"observed": "accepted", "code": "OK", "message": "x"}, "not_denied"),
                  ({"observed": "not_run", "code": "NOT_RUN", "message": "x"}, None)]
         for row, layer in cases:
@@ -173,11 +179,22 @@ class DeniedByTests(unittest.TestCase):
         self.assertEqual(row["denied_by"], "rpc_surface")
         self.assertIs(row["property_met"], True)
 
-    def test_a_tls_refusal_of_a_revocation_row_is_revocation(self):
-        for row_id in ("CK6", "X13-revoked", "X13-corrupt-crl-keeps-revocation"):
-            row = layer_row(row_id, "tls_handshake", denied_by=None)
-            harness.finalize_authz_rows([row], FakePki())
+    def baseline(self, row_id, observed="accepted"):
+        return {**layer_row(row_id, "not_denied", denied_by=None), "expected": "positive_control", "observed": observed}
+
+    def test_a_tls_refusal_is_a_revocation_only_when_the_same_identity_was_served_before(self):
+        for row_id, baseline_id, identity in (("CK6", "CK6-baseline", "ck-revoked-trainer"), ("X13-revoked", "X13-baseline-x13-revoked", "x13-revoked"),
+                                              ("X13-corrupt-crl-keeps-revocation", "X13-baseline-x13-revoked", "x13-revoked")):
+            row = layer_row(row_id, "tls_handshake", denied_by=None, identity=identity)
+            harness.finalize_authz_rows([self.baseline(baseline_id), row], FakePki())
             self.assertEqual(row["denied_by"], "revocation", row_id)
+            uncorroborated = layer_row(row_id, "tls_handshake", denied_by=None, identity=identity)
+            harness.finalize_authz_rows([self.baseline(baseline_id, "rejected"), uncorroborated], FakePki())
+            self.assertEqual(uncorroborated["denied_by"], "tls_handshake", row_id)
+            self.assertIs(uncorroborated["property_met"], False, row_id)
+            alone = layer_row(row_id, "tls_handshake", denied_by=None, identity=identity)
+            harness.finalize_authz_rows([alone], FakePki())
+            self.assertIs(alone["property_met"], False, row_id)
         row = layer_row("CK5", "tls_handshake", denied_by=None)
         harness.finalize_authz_rows([row], FakePki())
         self.assertEqual(row["denied_by"], "tls_handshake")
@@ -199,6 +216,24 @@ class DeniedByTests(unittest.TestCase):
         harness.finalize_authz_rows([control, property_row], FakePki())
         self.assertEqual(control["denied_by"], "not_denied")
         self.assertIsNone(property_row["denied_by"])
+
+    def test_an_unrecognised_status_is_unknown_unmet_and_a_coverage_problem(self):
+        row = layer_row("T5", "application", denied_by=None, code="INTERNAL", message="boom")
+        harness.finalize_authz_rows([row], FakePki())
+        self.assertEqual(row["denied_by"], "unknown")
+        self.assertIs(row["property_met"], False)
+        self.assertTrue(any("could not be identified" in problem for problem in report.denied_by_problems(row)))
+        self.assertNotIn("unknown", report.DENIED_BY)
+
+    def test_a_handshake_refusal_counts_only_while_a_valid_identity_still_reaches_the_service(self):
+        refusal = {"observed": "rejected", "code": "UNAVAILABLE", "message": "failed to connect"}
+        self.assertEqual(harness.refused_with_service_down(refusal, True), refusal)
+        down = harness.refused_with_service_down(refusal, False)
+        self.assertEqual((down["observed"], down["code"]), ("not_run", "HARNESS_ERROR"))
+        denial = {"observed": "rejected", "code": "PERMISSION_DENIED", "message": "x"}
+        self.assertEqual(harness.refused_with_service_down(denial, False), denial)
+        self.assertTrue(harness.alive(lambda: None))
+        self.assertFalse(harness.alive(lambda: 1 / 0))
 
     def test_the_claims_cover_the_attack_map(self):
         claimed = set(harness.CLAIMED_LAYER)
@@ -230,6 +265,7 @@ class CoverageTests(unittest.TestCase):
         self.assertTrue(all(attack["covered"] for attack in coverage["attacks"]))
         self.assertEqual(coverage["unmet_properties"], [])
         self.assertEqual(sorted(coverage["pending_13d_1b"]), sorted(report.PENDING_13D_1B))
+        self.assertIn("TL1-candidate", report.PENDING_13D_1B)
 
     def test_an_attack_with_no_row_that_ran_fails(self):
         rows = [row for row in map_rows() if row["id"] not in ("TL1",)]
@@ -266,6 +302,13 @@ class CoverageTests(unittest.TestCase):
         self.assertIn("CK1: denied_by 'firewall' is not in the vocabulary", problems)
         self.assertIn("CK2: denied_by rpc_surface is inconsistent", problems)
 
+    def test_only_rows_that_expect_a_denial_cover_an_attack(self):
+        rows = [{**row, "expected": "positive_control"} if row["id"] == "TL1" else row for row in map_rows()]
+        coverage = report.s13d_coverage(record_of(rows))
+        attack = next(item for item in coverage["attacks"] if item["attack"] == "Replayed authenticated request")
+        self.assertFalse(attack["covered"])
+        self.assertFalse(coverage["ok"])
+
     def test_a_pending_row_is_listed_and_never_a_failure(self):
         coverage = report.s13d_coverage(record_of(map_rows()))
         self.assertTrue(coverage["ok"])
@@ -283,7 +326,7 @@ class CoverageTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(report.main(["--record", str(good), "--check-s13d-coverage"]), 0)
                 self.assertEqual(report.main(["--record", str(bad), "--check-s13d-coverage"]), 1)
-            self.assertIn("pending 13d-1b: CK8", output.getvalue())
+            self.assertIn("pending 13d-1b: TL1-candidate, CK8", output.getvalue())
             self.assertIn("FAIL Missing credentials", output.getvalue())
             self.assertEqual(legacy.read_bytes(), before)
 
@@ -399,6 +442,62 @@ class OptionTests(unittest.TestCase):
         self.assertIs(inspect.signature(harness.run_x13_rows).parameters["no_v3"].default, True)
         self.assertTrue(callable(harness.RustPki.revoke))
         self.assertTrue(callable(pki_tools.PrivokePki.revoke))
+
+
+def store_answer(code="NOT_FOUND"):
+    return {"observed": "rejected", "code": code, "message": "x"}
+
+
+class TlVerdictTests(unittest.TestCase):
+    refused = {"bytes": 800, "records": 4, "application_records": 2, "application_bytes": 654, "last_record_bytes": 24, "first_record_type": 22}
+    original = {"application_bytes": 865, "last_record_bytes": 136}
+    replay = {"stats": refused, "closed": True}
+
+    def test_the_store_answer_is_the_empty_store_not_found(self):
+        self.assertTrue(harness.reached_the_store(store_answer()))
+        for code in ("FAILED_PRECONDITION", "INVALID_ARGUMENT", "UNAVAILABLE", "PERMISSION_DENIED", "UNKNOWN"):
+            self.assertFalse(harness.reached_the_store(store_answer(code)), code)
+        self.assertFalse(harness.reached_the_store({"observed": "accepted", "code": "OK", "message": "x"}))
+
+    def test_tl1_is_a_refusal_only_with_an_original_that_reached_the_store_and_a_clean_exchange_after(self):
+        verdict = harness.tl1_verdict(store_answer(), self.original, self.replay, store_answer())
+        self.assertEqual((verdict["observed"], verdict["code"]), ("rejected", "CONNECTION_ABORTED"))
+        failed_clean = harness.tl1_verdict(store_answer(), self.original, self.replay, store_answer("UNAVAILABLE"))
+        self.assertEqual((failed_clean["observed"], failed_clean["code"]), ("not_run", "HARNESS_ERROR"))
+        no_original = harness.tl1_verdict(store_answer("UNAVAILABLE"), self.original, self.replay, store_answer())
+        self.assertEqual(no_original["code"], "HARNESS_ERROR")
+        silent = {"stats": pki_tools.stream_stats(b""), "closed": True}
+        self.assertEqual(harness.tl1_verdict(store_answer(), self.original, silent, store_answer())["observed"], "accepted")
+        answered = {"stats": {**self.refused, "application_bytes": 900}, "closed": True}
+        self.assertEqual(harness.tl1_verdict(store_answer(), self.original, answered, store_answer())["observed"], "accepted")
+
+    def test_tl2_needs_unavailable_for_every_tested_record_and_a_working_control_after_each(self):
+        self.assertTrue(harness.tl2_variant_aborted(True, store_answer("UNAVAILABLE")))
+        self.assertFalse(harness.tl2_variant_aborted(True, store_answer("UNKNOWN")))
+        self.assertFalse(harness.tl2_variant_aborted(False, store_answer("UNAVAILABLE")))
+        self.assertFalse(harness.tl2_variant_aborted(True, store_answer()))
+        good = [{"aborted": True, "control_ok": True}] * 3
+        verdict = harness.tl2_verdict(good)
+        self.assertEqual(verdict["observed"], "rejected")
+        self.assertIn("the 3 request records tested", verdict["message"])
+        self.assertEqual(harness.tl2_verdict(good + [{"aborted": False, "control_ok": True}])["observed"], "accepted")
+        self.assertEqual(harness.tl2_verdict(good + [{"aborted": True, "control_ok": False}])["code"], "HARNESS_ERROR")
+        self.assertEqual(harness.tl2_verdict([])["code"], "HARNESS_ERROR")
+
+    def test_tl3_needs_a_failed_handshake_no_request_byte_and_a_control_that_completes(self):
+        refused = store_answer("UNAVAILABLE")
+        seen = {"handshakes_completed": 0, "handshakes_failed": 1, "application_bytes": 0}
+        self.assertEqual(harness.tl3_verdict(refused, seen, True)["observed"], "rejected")
+        self.assertEqual(harness.tl3_verdict(refused, {**seen, "handshakes_failed": 0}, True)["observed"], "accepted")
+        self.assertEqual(harness.tl3_verdict(refused, {**seen, "application_bytes": 5}, True)["observed"], "accepted")
+        self.assertEqual(harness.tl3_verdict(refused, {**seen, "handshakes_completed": 1}, True)["observed"], "accepted")
+        self.assertEqual(harness.tl3_verdict(refused, seen, False)["code"], "HARNESS_ERROR")
+
+    def test_the_vacuous_store_check_is_stated_in_the_run_notes(self):
+        import inspect
+
+        self.assertIn("vacuous", harness.VACUOUS_STORE_NOTE)
+        self.assertIn("vacuous until 13d-1b", inspect.getsource(harness.run_authz_target))
 
 
 class CheckpointServiceTests(unittest.TestCase):
@@ -591,11 +690,18 @@ class TlsPureFunctionTests(unittest.TestCase):
 
     def test_a_replay_is_refused_only_when_closed_alert_sized_and_smaller(self):
         original = {"application_bytes": 900, "last_record_bytes": 24}
-        alert = {"application_bytes": 700, "last_record_bytes": 24}
+        alert = {"application_bytes": 700, "last_record_bytes": 24, "first_record_type": 22, "records": 4}
         self.assertTrue(pki_tools.replay_refused(original, alert, True))
         self.assertFalse(pki_tools.replay_refused(original, alert, False))
         self.assertFalse(pki_tools.replay_refused(original, {**alert, "last_record_bytes": 300}, True))
         self.assertFalse(pki_tools.replay_refused(original, {**alert, "application_bytes": 900}, True))
+        self.assertFalse(pki_tools.replay_refused(original, {**alert, "first_record_type": 23}, True))
+        self.assertFalse(pki_tools.replay_refused(original, {**alert, "records": 1}, True))
+
+    def test_silence_is_not_a_refusal(self):
+        original = {"application_bytes": 900, "last_record_bytes": 24}
+        self.assertFalse(pki_tools.replay_refused(original, pki_tools.stream_stats(b""), True))
+        self.assertFalse(pki_tools.replay_refused(original, pki_tools.stream_stats(b""), False))
 
     def test_a_stream_that_is_not_tls_has_no_records(self):
         self.assertEqual(pki_tools.stream_stats(b"plain text, no record")["records"], 0)
