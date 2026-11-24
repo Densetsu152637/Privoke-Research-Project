@@ -244,11 +244,13 @@ def added_lines_of_diff(repo: str, old: str, new: str, path: str) -> list[list[t
 
 
 def text_variants(raw: bytes) -> list[str]:
-    """Primary decoding first. A NUL-heavy file without a BOM adds UTF-16 LE/BE and NUL-stripped readings."""
+    """Primary decoding first. A file with any NUL byte and no BOM adds UTF-16 LE/BE and NUL-stripped readings."""
     out = [decode_bytes(raw)]
-    if raw and not is_utf16(raw) and raw.count(0) / len(raw) > 0.30:
-        out.append(raw.decode("utf-16-le", errors="replace").replace("\0", " "))
-        out.append(raw.decode("utf-16-be", errors="replace").replace("\0", " "))
+    if raw and not is_utf16(raw) and b"\0" in raw:
+        for offset in (0, 1):  # both byte alignments, in case odd-length padding precedes the text
+            chunk = raw[offset:len(raw) - ((len(raw) - offset) % 2)]
+            out.append(chunk.decode("utf-16-le", errors="replace").replace("\0", " "))
+            out.append(chunk.decode("utf-16-be", errors="replace").replace("\0", " "))
         out.append(raw.replace(b"\0", b"").decode("utf-8", errors="replace"))
     return out
 

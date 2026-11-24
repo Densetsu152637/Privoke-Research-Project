@@ -458,6 +458,42 @@ class HardeningTests(Fixture):
         self.commit("b", {"docs/m.md": ("intro\n" + PROMPT + "\n").encode("utf-16-le")})
         self.expect(1, [("docs/m.md", "prompt_8gram")], "--local-inputs", d, base=base)
 
+    def test_padded_bomless_utf16_caught(self):
+        d = self.local_dir()
+        for pad in (2000, 2001):  # even and odd padding
+            self.commit(f"p{pad}", {f"docs/p{pad}.md": b"a" * pad + (PROMPT + "\n").encode("utf-16-le")})
+        self.expect(1, [("docs/p2000.md", "prompt_8gram"), ("docs/p2001.md", "prompt_8gram")],
+                    "--local-inputs", d)
+
+    def test_padded_interleaved_nul_caught(self):
+        d = self.local_dir()
+        raw = bytes([0]).join(c.encode() for c in PROMPT)
+        self.commit("pad", {"docs/q.md": b"b" * 2000 + raw + b"\n"})
+        self.expect(1, [("docs/q.md", "prompt_8gram")], "--local-inputs", d)
+
+    def test_intermediate_pin_without_stage_still_reports_8gram(self):
+        d = self.local_dir()
+        body = PROMPT + "\n"
+        self.commit("add file and pin", {GUIDE: body, ALLOWLIST: json.dumps({GUIDE: sha(body)})})
+        self.git("rm", "-q", GUIDE)
+        self.write({ALLOWLIST: "{}"})
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "remove both")
+        self.expect(1, [(GUIDE, "prompt_8gram")], "--local-inputs", d)
+
+    def test_probe_isolation_from_global_ignore(self):
+        xdg = os.path.join(self.tmp, "xdg")
+        os.makedirs(os.path.join(xdg, "git"))
+        with open(os.path.join(xdg, "git", "ignore"), "w") as fh:
+            fh.write("evaluation/results/\n")
+        self.commit("rm", {".gitignore": "other/\n"})
+        env = dict(os.environ, S13_LOCAL_INPUTS_ROOT=self.empty_root, XDG_CONFIG_HOME=xdg)
+        proc = subprocess.run([sys.executable, SCRIPT, "--repo", self.repo, "--range",
+                               f"{self.base}..HEAD"], capture_output=True, text=True, env=env)
+        self.assertEqual(proc.returncode, 1)
+        rep = json.loads(proc.stdout)
+        self.assertEqual({v["rule"] for v in rep["violations"]}, {"output_not_ignored"})
+
     def test_csv_header_after_blank_line(self):
         self.commit("c", {"d/a.csv": "\n\ntext,id\n1,a\n"})
         self.expect(1, [("d/a.csv", "forbidden_field")])
