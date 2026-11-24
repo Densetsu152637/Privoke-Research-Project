@@ -1,6 +1,6 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applies the round-3 findings N1–N4). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
+Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applies N5). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
 This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
 
@@ -63,7 +63,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - Every new row of `tab:security_goals` and `tab:threat_defense` cites a Stage 13 record.
 - **S13-G8: no forbidden material is committed.** For every stage diff, on either branch, root runs `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..<stage-head>` from the `feat/nick-branch` tree, and it exits 0. The script is built in [13-H](#stage-13-h-commit-hygiene-check-agent-first). Over `git -C <repo> diff --name-only <range>`, it checks all of the following:
   - No committed JSON or CSV has a `text`, `prompt`, `body` or `notes` field or column.
-  - No committed file contains any 8-gram of a prompt from the local inputs. By default (`--local-inputs` omitted) these are every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The scan runs over those local files and reports counts only. If the default matches no directory, the script exits 2 instead of passing silently.
+  - No committed file contains any 8-gram of a prompt from the local inputs. By default (`--local-inputs` omitted) these are every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The scan runs over those local files and reports counts only. If the default matches no directory, the script exits 0 and reports `local_inputs: 0` in its JSON. With `--require-local-inputs`, it exits 2 instead. Root passes that flag for the stages that touch prompts (13a-2 to 13a-5, 13b, 13e and 13f), so the scan cannot be silently skipped there.
   - No `*.safetensors`, `*.onnx`, `*.bin`, `*.pt` or `*.pth` file is added.
   - No line matches the key patterns:
     - `BEGIN (EC |RSA |OPENSSH |ENCRYPTED |)PRIVATE KEY`;
@@ -243,10 +243,11 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Work:**
   - Write `evaluation/check_s13_commit_hygiene.py --repo <path> --range <a..b> [--local-inputs <dir>...]`.
   - **Default inputs.** `--local-inputs` defaults to every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The 8-gram prompt scan therefore always runs from the standard G8 command. A test may override the default.
+  - **No local data.** When nothing matches, the script exits 0 and reports `local_inputs: 0`. This is the normal case for 13-H, 13a-0, 13a-1, 13c and 13d. `--require-local-inputs` turns that case into exit 2, and root passes it for 13a-2 to 13a-5, 13b, 13e and 13f.
   - It applies the S13-G8 rules to `git -C <path> diff --name-only <a..b>` and the file contents in that range.
   - Root runs it from the nick tree, so it also checks the Rust-line stages. It imports nothing from the target repository.
 - **Owned paths:** `evaluation/check_s13_commit_hygiene.py`, `evaluation/tests/test_check_s13_commit_hygiene.py`.
-- **Interfaces and data shapes:** the script prints `{range, files_checked, violations:[{file, rule, line}]}` as JSON and exits 1 on any violation.
+- **Interfaces and data shapes:** the script prints `{range, files_checked, local_inputs, violations:[{file, rule, line}]}` as JSON. It exits 1 on any violation, and 2 when `--require-local-inputs` is set and `local_inputs` is 0.
 - **Acceptance checks:**
   - **Fixture tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_check_s13_commit_hygiene.py`. The fixture repositories include:
     - a `text` field;
@@ -255,7 +256,9 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - a `.safetensors` file;
     - each key pattern (OPENSSH, ENCRYPTED, and a line with a 64-hex seed);
     - a sha256 on a line that is not about a key, which must not be flagged;
-    - an ignored output path.
+    - an ignored output path;
+    - no matching local inputs and no flag: exit 0 with `local_inputs: 0`;
+    - no matching local inputs with `--require-local-inputs`: exit 2.
   - **The stage's own diff is clean:** `$PY evaluation/check_s13_commit_hygiene.py --repo . --range origin/feat/nick-branch..HEAD` exits 0.
 - **User dependency:** none.
 - **Status:** pending.
@@ -420,7 +423,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Depends on:** 13a-1 (the brief).
 - **Owned paths:** none in Git. The prompts are delivered to `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/raw/`, which is Git-ignored.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **The quotas are met:** `$PY evaluation/annotation/fresh_set.py --input <raw> --dry-run --check-quotas` exits 0 and prints the quota counts.
   - **The declarations are in:** the user confirms in chat that every writer signed the declaration.
 - **User dependency:** USER does all of the following:
@@ -448,7 +451,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - `docs/research/s13a/packet_manifest.json`;
   - `docs/research/s13a-preregistration-<date>.md`.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **The set manifest came first:** `git merge-base --is-ancestor $(git log -1 --format=%H -- docs/research/s13a/set_manifest.json) $(git log -1 --format=%H -- docs/research/s13a/packet_manifest.json)` exits 0.
   - **The blinding audit is clean:** `$PY -c "import json,sys; m=json.load(open(sys.argv[1])); sys.exit(m['blinding_audit']['items_with_marker'])" evaluation/results/s13a/packet/key/manifest.json` exits 0.
   - **The sheets are deterministic:** a second sampler run into a scratch directory gives the same hashes as `packet_manifest.json` (`$PY evaluation/annotation/sample_annotation.py ... --verify-against docs/research/s13a/packet_manifest.json` exits 0).
@@ -466,7 +469,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - Agents run `compute_iaa.py` for the pilot and the main round when asked, and write `to_adjudicate.csv` locally. That file is never committed, because it holds text.
   - A human adjudicator decides every item.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **The sheets are valid:** `$PY evaluation/annotation/annotation_schema.py --validate <sheet> --schema 2` exits 0 for every returned sheet.
   - **The pilot agrees well enough:** in `pilot_iaa.json`, the kappa for `sensitive`, `audience` and `action` is at least 0.6. If not, there is one revision and a repeat. The check is `$PY evaluation/annotation/compute_iaa.py ... --min-kappa 0.6 --fields sensitive,audience,action`, which exits non-zero below the bar.
   - **Adjudication is complete:** `$PY evaluation/annotation/compute_iaa.py --check-adjudication <adjudicated.csv>` exits 0. Every disagreement must have a `resolution` and an `adjudicator`.
@@ -489,7 +492,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - `paper/research/human-annotated-eval-<date>.{md,json}`;
   - `docs/experiments/human-annotated-eval-<date>.md`.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **S13-G1(a) holds:** `human_eval_report.py --check` and `check_order.py` both exit 0.
 - **User dependency:** none.
 - **Status:** pending.
@@ -562,7 +565,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 
   Prompt text is stored only under `evaluation/results/s13b/`.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_evasion*.py"`. They cover:
     - outcome classification;
     - matching Stage 3's `summarise_pairs` on a fixture;
@@ -583,7 +586,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - `paper/research/e2e-evasion-<date>.{md,json}`;
   - `docs/experiments/e2e-evasion-<date>.md`.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **S13-G2 holds:** `$PY evaluation/e2e_evasion_report.py --check <json>` exits 0. The check fails if a browser is neither run nor listed with a reason.
   - **No outside host was contacted:** the record's `host_guard.outside_lookups` is 0, which `--check` verifies.
 - **User dependency:** none.
@@ -596,7 +599,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Depends on:** 13b-2, and the host lock.
 - **Owned paths:** rows with `attended: true` added to the same record.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **the attended rows check out:** `$PY evaluation/e2e_evasion_report.py --check <json> --require-attended` exits 0. It requires the attended rows to have the full row fields and reports any disagreement with the headless rows.
 - **User dependency:** USER runs the provided script, which opens the fixture page in the user's browser with the installed extension. The user submits each listed variant when prompted, and leaves the machine otherwise idle. No real provider is involved.
 - **Status:** pending.
@@ -656,6 +659,11 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - **Outputs.**
     - With `S13C_OUT` set, both tests write their rows as JSON. They assert each row's expected outcome, so CI fails on any regression.
     - CI bundles use stand-in weights and test scorers, so they are **not** used against the containers. 13c-2 builds the container-leg candidates.
+  - **Allocation format (defined once, here).** `S13C_ALLOCATIONS` is a JSON array of objects that mirror the `v3_allocations` columns:
+    - `{request_id, cycle, model_id, stage: "heads"|"full_encoder", attempt, sampler, seed, expected_base, source_commitment, state: "allocated"}`;
+    - `candidate` and `reason` are omitted, because they are written only when a request is settled.
+
+    The `s13c_journal_seed` helper (13c-2) and every 13d Python allocation writer use exactly this format, and the helper rejects unknown or missing fields. The schema is checked in `evaluation/tests/test_v3_update_attacks_report.py`.
   - **Row manifest.** `rust/services/param-update/tests/s13c_rows.json` lists every variant id with these fields: `{id, attack_class, expected, chain, surface: param-update|model-streaming|client|store, wire_path, legs, ci_only_reason}`.
     - **`wire_path: false` rows:**
       - the crash points (C10a–e, surface `store`);
@@ -744,6 +752,8 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
       1. **Positive control.** Commit G as `r1` (expected base P) → `applied`. The current version becomes G, and the served version is G with a new sequence.
       2. **C3a.** Commit G again under a new id `r4` with G's own evidence, which still names `r1` → `INVALID_ARGUMENT` "Commit identity differs from candidate/fit evidence.". No receipt; unchanged.
       3. **C1a.** G′ is G's blob with its evidence rewritten to name request `r3` (a new evidence blob and manifest; parent P; allocation `r3` with expected base P). Commit G′ as `r3` → `rejected`/`stale_base`, because the current version is G, not P. Unchanged.
+         - **Staging order.** First stage the canonically re-serialised evidence blob, a manifest-free `StageCheckpoint`. Then stage the blob with the new manifest, `StageCheckpoint` with `manifest_json`. `commit` reads the manifest from the store, so both must be stored before the commit.
+         - **Expected path.** `RetentionGate::prepare` returns `Ok(None)` because the current version is not the expected base. The `stale_base` receipt therefore comes from the transaction's compare-and-swap, not from a gate.
       4. **Rollback control (this is "the later update").** `RollbackModel` to P as `publisher`, request `r2` → `applied`. The current version becomes P, at a higher sequence.
       5. **C2a.** Resend the exact `r1` commit → the stored receipt (`receipt_status=applied`) and no swap. The current version stays P, so the expected value is `noop_unchanged`.
       6. **C8a and C11.** Run the late-gate mutations of G from base P (allocations with expected base P). Each must be rejected with P unchanged.
@@ -760,7 +770,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
       RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_journal_seed
       ```
       with `S13C_JOURNAL=<mounted file>` and `S13C_ALLOCATIONS=<json>`.
-    - **Reuse.** 13d-1b reuses this harness seam.
+    - **Reuse.** 13d-1b reuses this harness seam, in the allocation format defined in 13c-1.
   - **Container leg.**
     - The same test, with `S13C_ENDPOINT` set.
     - It runs against param-update and model-streaming, started from `docker compose --profile v3-training up`.
@@ -836,7 +846,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
      - a `publisher` rollback to the pin, applied;
      - a `runtime` stage, accepted.
 
-     CK8 and these positive controls belong to 13d-1b. They use the 13c-2 candidates and the `s13c_journal_seed` helper.
+     CK8 and these positive controls belong to 13d-1b. They use the 13c-2 candidates and the `s13c_journal_seed` helper. 13d's Python side writes its allocations as `S13C_ALLOCATIONS` JSON in the 13c-1 format and passes them to that helper.
   3. **`TL` rows (TLS level):**
      - **TL1:** replay the captured TLS 1.3 bytes of an authenticated `CommitCandidate` on a new connection. Expected: no receipt.
      - **TL2:** flip one bit through a loopback TCP proxy. Expected: the connection aborts, and there is no receipt.
@@ -925,7 +935,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - Rows: `{item_id, config, layers_requested, layers_executed, action, per_layer_action, error}`.
   - Each configuration's aggregates have the same form as the 13a arm metrics.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **S13-G5 holds.**
   - **The ablation tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_layer_ablation*.py"`. They cover empty-list refusal, aborting on an executed-layer mismatch, and the McNemar fixture.
 - **User dependency:** none, apart from D11.
@@ -974,7 +984,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - Each sample: `{arm, browser, platform, interface, repeat, attended, prompt_id, t_submit_ms, t_receiver_ms|null, decision, layers_executed, request_sent, cpu_pct, rss_mb, host_load_before}`.
   - p50, p95 and p99 with bootstrap intervals for each arm, browser and interface.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **S13-G6 holds**, in its first form. `--check` also fails on any `host_load_before` above 25%, or on overlapping lock intervals.
   - **The overhead tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_overhead*.py"`.
 - **User dependency:** the user leaves the machine idle during the timing window that root agrees with them.
@@ -987,7 +997,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 - **Depends on:** 13f-1, and the host lock.
 - **Owned paths:** rows with `attended: true` in the same record.
 - **Acceptance checks:**
-  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --require-local-inputs` exits 0.
   - **the attended rows check out:** `$PY evaluation/e2e_overhead_report.py --check <json> --require-attended` exits 0.
 - **User dependency:** USER runs the provided script during an agreed idle window with other applications closed. Optionally, the user runs it on a second machine. Live interfaces need D7 approval.
 - **Status:** pending.
