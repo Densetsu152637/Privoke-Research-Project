@@ -23,6 +23,31 @@ def cohen_kappa(a, b):
     return (po - pe) / (1.0 - pe), po, pe
 
 
+def fleiss_kappa(units):
+    """Fleiss' kappa for three or more raters; units = per-item rating lists, all of the same length.
+
+    Returns None when chance agreement is 1 (no label variation).
+    """
+    units = [list(u) for u in units]
+    if not units:
+        raise ValueError("non-empty units required")
+    m = len(units[0])
+    if m < 2 or any(len(u) != m for u in units):
+        raise ValueError("every unit needs the same number (at least 2) of ratings")
+    n = len(units)
+    totals = Counter()
+    p_bar = 0.0
+    for ratings in units:
+        counts = Counter(ratings)
+        totals.update(counts)
+        p_bar += (sum(c * c for c in counts.values()) - m) / (m * (m - 1))
+    p_bar /= n
+    p_e = sum((c / (n * m)) ** 2 for c in totals.values())
+    if p_e == 1.0:
+        return None
+    return (p_bar - p_e) / (1.0 - p_e)
+
+
 def confusion_matrix(a, b, values):
     """Rows = first rater, columns = second rater; returns nested dict of counts."""
     matrix = {r: {c: 0 for c in values} for r in values}

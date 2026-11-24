@@ -176,5 +176,117 @@ class MarkerGateTests(SamplerTests):
         self.assertEqual(len(audit["patterns"]), 2)
 
 
+def quota_rows():
+    """Invented fresh-set rows: 10 categories x 3 audiences x 2 sensitivity values, 5 prompts per cell."""
+    rows = []
+    for category in schema.CATEGORIES:
+        for audience in ("P0", "P2", "PU"):
+            for sensitive in ("yes", "no"):
+                for n in range(5):
+                    rows.append({"id": f"fs-{len(rows):04d}", "text": f"invented quota sentence {len(rows)} for the study",
+                                 "category": category, "audience": audience, "sensitive": sensitive,
+                                 "quota_cell": f"{category}/{audience}/{sensitive}"})
+    return rows
+
+
+class QuotaModeAndVerifyTests(unittest.TestCase):
+    """13a-1: quota_cell stratification, packet_manifest.json and --verify-against."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        self.input = self.dir / "frozen_set.jsonl"
+        schema.write_jsonl(self.input, quota_rows())
+        import hashlib
+        self.set_manifest = self.dir / "set_manifest.json"
+        self.set_manifest.write_text(json.dumps({"sha256_jsonl": hashlib.sha256(self.input.read_bytes()).hexdigest()}))
+
+    def args(self, out, *extra):
+        return ["--input", str(self.input), "--set-manifest", str(self.set_manifest), "--stratify-by", "quota_cell",
+                "--output-dir", str(out), "--main-size", "120", "--pilot-size", "12", "--fail-on-marker", *extra]
+
+    def sample(self, name, *extra):
+        out = self.dir / name
+        sa.main(self.args(out, *extra))
+        return out
+
+    def test_quota_mode_writes_v2_blank_sheets_and_a_text_free_packet_manifest(self):
+        out = self.sample("one")
+        with (out / "sheets/main_A.csv").open(newline="", encoding="utf8") as handle:
+            reader = csv.DictReader(handle)
+            self.assertEqual(reader.fieldnames, schema.SHEET_COLUMNS_V2)
+            rows = list(reader)
+        self.assertEqual(len(rows), 120)
+        self.assertTrue(all(r[c] == "" for r in rows for c in schema.LABEL_COLUMNS_V2))
+        packet = json.loads((out / "packet_manifest.json").read_text())
+        self.assertEqual(packet["schema"], "privoke-s13a-packet-v1")
+        self.assertEqual(sorted(packet["files"]), ["key/sampling_key.jsonl", "sheets/main_A.csv", "sheets/main_B.csv",
+                                                   "sheets/pilot_A.csv", "sheets/pilot_B.csv"])
+        self.assertNotIn("invented", (out / "packet_manifest.json").read_text())
+        key = [json.loads(l) for l in (out / "key/sampling_key.jsonl").read_text().splitlines()]
+        self.assertTrue(all(k["quota_cell"] == k["family_id"] and "provisional" not in k for k in key))
+        main = [k for k in key if k["split"] == "main"]
+        pilot = [k for k in key if k["split"] == "pilot"]
+        self.assertEqual((len(main), len(pilot)), (120, 12))
+        self.assertFalse({k["case_id"] for k in main} & {k["case_id"] for k in pilot})
+        self.assertEqual(len({k["quota_cell"] for k in main}), 60)  # the floor reaches every cell
+
+    def test_quota_mode_needs_a_set_manifest_and_the_right_hash(self):
+        with self.assertRaises(SystemExit):
+            sa.main(["--input", str(self.input), "--stratify-by", "quota_cell", "--output-dir", str(self.dir / "x")])
+        self.set_manifest.write_text(json.dumps({"sha256_jsonl": "0" * 64}))
+        with self.assertRaises(SystemExit):
+            self.sample("y")
+
+    def test_verify_against_passes_on_an_identical_resample(self):
+        out = self.sample("one")
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(out, "--verify-against", str(out / "packet_manifest.json")))
+        self.assertEqual(ctx.exception.code, 0)
+
+    def test_verify_against_fails_on_a_changed_sheet_on_disk(self):
+        out = self.sample("one")
+        sheet = out / "sheets/main_A.csv"
+        sheet.write_text(sheet.read_text(encoding="utf8").replace("invented", "altered", 1), encoding="utf8")
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(out, "--verify-against", str(out / "packet_manifest.json")))
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_verify_against_fails_when_the_input_or_a_recorded_hash_changes(self):
+        out = self.sample("one")
+        manifest = json.loads((out / "packet_manifest.json").read_text())
+        manifest["files"]["sheets/main_B.csv"] = "0" * 64
+        tampered = self.dir / "tampered.json"
+        tampered.write_text(json.dumps(manifest))
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(self.dir / "scratch-check", "--verify-against", str(tampered)))
+        self.assertEqual(ctx.exception.code, 1)
+        rows = quota_rows()
+        rows[0]["text"] = "an invented replacement sentence"
+        schema.write_jsonl(self.input, rows)
+        import hashlib
+        self.set_manifest.write_text(json.dumps({"sha256_jsonl": hashlib.sha256(self.input.read_bytes()).hexdigest()}))
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(out, "--verify-against", str(out / "packet_manifest.json")))
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_verify_against_fails_on_a_changed_seed(self):
+        out = self.sample("one")
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(out, "--seed", "99", "--verify-against", str(out / "packet_manifest.json")))
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_the_gate_applies_to_quota_mode(self):
+        rows = quota_rows()
+        for row in rows:
+            row["text"] += " AU3"
+        schema.write_jsonl(self.input, rows)
+        import hashlib
+        self.set_manifest.write_text(json.dumps({"sha256_jsonl": hashlib.sha256(self.input.read_bytes()).hexdigest()}))
+        with self.assertRaises(SystemExit):
+            self.sample("gate")
+
+
 if __name__ == "__main__":
     unittest.main()
