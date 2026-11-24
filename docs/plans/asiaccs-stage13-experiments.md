@@ -1,6 +1,6 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 r2. This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
+Revision: 2026-11-24 r3 (r3 applies the six round-2 plan-gate findings O1–O6 and two nits). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
 This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
 
@@ -40,7 +40,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - `live_provider_runs` is empty, or names the user's approval.
 - **S13-G3 (13c): every listed update attack has an observed outcome on the real V3 path.**
   - `paper/research/v3-update-attacks-<date>.json` has at least one row for each of the 11 attack classes in [13c](#stage-13c-active-attacks-on-the-v3-guarded-update-path).
-  - Every attack class with a wire path has at least one `leg:"container"` row. The container leg runs against the real param-update and model-streaming containers, and its rows include an observation of the version that model-streaming serves. Classes without a wire path (crash points, at-rest corruption) carry a `not_run` reason for the container leg.
+  - Every variant that `rust/services/param-update/tests/s13c_rows.json` marks `wire_path: true` has a `leg:"container"` row against the real param-update and model-streaming containers. Each such row includes an observation of the version that model-streaming serves, or carries a `not_run_reason`. Crash points (C10) and at-rest corruption (C9e, C9f) are `wire_path: false`.
   - Each row names its rejecting check and records the active model before and after.
   - `$PY evaluation/v3_update_attacks_report.py --check <json>` exits 0.
   - `RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks` exits 0.
@@ -61,7 +61,7 @@ Each goal is boolean. Commands run from the repository root of the worktree that
   - `$PY paper/scripts/check_anonymity.py` reports 0 matches.
   - The G1–G5, G12, G13 and G14 checks of the [ASIACCS plan](asiaccs-2027-revision.md#goals) hold.
   - Every new row of `tab:security_goals` and `tab:threat_defense` cites a Stage 13 record.
-- **S13-G8: no forbidden material is committed.** `$PY evaluation/check_s13_commit_hygiene.py --base <stage-base>` exits 0. Over `git diff --name-only <stage-base>..HEAD`, the script checks all of the following:
+- **S13-G8: no forbidden material is committed.** For every stage diff, on either branch, root runs `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..<stage-head>` from the `feat/nick-branch` tree, and it exits 0. The script is built in [13-H](#stage-13-h-commit-hygiene-check-agent-first). Over `git -C <repo> diff --name-only <range>`, it checks all of the following:
   - No committed JSON or CSV has a `text`, `prompt`, `body` or `notes` field or column.
   - No committed file contains any 8-gram of a prompt from the local `evaluation/results/s13*/` inputs. The scan runs over the local files and reports counts only.
   - No `*.safetensors`, `*.onnx`, `*.bin`, `*.pt` or `*.pth` file is added.
@@ -141,6 +141,13 @@ Each goal is boolean. Commands run from the repository root of the worktree that
 - **This plan is not on `feat/rust-rewrite`.** Root passes it to the 13c and 13d leaves by absolute path, read-only. Leaves on the Rust line never edit or copy it.
 - **Root is the only writer of stage status**, at every transition (pending, in progress, done or blocked, and the outcome), in this plan and in the Stage 13 section of the ASIACCS plan. Leaves report through their results only.
 - **Root syncs** this plan and the Stage 13 section to `docs/roadmap` after each status change, in the same way as the other plans.
+- **Merge style.** Root merges every stage branch with a `--no-ff` merge commit, never a squash or a rebase. The ordering proofs of 13a (`check_order.py`) and 13b (the template-hash ancestry check) rely on the stage commits keeping their identities. Before merging 13a or 13b, root runs these checks on the stage branch:
+  - `$PY evaluation/annotation/check_order.py`;
+  - `$PY evaluation/e2e_evasion.py verify-templates --expected-sha256 <hash>`;
+  - the template ancestry check.
+
+  The merge happens only if all three pass.
+- **G8 on every stage.** Root runs the S13-G8 command on each stage diff before merging, including the 13c and 13d diffs on the Rust line.
 
 **Record import (13c, 13d).**
 
@@ -197,24 +204,56 @@ The imported files are new and byte-identical on both branches, so PR #6 cannot 
 - **Prompt-bearing data** (raw prompts, variants, sheets with text, the adjudication export, receiver bodies) live under `evaluation/results/s13<x>/`, which `evaluation/.gitignore` (`results/`) ignores. Commits carry only hashes, counts, opaque ids and labels.
 - **"Unchanged" means the authority, not the blob directory.** The store is unchanged when its `current` row, its `versions`, its `publications` (row count and highest sequence), the receipt of that request id, the version model-streaming serves and the client high-water mark are all unchanged. Rejected candidates can leave orphan blobs, because `stage` puts the payload before admission (`store.rs` `stage` → `put`, then `admit_candidate`). Records report orphan blobs but do not count them as a change.
 - **Host Python, Docker only for hosting.** Python clients and scoring run on the host. Docker hosts the services and the Rust tests, never test drivers.
-- **Host-heavy runs share one lock.** 13b-2, 13b-3, 13c-2, 13d-2, 13f-1 and 13f-2 each acquire `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13-host.lock` (Git-ignored in the main checkout, shared by every worktree). Each run writes its stage id and process id into the lock and removes it on exit. A run refuses to start while the lock is held.
+- **Host-heavy runs share one lock.** 13a-5 (PriVoke scoring), 13b-2, 13b-3, 13c-2, 13d-1b and 13d-2, 13e, 13f-1 and 13f-2 each acquire `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13-host.lock` (Git-ignored in the main checkout, shared by every worktree). Each run writes its stage id and process id into the lock and removes it on exit. A run refuses to start while the lock is held.
 - **Process cleanup.** Every stage stops the services, browsers and containers it started, and lists them in its handoff.
 
 ## Time plan (estimates)
 
-Host-heavy runs follow this fixed order, one at a time, under the host lock: **13c-2 → 13d-2 → 13b-2 → 13b-3 → 13f-1 → 13f-2**. Work that needs no host, such as harness code and CI-only tests, runs in parallel with these.
+Host-heavy runs follow this fixed order, one at a time, under the host lock: **13c-2 → 13d-1b and 13d-2 → 13b-2 → 13a-5 scoring → 13e → 13b-3 → 13f-1 → 13f-2**. A run that is not ready yet is skipped, and the next one in the order starts; nothing ever runs in parallel under the lock. Work that does not need the host, such as harness code and CI-only tests, runs in parallel.
 
 | Window | Agent work | User work |
 | --- | --- | --- |
-| 24–28 Nov | 13a-0, 13a-1; 13c-1 (CI); 13d-1; 13b-1 | Answer D1–D4, D6 and D9; recruit people; check ethics; supply or approve the worked examples |
-| 28 Nov – 2 Dec | 13a-3 when prompts arrive; 13c-2, then 13d-2 (host lock) | Writers deliver prompts (13a-2); annotators run the pilot and the main round (13a-4) |
-| 2–5 Dec | 13a-5; 13b-2 (host lock); 13e if 13a is frozen | Adjudication (13a-4); 13b-3 (host lock) |
+| 24–28 Nov | 13-H; 13a-0, 13a-1; 13c-1 (CI); 13d-1a; 13b-1 | Answer D1–D4, D6 and D9; recruit people; check ethics; supply or approve the worked examples |
+| 28 Nov – 2 Dec | 13a-3 when prompts arrive; under the host lock: 13c-2 (28 Nov – 1 Dec), then 13d-1b and 13d-2 (1–2 Dec) | Writers deliver prompts (13a-2); annotators run the pilot and the main round (13a-4) |
+| 2–5 Dec | under the host lock: 13b-2 (2–3 Dec), 13a-5 scoring (3–4 Dec), 13e if 13a is frozen (4–5 Dec) | Adjudication (13a-4) by 3 Dec; 13b-3 (5 Dec, host lock) |
 | 5–6 Dec | 13f-1 (host lock, idle host) | 13f-2 (host lock) |
 | 6–10 Dec | 13-P paper integration; Stage 9 repeat | Review the paper; approve the push |
 
 **Go or no-go (D11).** 13e and 13f start only if the 13a–13d records are `ready for review` by 4 December. If 13a is not frozen by 6 December, the "13a not run" outcome applies (13-P).
 
 ---
+
+## Stage 13-H: Commit-hygiene check (agent, first)
+
+- **Objective:** build the S13-G8 check before any stage commits.
+- **Paper question:** none. This stage protects the constraints that cover every sub-stage: no study prompt text, no weights and no private keys in Git.
+  - **T→D→E→M→E:**
+    - **Threat:** prompt text, weights or keys leak through a commit.
+    - **Defense:** Git-ignored output paths and a diff scan.
+    - **Experiment:** the scan, run on every stage diff.
+    - **Metric:** the number of violations (required: 0).
+    - **Evidence:** the exit status, recorded in each stage handoff.
+- **Depends on:** none. Branch `feat/asiaccs-s13h` from `origin/feat/nick-branch`. Root merges it before any other stage.
+- **Work:**
+  - Write `evaluation/check_s13_commit_hygiene.py --repo <path> --range <a..b> [--local-inputs <dir>...]`.
+  - It applies the S13-G8 rules to `git -C <path> diff --name-only <a..b>` and the file contents in that range.
+  - Root runs it from the nick tree, so it also checks the Rust-line stages. It imports nothing from the target repository.
+- **Owned paths:** `evaluation/check_s13_commit_hygiene.py`, `evaluation/tests/test_check_s13_commit_hygiene.py`.
+- **Interfaces and data shapes:** the script prints `{range, files_checked, violations:[{file, rule, line}]}` as JSON and exits 1 on any violation.
+- **Acceptance checks:**
+  - **Fixture tests pass:** `$PY -m unittest discover -s evaluation/tests -p test_check_s13_commit_hygiene.py`. The fixture repositories include:
+    - a `text` field;
+    - a planted 8-gram;
+    - a `.safetensors` file;
+    - each key pattern (OPENSSH, ENCRYPTED, and a line with a 64-hex seed);
+    - a sha256 on a line that is not about a key, which must not be flagged;
+    - an ignored output path.
+  - **The stage's own diff is clean:** `$PY evaluation/check_s13_commit_hygiene.py --repo . --range origin/feat/nick-branch..HEAD` exits 0.
+- **User dependency:** none.
+- **Status:** pending.
+- **Handoff notes:**
+  - Every later stage lists the G8 line among its acceptance checks.
+  - Root runs that line, because the leaf's branch (for example a Rust-line branch) may not contain the script.
 
 ## Stage 13a-0: Resolve the `fresh_eval-folio-NN` partition leak (prerequisite)
 
@@ -251,9 +290,9 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
                    normalisation: null | {pattern, replacement, original_sha256, normalised_sha256}}
   ```
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The sampling tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests -p test_sampling.py`. This includes the new gate, normalisation and partial-replacement tests.
   - **The decision note exists:** `test -f docs/research/annotation-marker-decision-<date>.md`.
-  - **No prompt text is committed:** `$PY evaluation/check_s13_commit_hygiene.py --base <base>` exits 0. 13a-0 writes this script, because every later stage uses it.
 - **User dependency:** USER confirms D5. If the user does not answer, the default stands and the note records it as provisional.
 - **Status:** pending.
 - **Handoff notes:**
@@ -303,12 +342,16 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
      The matched-contrast worked examples (protocol section 2 plus `subject`) are either written by the user or another human, or drafted unlabelled by an agent with the user writing and approving the labels (USER, D12). Until then, the guideline ships without examples, and the packet status says so.
   5. **Sampling and blinding.** Use `sample_annotation.py` with `--stratify-by quota_cell` and `--fail-on-marker`. The size is 360 main items plus a 30-item pilot (D3). The seed is pre-registered.
      - The sampler writes `packet_manifest.json`: the sha256 of every blank sheet and of the key. These values contain no text.
+     - New flag `--verify-against <packet_manifest.json>`: resample into a scratch directory, compare every hash, and exit non-zero on any difference.
   6. **Agreement** (`compute_iaa.py`):
      - add Fleiss' kappa (three or more annotators) next to Cohen's kappa per pair and per field;
      - categories use per-category binary kappa, exact-set agreement and Jaccard;
      - Krippendorff's alpha stays;
      - the bootstrap resamples `quota_cell` clusters;
      - `to_adjudicate.csv` contains text, so it is written only under `evaluation/results/s13a/`.
+     - New flags:
+       - `--min-kappa <x> --fields <f1,f2,..>` exits non-zero when any listed field's kappa is below `x`;
+       - `--check-adjudication <adjudicated.csv>` exits non-zero unless every disagreement has a `resolution` and an `adjudicator`.
   7. **Scoring** (`evaluation/annotation/score_privoke.py`, run with `$PYPIPE`):
      - It refuses to run unless the freeze record exists and its hashes match (see 13a-5).
      - It runs two separately labelled arms (D6):
@@ -325,7 +368,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Owned paths:**
   - `evaluation/annotation/{fresh_set.py,score_privoke.py,human_eval_report.py,check_order.py}` (new);
   - `evaluation/annotation/{annotation_schema.py,compute_iaa.py,agreement.py,sample_annotation.py}`;
-  - `evaluation/annotation/tests/test_{fresh_set,fleiss,score_privoke,human_eval_report,check_order}.py`;
+  - `evaluation/annotation/tests/test_{fresh_set,fleiss,score_privoke,human_eval_report,check_order,sampling,agreement}.py`;
   - `docs/research/s13a-*.md` and `docs/research/annotation-guideline-v2-<date>.md`.
 - **Interfaces and data shapes:**
   - The local sheet has the columns `item_id,text,sensitive,subject,audience,categories,action,notes`.
@@ -348,13 +391,17 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 
     Each metric is `{value, ci95, num, den}`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The annotation tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests`. They cover:
     - kappa and Fleiss against hand-computed fixtures;
     - the scorer refusing to run without a freeze and refusing an empty layer list;
     - the contamination check flagging a planted duplicate;
     - the validator rejecting an invalid cell;
-    - `check_order.py` failing on a fixture repository with the wrong order.
-  - **No labels are committed:** `$PY evaluation/check_s13_commit_hygiene.py --base <base>` exits 0, and no label file exists outside the test fixtures.
+    - `check_order.py` failing on a fixture repository with the wrong order;
+    - `sample_annotation.py --verify-against` failing on a changed sheet;
+    - `compute_iaa.py --min-kappa/--fields` failing below the bar;
+    - `compute_iaa.py --check-adjudication` failing on a missing resolution.
+  - **No labels are committed:** `git ls-files docs/research/s13a/labels` prints nothing on this stage branch.
 - **User dependency:** USER answers D1–D4 and D6, and writes or approves the worked examples (D12).
 - **Status:** pending.
 - **Handoff notes:** record the `$PYPIPE` interpreter path and the generated-client directory in the record. V3 balanced is read from the main checkout.
@@ -365,6 +412,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Depends on:** 13a-1 (the brief).
 - **Owned paths:** none in Git. The prompts are delivered to `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/raw/`, which is Git-ignored.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The quotas are met:** `$PY evaluation/annotation/fresh_set.py --input <raw> --dry-run --check-quotas` exits 0 and prints the quota counts.
   - **The declarations are in:** the user confirms in chat that every writer signed the declaration.
 - **User dependency:** USER does all of the following:
@@ -392,6 +440,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - `docs/research/s13a/packet_manifest.json`;
   - `docs/research/s13a-preregistration-<date>.md`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The set manifest came first:** `git merge-base --is-ancestor $(git log -1 --format=%H -- docs/research/s13a/set_manifest.json) $(git log -1 --format=%H -- docs/research/s13a/packet_manifest.json)` exits 0.
   - **The blinding audit is clean:** `$PY -c "import json,sys; m=json.load(open(sys.argv[1])); sys.exit(m['blinding_audit']['items_with_marker'])" evaluation/results/s13a/packet/key/manifest.json` exits 0.
   - **The sheets are deterministic:** a second sampler run into a scratch directory gives the same hashes as `packet_manifest.json` (`$PY evaluation/annotation/sample_annotation.py ... --verify-against docs/research/s13a/packet_manifest.json` exits 0).
@@ -409,6 +458,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - Agents run `compute_iaa.py` for the pilot and the main round when asked, and write `to_adjudicate.csv` locally. That file is never committed, because it holds text.
   - A human adjudicator decides every item.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The sheets are valid:** `$PY evaluation/annotation/annotation_schema.py --validate <sheet> --schema 2` exits 0 for every returned sheet.
   - **The pilot agrees well enough:** in `pilot_iaa.json`, the kappa for `sensitive`, `audience` and `action` is at least 0.6. If not, there is one revision and a repeat. The check is `$PY evaluation/annotation/compute_iaa.py ... --min-kappa 0.6 --fields sensitive,audience,action`, which exits non-zero below the bar.
   - **Adjudication is complete:** `$PY evaluation/annotation/compute_iaa.py --check-adjudication <adjudicated.csv>` exits 0. Every disagreement must have a `resolution` and an `adjudicator`.
@@ -419,7 +469,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 ## Stage 13a-5: Freeze the labels, score and record (agent)
 
 - **Objective:** freeze the labels, then score PriVoke and write the HUMANEVAL record.
-- **Depends on:** 13a-4.
+- **Depends on:** 13a-4, and the host lock for PriVoke scoring (after 13b-2).
 - **Work:**
   1. Write the label-only CSVs (no `text`, no `notes`) for each annotator and for the adjudicated set into `docs/research/s13a/labels/`.
   2. Root commits them with `iaa.json` and their sha256 values. This is the freeze commit, and it comes before any PriVoke run on these items.
@@ -431,8 +481,8 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - `paper/research/human-annotated-eval-<date>.{md,json}`;
   - `docs/experiments/human-annotated-eval-<date>.md`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G1(a) holds:** `human_eval_report.py --check` and `check_order.py` both exit 0.
-  - **The commit is clean:** `$PY evaluation/check_s13_commit_hygiene.py --base <base>` exits 0.
 - **User dependency:** none.
 - **Status:** pending.
 - **Handoff notes:** use the protocol's wording, "agree at the reported rate with adjudicated labels from N annotators", and never "validated".
@@ -452,7 +502,12 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Depends on:** none.
 - **Work:**
   1. **Seeds.** A stratified sample, with a recorded seed, from the frozen Stage 3 set at `D:/Git Repositories/Privoke-Research-Project/evaluation/results/adversarial_evasion_20261116/main/frozen_set.jsonl` (sha256 `5e4eac4c7c3117adf81a013fa9e4572484c9b0f41ab4b4f217ca960a82b634c2`). The harness verifies this hash before it reads anything.
-     - **Disjointness.** F4 is disjoint from the flag-design sets (`development.jsonl` dev-TUNE and dev-CHECK, the personalised synthetic set and the OpenAI synthetic set) by the [F4 freeze record](../research/fresh-sets-freeze-v3-20261025.md). The sample must also be disjoint from the 13a set, which the 13a contamination check confirms.
+     - **Link to F4, and disjointness.**
+       - The Stage 3 build manifest is `D:/Git Repositories/Privoke-Research-Project/evaluation/results/adversarial_evasion_20261116/main/manifest.json`. It records `record: ADVEVADE-20261116` and `frozen_set_sha256: 5e4eac4c…`.
+       - It names its source as `seed_file: …/evaluation/results/fresh_sets_20261025/f4_piimb/piimb_fresh_f4.jsonl`, with `seed_file_sha256: d4bed756790c7b000fc5e8b6028e3f962c8dbfabe3f607a7180224d55356589d`.
+       - The [F4 freeze record](../research/fresh-sets-freeze-v3-20261025.md) lists that same file and hash. It also records that F4 is disjoint from the flag-design sets: `development.jsonl` (dev-TUNE and dev-CHECK), the personalised synthetic set and the OpenAI synthetic set.
+       - The harness checks that `frozen_set.jsonl` hashes to `5e4eac4c…` and that the manifest's `seed_file_sha256` equals `d4bed756…`. It stops if either check fails.
+     - **Disjointness from 13a.** The sample must also be disjoint from the 13a set. The 13a contamination check confirms this.
      - **Size.** `N_seed` is fixed after a 20-probe timing pilot so that one browser takes at most 8 hours, with a floor of 200.
      - **Re-use.** Reusing the frozen Stage 3 items keeps the variant text identical to Stage 3.
   2. **Variants.**
@@ -476,7 +531,8 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
      - **Evasion:** a protected pair whose variant is delivered intact with no BLOCK and no WARN.
      - **Downgrade:** BLOCK becomes WARN.
      - **Fail-closed:** counted separately, never as protection.
-     - **Conditional ASR** = evasions / protected applicable pairs. **Unconditional ASR** = evasions / all applicable pairs.
+     - **Conditional ASR** = evasions / protected applicable pairs. Each arm's denominator is its own baseline-protected set, so the denominators differ, and the record states both. **Unconditional ASR** = evasions / all applicable pairs.
+     - **Paired conditional ASR.** Both arms are also scored on the intersection of their protected pairs (baseline protected end to end and at detector level), with an exact McNemar test on the discordant pairs.
      - **Value-removing families** (`indirect_pointer`, flagged `True` in the transform table) may leave the prompt no longer sensitive. They are reported separately, and every overall rate is given with and without them, using Stage 3's `overall_excluding_value_removing` key. A delivery of an `indirect_pointer` variant is never reported as a leak of the original value.
   6. **Expected executed layers.** Every end-to-end and detector-level response must execute [regex, ner, semantic], subject to the regex-first skip rule.
      - If the installed runtime cannot run the semantic layer, the run stops; it never silently drops a layer. This happened in Stage 11, where `PRIVOKE_USE_LOCAL_STACK=true` made the semantic layer unavailable.
@@ -498,6 +554,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 
   Prompt text is stored only under `evaluation/results/s13b/`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The harness tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_evasion*.py"`. They cover:
     - outcome classification;
     - matching Stage 3's `summarise_pairs` on a fixture;
@@ -518,6 +575,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - `paper/research/e2e-evasion-<date>.{md,json}`;
   - `docs/experiments/e2e-evasion-<date>.md`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G2 holds:** `$PY evaluation/e2e_evasion_report.py --check <json>` exits 0. The check fails if a browser is neither run nor listed with a reason.
   - **No outside host was contacted:** the record's `host_guard.outside_lookups` is 0, which `--check` verifies.
 - **User dependency:** none.
@@ -529,7 +587,9 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Objective:** confirm the headless outcomes in the user's installed, headed browser for a stratified subset (D8). Here the native host launches normally and the notices are visible.
 - **Depends on:** 13b-2, and the host lock.
 - **Owned paths:** rows with `attended: true` added to the same record.
-- **Acceptance checks:** **the attended rows check out:** `$PY evaluation/e2e_evasion_report.py --check <json> --require-attended` exits 0. It requires the attended rows to have the full row fields and reports any disagreement with the headless rows.
+- **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **the attended rows check out:** `$PY evaluation/e2e_evasion_report.py --check <json> --require-attended` exits 0. It requires the attended rows to have the full row fields and reports any disagreement with the headless rows.
 - **User dependency:** USER runs the provided script, which opens the fixture page in the user's browser with the installed extension. The user submits each listed variant when prompted, and leaves the machine otherwise idle. No real provider is involved.
 - **Status:** pending.
 - **Handoff notes:** a `live` addendum is possible only with D7 approval, and then only with non-sensitive synthetic seeds.
@@ -583,11 +643,15 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - **Transport.** Calls go through the real `CheckpointService` over mutual TLS (pattern of `tests/checkpoint_mtls.rs`), as the `trainer` principal.
   - **Observation.**
     - The store authority is read directly.
-    - The served version comes from `model-streaming`'s `published.rs` library API over the same store and publish root, if `privoke-model-streaming` can be a dev-dependency of param-update. If it cannot, from the container leg only.
+    - The served version comes from the `published.rs` library API of model-streaming, over the same store and publish root. `privoke-model-streaming` is already a normal dependency of param-update (`rust/services/param-update/Cargo.toml`).
   - **Client checks.** The client-side checks (`admit_lineage`, and `verify_package` in `rust/services/runtime-supervisor/src/fetch.rs`) are tested in **runtime-supervisor**, not in param-update, because runtime-supervisor is not a dependency of param-update. The test is `rust/services/runtime-supervisor/tests/s13c_client_admission.rs`, built on the synthetic efficient-tier chain of `tests/lineage_fetch.rs` and `privoke-contracts/tests/fixtures/v3_signed_chain/chain.json`.
   - **Outputs.**
     - With `S13C_OUT` set, both tests write their rows as JSON. They assert each row's expected outcome, so CI fails on any regression.
-    - With `S13C_EXPORT_CANDIDATES=<dir>`, the param-update test also writes the valid and invalid candidate bundles (manifest, blob, evidence and allocation) to a scratch directory, for 13c-2 and 13d. These bundles are never committed.
+    - CI bundles use stand-in weights and test scorers, so they are **not** used against the containers. 13c-2 builds the container-leg candidates.
+  - **Row manifest.** `rust/services/param-update/tests/s13c_rows.json` lists every variant id, with its `attack_class`, `expected`, `chain` and a `wire_path` flag.
+    - Crash points (C10) and at-rest corruption (C9e, C9f) are `wire_path: false`. Every other variant is `true`.
+    - The Rust tests and `v3_update_attacks_report.py --check` both read the manifest.
+    - `--check` fails when a manifest id has no row, or a row has no manifest id.
 - **Attack-to-check map.** Every check named here was read with `git show origin/feat/rust-rewrite:<path>`. `store.rs` means `rust/services/param-update/src/v3_store/store.rs`, and `v3.rs` means `rust/crates/privoke-contracts/src/v3.rs`.
   - **Reason order.** Admission errors come first. They raise `INVALID_ARGUMENT` before any transaction and leave no receipt; this includes `validate_execution` and the commit-identity check. Next, the observer refusals in `prepare` are computed. Inside the transaction, the receipt reason is `stale_base` first, then `guard_rejected` (`v3::publication_passes`), and only then the first `prepare` refusal.
   - **Isolation.** Each row isolates one fault. Rows that combine faults are labelled `combined`.
@@ -615,8 +679,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   **C8b.** It needs about 25 updates, each just under the per-update bound, to reach the cumulative cap of 100. It runs **synthetically in CI only**, with stand-in weights and the test scorers. The real-weight leg records it as `not_run` with that reason.
 - **Owned paths:**
   - `rust/services/param-update/src/{lib.rs,main.rs}` (the `build_observers` seam only);
-  - `rust/services/param-update/tests/s13c_update_attacks.rs` (new);
-  - `rust/services/param-update/Cargo.toml` (only if a `privoke-model-streaming` dev-dependency is added);
+  - `rust/services/param-update/tests/s13c_update_attacks.rs` and `tests/s13c_rows.json` (new);
   - `rust/services/runtime-supervisor/tests/s13c_client_admission.rs` (new);
   - `evaluation/v3_update_attacks_report.py` and `evaluation/tests/test_v3_update_attacks_report.py` (new).
 - **Interfaces and data shapes:** one row per attack variant:
@@ -632,6 +695,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
    active_after:{...}, orphan_blobs, property_met, not_run_reason}
   ```
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The param-update attack test passes:** `RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks` exits 0.
   - **The rest of param-update still passes:** `RUSTDOCK cargo test -p privoke-param-update --release --locked` exits 0. This includes `v3_deployment` and `scheduler_chain`, which show the seam changed no behaviour.
   - **The client admission test passes:** `RUSTDOCK cargo test -p privoke-runtime-supervisor --release --locked --test s13c_client_admission` exits 0.
@@ -646,22 +710,46 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 
 - **Objective:**
   - Repeat the scorer-dependent rows (C11b, C11f, C11g) with the real Rust V3 encoder and the efficient-tier release.
-  - Run every attack class that has a wire path against the Compose `v3-training` containers on loopback (test PKI, test publication key). Observe the served version through model-streaming `GetModelPackage` in those runs.
+  - Run every `wire_path: true` variant of `s13c_rows.json` against the Compose `v3-training` containers on loopback (test PKI, test publication key). Observe the served version through model-streaming `GetModelPackage` in those runs.
   - Write the V3UPDATK record.
 - **Depends on:** 13c-1, and the host lock (first in the order).
 - **Work:**
   - **Real-weight leg.** An env-gated test, `s13c_update_attacks_real.rs`, following the pattern of `rust/services/v3-fuzzer/tests/scheduler_real.rs`. Docker mounts `models/standard-releases` and the ORIGINAL read-only.
+  - **Container-leg candidates.** The containers run the real GuardGate and RetentionGate scorers against the real release. CI stand-in bundles would therefore fail there for the wrong reason: on parent or ORIGINAL binding, `guard_recomputed` or `retention_regressed`. Two kinds of candidate are used instead.
+    - **Rejection-only rows.**
+      - Derived from the real efficient release: parent = the pin, `original` = its ORIGINAL, with synthetic evidence, then mutated per row.
+      - Each is designed to fail at an admission check or an early gate, before any gate that uses a real scorer.
+    - **Genuine candidate.**
+      - One real-weight candidate that the real gates accept.
+      - Built in the real leg by a real routine fit, following `rust/services/v3-fuzzer/tests/scheduler_real.rs`, and written with `S13C_EXPORT_CANDIDATES=<scratch dir>`.
+      - It drives the positive controls (publisher commit applied, runtime stage accepted, and the 13d controls).
+      - It drives C2a over the wire.
+      - The late-gate rows (C1a, C1b, C3a, C8a and C11) are mutations of it.
+    - **If the genuine build fails** (for example `guard_rejected` by the trainer-evidence rule, as happened in V3-R6 and V3-R7):
+      - those rows become `not_run`, with the reason and the failed request id recorded;
+      - they are never replaced with stand-in bundles.
+  - **Allocations.**
+    - **Who owns the journal.** It belongs to the param-update scheduler: the SQLite file that `rust/services/param-update/src/journal.rs` `Journal::open` creates. GuardGate reads it through `JournalAllocations`. It has two tables:
+      - `v3_cycles`;
+      - `v3_allocations`, with the columns `request_id, cycle, model_id, stage, attempt, sampler, seed, expected_base, source_commitment, state, candidate, reason`.
+    - **Scheduler off.** The container leg runs param-update with `FUZZER_PROMPT_COUNT=0`. `main.rs` starts the scheduler only when that count is above 0, so the scheduler does not run.
+    - **Writing allocations.** The leg writes them only through a Rust helper: the env-gated test `s13c_journal_seed` in `s13c_update_attacks_real.rs`. It calls `Journal::open` and `Journal::allocate`, and runs only while the param-update container is stopped. Host Python calls it as:
+      ```
+      RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_journal_seed
+      ```
+      with `S13C_JOURNAL=<mounted file>` and `S13C_ALLOCATIONS=<json>`.
+    - **Reuse.** 13d-1b reuses this harness seam.
   - **Container leg.**
-    - The same test with `S13C_ENDPOINT` set, against `docker compose --profile v3-training up`.
-    - Candidate bundles come from `S13C_EXPORT_CANDIDATES`.
-    - GuardGate needs an allocation for every committed request, so the leg writes allocations into a scheduler journal file that is mounted into the param-update container. This is the documented harness seam; 13d-2 reuses it.
+    - The same test, with `S13C_ENDPOINT` set.
+    - It runs against param-update and model-streaming, started from `docker compose --profile v3-training up`.
     - The stack is torn down afterwards.
 - **Owned paths:**
   - `rust/services/param-update/tests/s13c_update_attacks_real.rs`;
-  - the journal-fixture helper in that test;
+  - the `s13c_journal_seed` helper in that test;
   - `paper/research/v3-update-attacks-<date>.{md,json}`;
   - `docs/experiments/v3-update-attacks-<date>.md`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G3 holds.** `$PY evaluation/v3_update_attacks_report.py --check <json>` exits 0. Among other things, `--check` fails when a class with a wire path has neither a `container` row with `active_after.served_manifest` nor a `not_run_reason`.
 - **User dependency:** none.
 - **Status:** pending.
@@ -671,7 +759,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 
 ## Stage 13d: Authentication and authorisation against the Rust stack
 
-### 13d-1: Row families and PKI (agent)
+### 13d-1: Row families and PKI (agent; parts 13d-1a and 13d-1b)
 
 - **Objective:** extend `evaluation/update_security.py --target rust` to answer the 13d question against the current Rust services, including the V3 `CheckpointService` and publication.
 - **Paper question:** can an unauthorised identity retrieve protected resources, submit updates or publish a candidate model? (RQ2 attack resistance, `sec:eval_auth`.)
@@ -681,11 +769,18 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
     - **Experiment:** negative rows from a host Python client against the containers.
     - **Metric:** for each attack, denial (required) and the denying layer.
     - **Evidence:** the AUTHZ record.
-- **Depends on:**
-  - 13c-1, for the candidate bundles that CK8 and the positive controls need (`S13C_EXPORT_CANDIDATES`);
-  - 13c-2, for the journal-allocation seam.
+- **Parts and dependencies:**
+  - **13d-1a (24–28 Nov)** covers every row that needs no candidate:
+    - the PKI;
+    - CK1–CK7 and CK9;
+    - the TL rows;
+    - the re-run families;
+    - the `denied_by` field and the coverage checks.
 
-  Rows that need no candidate can be built earlier.
+    It depends on nothing.
+  - **13d-1b (after 13c-2, under the host lock)** covers CK8 and the positive controls.
+    - They need the genuine real-weight candidate and its rejection-only derivatives, exported by 13c-2, plus the `s13c_journal_seed` allocation helper.
+    - Without a genuine candidate, these rows are `not_run`, with the reason from 13c-2.
 - **Work:**
   1. **PKI.**
      - **Legitimate principals come from `privoke-pki`:**
@@ -718,7 +813,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
      - a `publisher` rollback to the pin, applied;
      - a `runtime` stage, accepted.
 
-     All of these use the 13c candidate bundles and journal seam.
+     CK8 and these positive controls belong to 13d-1b. They use the 13c-2 candidates and the `s13c_journal_seed` helper.
   3. **`TL` rows (TLS level):**
      - **TL1:** replay the captured TLS 1.3 bytes of an authenticated `CommitCandidate` on a new connection. Expected: no receipt.
      - **TL2:** flip one bit through a loopback TCP proxy. Expected: the connection aborts, and there is no receipt.
@@ -757,6 +852,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - `evaluation/tests/test_update_security*.py`.
 - **Interfaces and data shapes:** the existing `update_security.py` row schema, plus `denied_by`, `credential_issuer` and `identity`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **The tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_update_security*.py"`. New tests cover the CK and TL families, the `denied_by` vocabulary and `--check-s13d-coverage`.
   - **The legacy record still reproduces:** `$PY evaluation/update_security_report.py --record paper/research/update-security-20261117.json --document paper/research/update-security-20261117.md` reproduces it unchanged.
 - **User dependency:** none.
@@ -766,11 +862,12 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 ### 13d-2: Run and record (agent)
 
 - **Objective:** run every family against the Rust containers on loopback with the local V3 packages, and write AUTHZ.
-- **Depends on:** 13d-1, and the host lock (after 13c-2).
+- **Depends on:** 13d-1a and 13d-1b, and the host lock (after 13c-2).
 - **Owned paths:**
   - `paper/research/authn-authz-<date>.{md,json}`;
   - `docs/experiments/authn-authz-<date>.md`.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G4 holds.** This includes `$PY evaluation/update_security_report.py --record <json> --check-s13d-coverage`, which must exit 0.
   - **The record cross-references UPDSEC-20261116 and UPDSEC-20261117:** `--check` verifies that both IDs appear in its gap table.
 - **User dependency:** none.
@@ -791,6 +888,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
     - **Evidence:** the LAYERABL record.
 - **Scope label:** `product pipeline (in-process)`. This is an explicitly requested detector ablation, kept separate from LLM-only results. The semantic-only configuration is not reported as LLM-only evidence.
 - **Depends on:**
+  - the host lock (after 13a-5 scoring);
   - 13a-5 (frozen labels);
   - or, under the D11 fallback, the Stage 3 declared split with its provisional targets, which are labelled as provisional.
 - **Work:**
@@ -804,6 +902,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - Rows: `{item_id, config, layers_requested, layers_executed, action, per_layer_action, error}`.
   - Each configuration's aggregates have the same form as the 13a arm metrics.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G5 holds.**
   - **The ablation tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_layer_ablation*.py"`. They cover empty-list refusal, aborting on an executed-layer mismatch, and the McNemar fixture.
 - **User dependency:** none, apart from D11.
@@ -852,6 +951,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
   - Each sample: `{arm, browser, platform, interface, repeat, attended, prompt_id, t_submit_ms, t_receiver_ms|null, decision, layers_executed, request_sent, cpu_pct, rss_mb, host_load_before}`.
   - p50, p95 and p99 with bootstrap intervals for each arm, browser and interface.
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G6 holds**, in its first form. `--check` also fails on any `host_load_before` above 25%, or on overlapping lock intervals.
   - **The overhead tests pass:** `$PY -m unittest discover -s evaluation/tests -p "test_e2e_overhead*.py"`.
 - **User dependency:** the user leaves the machine idle during the timing window that root agrees with them.
@@ -863,7 +963,9 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 - **Objective:** headed timing in the user's installed browser, with the native host launched normally, for A0, A1 and A4. Optionally, a second machine, OS or LLM interface.
 - **Depends on:** 13f-1, and the host lock.
 - **Owned paths:** rows with `attended: true` in the same record.
-- **Acceptance checks:** **the attended rows check out:** `$PY evaluation/e2e_overhead_report.py --check <json> --require-attended` exits 0.
+- **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
+  - **the attended rows check out:** `$PY evaluation/e2e_overhead_report.py --check <json> --require-attended` exits 0.
 - **User dependency:** USER runs the provided script during an agreed idle window with other applications closed. Optionally, the user runs it on a second machine. Live interfaces need D7 approval.
 - **Status:** pending.
 - **Handoff notes:** if 13f is dropped (D11), 13-P writes the limitation paragraph and cites XPLAT-20261117 for what was covered.
@@ -909,6 +1011,7 @@ Host-heavy runs follow this fixed order, one at a time, under the host lock: **1
 
   Status fields in this plan and in the ASIACCS plan are written by root (see "Coordination rules").
 - **Acceptance checks:**
+  - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD` exits 0.
   - **S13-G7 and S13-G8 hold.**
   - **The paper builds:** `latexmk -pdf main.tex` exits 0 in `paper/`.
   - **The page check passes:** `$PY paper/scripts/check_pages.py` prints PASS.
