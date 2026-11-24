@@ -35,7 +35,7 @@ FREEZE_SCHEMA = "privoke-s13a-iaa-v1"
 SCOPE_LABELS = {"product pipeline (in-process)", "product pipeline (installed extension, end to end)",
                 "LLM-only (semantic)", "update path (Rust V3)", "transport (Rust)", "human ground truth"}
 N_BOOT = 1000
-METRIC_ORDER = ["precision", "recall", "specificity", "f1", "under_enforcement", "over_enforcement"]
+METRIC_ORDER = list(scorer.METRIC_NAMES)
 SEED = 20261124
 STATEMENT = "No agent produced, simulated, imputed or adjudicated any label; every label was written by a person."
 REQUIRED_HEADER = ["schema", "study_id", "chain", "build", "host", "run_dates", "commands", "scope_label",
@@ -306,7 +306,8 @@ def check_record(record_path, root=None):
         if arm["scope_label"] != spec["scope_label"] or arm["scope_label"] not in SCOPE_LABELS:
             problems.append(f"{arm['arm']}: wrong scope_label")
         bootstrap = arm["bootstrap"]
-        fresh = scorer.arm_report(arm["arm"], arm["predictions"], reference, clusters, bootstrap["replicates"], bootstrap["seed"])
+        fresh = scorer.arm_report(arm["arm"], arm["predictions"], reference, clusters, bootstrap["replicates"], bootstrap["seed"],
+                                  executed_ok=arm.get("layers_executed_ok") is True)
         close(arm, json.loads(json.dumps(fresh)), f"arms.{arm['arm']}", problems)
     md = record_path.with_suffix(".md")
     if md.is_file() and md.read_text(encoding="utf8") != render_markdown(record):

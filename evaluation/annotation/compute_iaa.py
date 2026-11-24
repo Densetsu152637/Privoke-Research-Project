@@ -10,7 +10,8 @@ Usage:
 Stage 13a additions: --schema 2 reads the v2 sheets (sensitive, subject, audience, categories, action);
 Fleiss' kappa is added when three or more annotators are present; --min-kappa/--fields exit non-zero when
 any listed field's kappa (every pair, and Fleiss) is below the bar; --check-adjudication exits non-zero
-unless every row of the adjudication file has a valid resolution and an adjudicator. With --schema 2 the
+unless every disagreement item (from --sheet or --to-adjudicate) has a valid resolution, an adjudicator and valid
+final labels, with no item missing. With --schema 2 the
 adjudication export holds text, so it may only be written under the main checkout's
 evaluation/results/s13a/returned/ (override the root with S13A_RETURNED_ROOT in tests). Keys that carry a
 quota_cell make the bootstrap resample quota cells instead of scenario families.
@@ -32,17 +33,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agreement as ag  # noqa: E402
 import annotation_schema as schema  # noqa: E402
-
-
-RETURNED_ROOT = Path("D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13a/returned")
+import s13_paths  # noqa: E402
 
 
 def require_returned_path(path):
     """The adjudication export contains text: refuse any path outside the Git-ignored returned/ directory."""
-    root = Path(os.environ.get("S13A_RETURNED_ROOT") or RETURNED_ROOT).resolve()
-    target = Path(path).resolve()
-    if root != target and root not in target.parents:
-        raise SystemExit(f"{path} holds text and may only be written under {root}")
+    s13_paths.require_under(path, s13_paths.returned_root(), "adjudication export")
 
 
 def load_sheets(specs, version=1):
@@ -186,14 +182,22 @@ def render_markdown(result):
     return "\n".join(lines) + "\n"
 
 
-def check_adjudication(path):
-    """Every disagreement row needs a valid resolution and a named adjudicator; returns the problem list."""
+def check_adjudication(path, expected_ids, version=1):
+    """Return the problems of an adjudication file against the full disagreement set ``expected_ids``.
+
+    Every disagreeing item must appear exactly once, none may be extra, each needs a valid resolution and a named
+    adjudicator, and (unless excluded as ambiguous) each final label cell must be a valid value of the schema.
+    """
     rows = schema.read_rows(path)
     if not rows:
         return ["adjudication file has no rows"]
     problems = []
+    seen = []
+    fields = list(schema.fields_for(version)) + ["categories"]
     for number, row in enumerate(rows, start=2):
-        who = str(row.get("item_id", "")).strip() or f"row {number}"
+        item = str(row.get("item_id", "")).strip()
+        who = item or f"row {number}"
+        seen.append(item)
         resolution = str(row.get("resolution", "") or "").strip()
         if not resolution:
             problems.append(f"{who}: resolution is empty")
@@ -201,6 +205,24 @@ def check_adjudication(path):
             problems.append(f"{who}: invalid resolution {resolution!r}")
         if not str(row.get("adjudicator", "") or "").strip():
             problems.append(f"{who}: adjudicator is empty")
+        if resolution == "excluded_ambiguous":
+            continue
+        final = {"item_id": item}
+        for field in fields:
+            value = row.get(f"final_{field}")
+            final[field] = value if value not in (None, "") else row.get(field, "")
+        try:
+            schema.normalise_row(final, version=version)
+        except schema.SheetError as error:
+            problems.append(f"{who}: final label invalid: {error}")
+    if len(set(seen)) != len(seen):
+        problems.append("duplicate item ids in the adjudication file")
+    missing = sorted(set(expected_ids) - set(seen))
+    extra = sorted(set(seen) - set(expected_ids))
+    if missing:
+        problems.append(f"{len(missing)} disagreement items are missing from the adjudication file: " + ",".join(missing[:10]))
+    if extra:
+        problems.append(f"{len(extra)} items are not in the disagreement set: " + ",".join(extra[:10]))
     return problems
 
 
@@ -227,13 +249,21 @@ def main(argv=None):
     p.add_argument("--min-kappa", type=float, help="exit non-zero when a --fields kappa is below this bar")
     p.add_argument("--fields", help="comma-separated fields that --min-kappa applies to")
     p.add_argument("--check-adjudication", metavar="ADJUDICATED_CSV",
-                   help="exit non-zero unless every row has a valid resolution and an adjudicator")
+                   help="exit non-zero unless every disagreement item has a valid resolution, an adjudicator and valid final "
+                        "labels; needs the disagreement set from --sheet (two or more) or --to-adjudicate")
+    p.add_argument("--to-adjudicate", metavar="CSV", help="the to_adjudicate export that defines the disagreement set")
     p.add_argument("--out-md")
     p.add_argument("--disagreements-csv")
     args = p.parse_args(argv)
 
     if args.check_adjudication:
-        problems = check_adjudication(args.check_adjudication)
+        if args.sheet:
+            expected = {r["item_id"] for r in disagreements(load_sheets(args.sheet, args.schema), {}, args.schema)[1]}
+        elif args.to_adjudicate:
+            expected = {r["item_id"] for r in schema.read_rows(args.to_adjudicate)}
+        else:
+            p.error("--check-adjudication needs the disagreement set: give --sheet NAME=PATH (repeat) or --to-adjudicate")
+        problems = check_adjudication(args.check_adjudication, expected, args.schema)
         print(json.dumps({"adjudication": str(args.check_adjudication), "complete": not problems,
                           "problem_count": len(problems), "problems": problems[:50]}))
         raise SystemExit(1 if problems else 0)

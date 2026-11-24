@@ -10,10 +10,13 @@ Raw input (Git-ignored, delivered by the writers): JSONL or CSV rows with the co
 A directory is read file by file in sorted order (*.jsonl, *.csv). Only whitespace is normalised.
 
 Steps: normalise whitespace; remove exact duplicates; assign opaque ids; remove every prompt that has an exact
-match, or an 8-gram Jaccard of at least 0.5, against the prompt-bearing files of the contamination sources
-(default: evaluation/datasets/ of this checkout and evaluation/results/ of the main checkout, which holds the
-frozen Stage 3 set and the fuzzer curricula; the s13* directories are excluded); remove every prompt that
-matches a dataset marker. The brief's quotas are then checked on what remains.
+match, or an 8-gram Jaccard of at least 0.5, or a containment of at least 0.5 (shared n-grams over the prompt's
+own n-grams; a prompt shorter than 8 tokens uses n-grams down to its own length), against the prompt-bearing
+files of the contamination sources; remove every prompt that matches a dataset marker. The default sources are
+evaluation/datasets/ of this checkout, evaluation/results/ of the main checkout (the frozen Stage 3 set, the s13*
+directories excluded) and the fuzzer curricula (the main checkout's evaluation/datasets/). --source adds to the
+defaults. A real freeze fails when a source is missing or holds no scanned file. The brief's quotas are then
+checked on what remains.
 
 Outputs (never in Git, because they hold text) go under evaluation/results/s13a/ of the main checkout:
   <out>/frozen_set.jsonl   {id, text, category, audience, sensitive, quota_cell}
@@ -34,6 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import annotation_schema as schema  # noqa: E402
+import s13_paths  # noqa: E402
 import sample_annotation as sampler  # noqa: E402
 
 SCHEMA = "privoke-s13a-set-v1"
@@ -42,14 +46,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_KINDS = ["writers", "public_corpus", "agent_generated"]
 NGRAM = 8
 NEAR_JACCARD = 0.5
+MIN_NGRAM_TOKENS = 3  # a prompt of fewer tokens is only compared for exact equality
 TEXT_SUFFIXES = {".jsonl", ".json", ".csv", ".txt", ".md"}
 
 # The writer brief's quotas (docs/research/s13a-writer-brief-*.md). 390 = 360 main + 30 pilot items (D3).
 QUOTAS = {"min_total": 390, "min_sensitive_share": 0.45, "min_per_category": 20}
-
-
-def results_root():
-    return Path(os.environ.get("S13A_RESULTS_ROOT") or MAIN_CHECKOUT / "evaluation" / "results" / "s13a")
 
 
 def normalise_text(text):
@@ -188,21 +189,39 @@ def source_files(root, excluded):
 
 def default_sources():
     return {"datasets": REPO_ROOT / "evaluation" / "datasets",
-            "results": MAIN_CHECKOUT / "evaluation" / "results"}
+            "results": MAIN_CHECKOUT / "evaluation" / "results",
+            "fuzzer_curricula": MAIN_CHECKOUT / "evaluation" / "datasets"}
+
+
+def resolve_sources(extra, no_defaults=False):
+    """The defaults plus every --source LABEL=PATH (a repeated label replaces its default)."""
+    if no_defaults and not s13_paths.under_tests():
+        raise SystemExit("--no-default-sources is only allowed under tests (S13A_TESTING=1)")
+    sources = {} if no_defaults else default_sources()
+    for spec in extra or []:
+        label, _, path = spec.partition("=")
+        if not path:
+            raise SystemExit("--source expects LABEL=PATH")
+        sources[label] = Path(path)
+    return sources
 
 
 def contamination_scan(rows, sources, excluded=frozenset(), max_bytes=256 * 1024 * 1024, threshold=NEAR_JACCARD):
     """Return ({id: reason}, sources_checked). Reasons are 'exact' or 'near'; exact wins."""
     by_text = {}
     item_grams = {}
-    index = defaultdict(set)
+    indices = defaultdict(lambda: defaultdict(set))  # n -> gram -> item ids
     for row in rows:
         toks = tokens(row["text"])
         by_text.setdefault(" ".join(toks), []).append(row["id"])
-        grams = {hash(tuple(toks[i:i + NGRAM])) for i in range(len(toks) - NGRAM + 1)}
+        n = min(NGRAM, len(toks))
+        if n < MIN_NGRAM_TOKENS:
+            item_grams[row["id"]] = 0  # too short for n-gram rules: exact matches only
+            continue
+        grams = {hash(tuple(toks[i:i + n])) for i in range(len(toks) - n + 1)}
         item_grams[row["id"]] = len(grams)
         for g in grams:
-            index[g].add(row["id"])
+            indices[n][g].add(row["id"])
     flagged, checked = {}, []
     for label, root in sources.items():
         files = texts = skipped = 0
@@ -218,13 +237,16 @@ def contamination_scan(rows, sources, excluded=frozenset(), max_bytes=256 * 1024
                 texts += 1
                 for item in by_text.get(" ".join(toks), ()):
                     flagged[item] = "exact"
-                if len(toks) < NGRAM:
-                    continue
-                grams = {hash(tuple(toks[i:i + NGRAM])) for i in range(len(toks) - NGRAM + 1)}
-                hits = Counter(item for g in grams for item in index.get(g, ()))
-                for item, shared in hits.items():
-                    if shared / (item_grams[item] + len(grams) - shared) >= threshold:
-                        flagged.setdefault(item, "near")
+                for n, index in indices.items():
+                    if len(toks) < n:
+                        continue
+                    grams = {hash(tuple(toks[i:i + n])) for i in range(len(toks) - n + 1)}
+                    hits = Counter(item for g in grams for item in index.get(g, ()))
+                    for item, shared in hits.items():
+                        contained = shared / item_grams[item] >= threshold
+                        jaccard = n == NGRAM and shared / (item_grams[item] + len(grams) - shared) >= threshold
+                        if contained or jaccard:
+                            flagged.setdefault(item, "near")
         checked.append({"source": label, "path": str(root), "files": files, "texts": texts, "skipped_large_files": skipped})
     return flagged, checked
 
@@ -240,13 +262,16 @@ def freeze(args):
         row["quota_cell"] = f"{row['category']}/{row['audience']}/{row['sensitive']}"
     patterns = sampler.marker_patterns(args.marker_pattern)
     marker_ids = {r["id"] for r in rows if any(p.search(r["text"]) for p in patterns)}
-    sources = dict(s.split("=", 1) for s in args.source) if args.source else default_sources()
+    sources = resolve_sources(args.source, getattr(args, "no_default_sources", False))
     missing = [k for k, v in sources.items() if not Path(v).exists()]
     if missing and not args.dry_run:
         raise SystemExit("contamination sources are missing: " + ",".join(missing))
     present = {k: v for k, v in sources.items() if k not in missing}
     excluded = {f.resolve() for f in raw_files(args.input)}
     flagged, checked = contamination_scan(rows, present, excluded)
+    empty = [c["source"] for c in checked if c["files"] == 0]
+    if empty and not args.dry_run:
+        raise SystemExit("contamination sources hold no scanned file: " + ",".join(empty))
     removed = {**{i: "marker" for i in marker_ids}, **flagged}
     kept = [r for r in rows if r["id"] not in removed]
     counts = quota_counts(kept)
@@ -260,10 +285,9 @@ def freeze(args):
         "quota_counts": counts, "quotas": QUOTAS, "quota_violations": violations,
     }
     if not args.dry_run:
-        root = results_root().resolve()
-        out = Path(args.out).resolve() if args.out else None
-        if out is None or (out != root and root not in out.parents):
-            raise SystemExit(f"--out must be a directory under {root}")
+        if not args.out:
+            raise SystemExit("--out is required for a real freeze")
+        out = s13_paths.require_under(args.out, s13_paths.results_root(), "--out")
         if args.check_quotas and violations:
             raise SystemExit("quotas unmet; nothing was written: " + "; ".join(violations))
         out.mkdir(parents=True, exist_ok=True)
@@ -282,7 +306,8 @@ def main(argv=None):
     p.add_argument("--check-quotas", action="store_true", help="exit 1 when the brief's quotas are unmet")
     p.add_argument("--source-kind", choices=SOURCE_KINDS, default="writers")
     p.add_argument("--source", action="append", metavar="LABEL=PATH",
-                   help="contamination source (repeatable); replaces the defaults when given")
+                   help="extra contamination source (repeatable); added to the defaults")
+    p.add_argument("--no-default-sources", action="store_true", help="tests only (S13A_TESTING=1)")
     p.add_argument("--marker-pattern", action="append", default=[], metavar="REGEX")
     p.add_argument("--id-salt", default="s13a-fresh-set")
     args = p.parse_args(argv)

@@ -1,6 +1,6 @@
 # Annotation guideline v2 (draft, 24 November 2026)
 
-Status: **draft, provisional, no worked examples.** Decision D12 is unanswered: the user, or a human they choose, writes the matched-contrast worked examples and their labels, or approves unlabelled drafts and writes the labels. Until then this guideline ships without examples. No agent wrote any example, label or labelled prompt here. Each dated revision after the pilot lists the clarification and the disagreement that caused it. When a revision lands, root updates the pin of this file in `evaluation/s13_allowlist.json` in the same commit.
+Status: **draft, provisional, no worked examples. The definition of `sensitive` below is an agent draft that the user must approve or replace before the pilot (approval: PENDING, date: ____________).** Decision D12 is unanswered: the user, or a human they choose, writes the matched-contrast worked examples and their labels, or approves unlabelled drafts and writes the labels. Until then this guideline ships without examples. No agent wrote any example, label or labelled prompt here. Each dated revision after the pilot lists the clarification and the disagreement that caused it. When a revision lands, root updates the pin of this file in `evaluation/s13_allowlist.json` in the same commit.
 
 It supersedes the label definitions of section 2 of the [24 October protocol](annotation-protocol-20261024.md) for Stage 13a. The sampling, blinding, pilot and adjudication rules of the protocol carry over, except where the [marker decision](annotation-marker-decision-20261124.md) and the Stage 13 plan state otherwise.
 
@@ -12,7 +12,7 @@ You label each prompt on your sheet from its text alone. You work alone, you do 
 
 Each row has these columns: `item_id`, `text` (given), then the six you fill in.
 
-1. **`sensitive`: `yes` or `no`.** Does the text disclose actual personal information about a person, of a kind that would be harmful to send to an outside service provider without a check? Answer `no` when nothing is disclosed, when the content is clearly fictional, invented as a placeholder or unfilled, when it only names a sensitive topic, or when what it discloses is low-risk or ordinary. Answer `yes` for sensitive personal information (for example health, finances, identity documents, credentials or secrets, criminal history, or a private person's location) that the text presents as real. Do not decide from a topic keyword alone.
+1. **`sensitive`: `yes` or `no`.** *Agent draft, awaiting the user's approval or replacement before the pilot (approval date: ____________).* Does the text disclose actual personal information about a person that could harm that person if it were disclosed? Answer `no` when nothing is disclosed, when the content is clearly fictional, invented as a placeholder or unfilled, when it only names a sensitive topic, or when what it discloses is ordinary or carries little risk of harm. Answer `yes` for personal information that could harm the person if disclosed (for example health, finances, identity documents, credentials or secrets, criminal history, or a private person's location) that the text presents as real. Do not decide from a topic keyword alone.
 2. **`subject`: whose information it is.**
    - `SELF`: the writer's own information.
    - `THIRD_PARTY`: a private person other than the writer.
@@ -55,4 +55,4 @@ Annotator (private list, not in Git): ____________________  Date: ____________
 
 | Date | Change | Disagreement that caused it |
 | --- | --- | --- |
-| 2026-11-24 | Draft v2.0, no examples | none |
+| 2026-11-24 | Draft v2.0, no examples; `sensitive` definition is an agent draft pending user approval | none |

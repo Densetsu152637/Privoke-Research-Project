@@ -19,7 +19,7 @@ Each prompt carries four declared values, which the coordinator uses to check th
 | `text` | the prompt |
 | `category` | `HEALTH`, `POLITICS`, `RELIGION`, `CRIMINAL`, `FINANCIAL`, `SEXUAL`, `CHILD`, `LOCATION`, `IDENTITY`, `THIRD_PARTY`, or `NONE` |
 | `audience` | `P0` (unrestricted public), `P1` (broad semi-public community), `P2` (needs authentication, no closed recipient set), `P3` (closed invited group that includes other readers), `P4` (only the writer), `PU` (no audience stated) |
-| `sensitive` | `yes` if the prompt discloses (invented) personal information that would be harmful to send to an outside provider; `no` otherwise |
+| `sensitive` | `yes` if the prompt discloses (invented) personal information about a person that could harm that person if it were disclosed; `no` otherwise. This follows the agent-draft definition in guideline v2, which the user must approve or replace before the pilot |
 
 ## Quotas
 

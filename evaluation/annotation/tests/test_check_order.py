@@ -100,6 +100,15 @@ class OrderTests(unittest.TestCase):
         git(self.repo, "commit", "-q", "-am", "edit")
         self.assertFalse(self.run_check()["ok"])
 
+    def test_labels_changed_after_the_label_commit_fail(self):
+        shas = [self.commit(path) for path in (SET, PACKET, LABEL)]
+        self.commit(RECORD, json.dumps({"freeze": dict(zip(NAMES, shas))}))
+        self.assertTrue(self.run_check()["ok"])
+        self.commit(LABEL, "changed after the freeze")
+        result = self.run_check()
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("labels changed" in p for p in result["problems"]))
+
     def test_main_exit_codes(self):
         for path in (SET, LABEL, PACKET):
             self.commit(path)

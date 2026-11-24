@@ -15,7 +15,15 @@ Every request names its layers explicitly, an empty layer list is refused before
 executed layers of every response are asserted; a mismatch aborts the run.
 
 The positive class is sensitive = yes. PriVoke's prediction is positive when its action is WARN or BLOCK.
-Under-enforcement is an action less strict than the reference action label; over-enforcement is stricter.
+Under-enforcement is an action less strict than the reference action label; over-enforcement is stricter. Each is
+reported over all scored items and conditionally: under-enforcement among items whose reference action is WARN or
+BLOCK, over-enforcement among items whose reference action is ALLOW.
+
+Before the real run, execute `--smoke` once under the host lock: it sends one invented sentence per arm through the
+real runtime and asserts the executed layers, with no labels needed. A layer that reports status `error`, or a
+response with a non-empty error, aborts a scoring run. Before scoring, the freeze gate also checks that the label
+files are all listed and unchanged, that --sheet and --key hash to packet_manifest.json, and the commit order
+(check_order).
 Text comes only from the blank sheet in the packet directory (outside Git); outputs hold ids and actions only.
 """
 from __future__ import annotations
@@ -31,6 +39,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agreement as ag  # noqa: E402
 import annotation_schema as schema  # noqa: E402
+import check_order  # noqa: E402
 
 MAIN_CHECKOUT = Path("D:/Git Repositories/Privoke-Research-Project")
 LAYER_NAMES = {2: "regex", 3: "ner", 4: "semantic"}
@@ -44,6 +53,9 @@ ARMS = {
                       "justification": "Isolates the semantic layer, as the LLM-layer testing rule requires (D6)."},
 }
 STAGE = "13a-5"
+METRIC_NAMES = ("precision", "recall", "specificity", "f1", "under_enforcement", "over_enforcement",
+                "under_enforcement_conditional", "over_enforcement_conditional")
+SMOKE_TEXT = "Invented smoke sentence: the committee will meet on Tuesday to plan the garden fair."
 
 
 class FreezeError(RuntimeError):
@@ -73,7 +85,9 @@ def assert_layers(executed, requested, expected_checksum=None, metadata=None):
         raise LayerAssertionError(f"executed layers {got} differ from the requested {names}")
     statuses = {item["layer"]: item["status"] for item in executed}
     for name, status in statuses.items():
-        if status not in ("ok", "skipped", "error"):
+        if status == "error":
+            raise LayerAssertionError(f"layer {name} reported an error; a scoring arm aborts instead of recording it")
+        if status not in ("ok", "skipped"):
             raise LayerAssertionError(f"layer {name} has status {status!r}")
     if "regex" in names:
         if statuses["regex"] != "ok":
@@ -98,8 +112,11 @@ def git(repo, *args):
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
 
 
-def verify_freeze(freeze_dir):
-    """Return the freeze record when the label files are listed, hash-correct and committed unchanged."""
+def verify_freeze(freeze_dir, sheet=None, key=None):
+    """Return the freeze record when the label files are listed, hash-correct and committed unchanged.
+
+    Also requires: every label CSV on disk listed, the record itself committed unchanged, --sheet and --key matching
+    packet_manifest.json, and the set -> packet -> label commit order (check_order)."""
     freeze_dir = Path(freeze_dir)
     record_path = freeze_dir / "iaa.json"
     if not record_path.is_file():
@@ -124,6 +141,28 @@ def verify_freeze(freeze_dir):
             raise FreezeError(f"{name} has uncommitted changes")
     if git(repo, "ls-files", "--error-unmatch", str(record_path.resolve())).returncode != 0:
         raise FreezeError("the freeze record is not committed")
+    if git(repo, "diff", "--quiet", "HEAD", "--", str(record_path.resolve())).returncode != 0:
+        raise FreezeError("the freeze record has uncommitted changes")
+    on_disk = {f"labels/{p.name}" for p in (freeze_dir / "labels").glob("*.csv")}
+    unlisted = sorted(on_disk - set(files))
+    if unlisted:
+        raise FreezeError("label files not listed in the freeze record: " + ",".join(unlisted))
+    packet_path = freeze_dir / "packet_manifest.json"
+    if not packet_path.is_file():
+        raise FreezeError("packet_manifest.json does not exist")
+    packet = json.loads(packet_path.read_text(encoding="utf8")).get("files", {})
+    for path, name in ((sheet, f"sheets/{Path(sheet).name}" if sheet else None), (key, "key/sampling_key.jsonl")):
+        if path is None:
+            continue
+        if name not in packet:
+            raise FreezeError(f"{name} is not listed in packet_manifest.json")
+        if sha256_file(path) != packet[name]:
+            raise FreezeError(f"{path} does not match the packet manifest hash for {name}")
+    rel = freeze_dir.resolve().relative_to(repo.resolve()).as_posix()
+    order = check_order.check(repo, "HEAD", f"{rel}/set_manifest.json", f"{rel}/packet_manifest.json", f"{rel}/labels",
+                              None, allow_missing_record=True)
+    if not order["ok"]:
+        raise FreezeError("commit order check failed: " + "; ".join(order["problems"]))
     return record
 
 
@@ -159,10 +198,12 @@ def score_items(items, arm, analyse, expected_checksum=None):
     records = []
     for item in items:
         response = analyse(item["text"], f"s13a-{arm}-{item['item_id']}", layers)
+        if response.get("error"):
+            raise LayerAssertionError(f"the response carries an error: {response['error']!r}")
         assert_layers(response["layers"], layers, expected_checksum, response.get("metadata"))
         if response["action"] not in RANK:
             raise LayerAssertionError(f"unexpected action {response['action']!r}")
-        records.append({"item_id": item["item_id"], "action": response["action"]})
+        records.append({"item_id": item["item_id"], "action": response["action"], "layers_ok": True})
     return records
 
 
@@ -179,7 +220,11 @@ def counts_of(rows):
     tn = sum((not r["ref_pos"]) and not r["pred_pos"] for r in rows)
     under = sum(RANK[r["pred"]] < RANK[r["ref_action"]] for r in rows)
     over = sum(RANK[r["pred"]] > RANK[r["ref_action"]] for r in rows)
-    return {"tp": tp, "fp": fp, "fn": fn, "tn": tn, "under": under, "over": over, "n": len(rows)}
+    strict = [r for r in rows if r["ref_action"] in ("WARN", "BLOCK")]
+    allow = [r for r in rows if r["ref_action"] == "ALLOW"]
+    return {"tp": tp, "fp": fp, "fn": fn, "tn": tn, "under": under, "over": over, "n": len(rows),
+            "under_strict": sum(RANK[r["pred"]] < RANK[r["ref_action"]] for r in strict), "n_strict": len(strict),
+            "over_allow": sum(RANK[r["pred"]] > RANK[r["ref_action"]] for r in allow), "n_allow": len(allow)}
 
 
 def f1_parts(c):
@@ -196,6 +241,8 @@ def metrics_of(rows):
         "f1": {**metric(f1n, f1d, kind="none")},
         "under_enforcement": metric(c["under"], c["n"]),
         "over_enforcement": metric(c["over"], c["n"]),
+        "under_enforcement_conditional": metric(c["under_strict"], c["n_strict"]),
+        "over_enforcement_conditional": metric(c["over_allow"], c["n_allow"]),
     }
 
 
@@ -216,7 +263,7 @@ def bootstrap_metrics(rows, clusters, n_boot, seed):
     """Cluster-bootstrap 95% intervals for every aggregate metric, resampling quota cells."""
     by_id = {r["item_id"]: r for r in rows}
     out = {}
-    for name in ("precision", "recall", "specificity", "f1", "under_enforcement", "over_enforcement"):
+    for name in METRIC_NAMES:
         def statistic(ids, name=name):
             m = metrics_of([by_id[i] for i in ids])[name]
             return m["value"]
@@ -225,7 +272,8 @@ def bootstrap_metrics(rows, clusters, n_boot, seed):
     return out
 
 
-def arm_report(arm, predictions, reference, clusters, n_boot=1000, seed=SEED):
+def arm_report(arm, predictions, reference, clusters, n_boot=1000, seed=SEED, executed_ok=False):
+    """``executed_ok`` is True only when every response of the arm passed the layer assertions (score_items)."""
     rows = joined_rows(predictions, reference)
     metrics = metrics_of(rows)
     boot = bootstrap_metrics(rows, clusters, n_boot, seed)
@@ -247,7 +295,7 @@ def arm_report(arm, predictions, reference, clusters, n_boot=1000, seed=SEED):
                                   "specificity": metric(sum(not r["pred_pos"] for r in neg), len(neg))}
     spec = ARMS[arm]
     return {"arm": arm, "scope_label": spec["scope_label"], "justification": spec["justification"],
-            "layers_requested": spec["layers"], "layers_executed_ok": True, "n": len(rows),
+            "layers_requested": spec["layers"], "layers_executed_ok": bool(executed_ok), "n": len(rows),
             "bootstrap": {"unit": "quota_cell", "replicates": n_boot, "seed": seed},
             "metrics": metrics, "per_category": per_category, "per_audience": per_audience,
             "predictions": {r["item_id"]: r["pred"] for r in rows}}
@@ -288,17 +336,31 @@ def load_clusters(key_path, item_ids):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--freeze-dir", required=True, help="docs/research/s13a (holds iaa.json and labels/)")
-    p.add_argument("--sheet", required=True, help="blank main sheet with the text (packet directory, outside Git)")
-    p.add_argument("--key", required=True, help="sampling_key.jsonl, for the quota-cell bootstrap")
-    p.add_argument("--out", required=True, help="directory for arm_<arm>.json (ids and actions only)")
+    p.add_argument("--freeze-dir", help="docs/research/s13a (holds iaa.json and labels/)")
+    p.add_argument("--sheet", help="blank main sheet with the text (packet directory, outside Git)")
+    p.add_argument("--key", help="sampling_key.jsonl, for the quota-cell bootstrap")
+    p.add_argument("--out", help="directory for arm_<arm>.json (ids and actions only)")
+    p.add_argument("--smoke", action="store_true",
+                   help="send one invented sentence per arm through the real runtime under the host lock; no labels needed")
     p.add_argument("--arm", choices=sorted(ARMS) + ["both"], default="both")
     p.add_argument("--release-dir", default=str(MAIN_CHECKOUT / "models" / "standard-releases"))
     p.add_argument("--generated", default=str(MAIN_CHECKOUT / "extension" / "client-runtime" / "generated"))
     p.add_argument("--n-boot", type=int, default=1000)
     args = p.parse_args(argv)
 
-    verify_freeze(args.freeze_dir)  # refuses before anything else happens
+    if args.smoke:
+        arms = sorted(ARMS) if args.arm == "both" else [args.arm]
+        with HostLock():
+            runtime, checksum = make_runtime(args.release_dir, args.generated)
+            for arm in arms:
+                record = score_items([{"item_id": "smoke", "text": SMOKE_TEXT}], arm, runtime.analyse_layers, checksum)[0]
+                print(json.dumps({"smoke": arm, "layers_requested": ARMS[arm]["layers"], "layers_ok": record["layers_ok"],
+                                  "action": record["action"]}))
+        return
+    for name in ("freeze_dir", "sheet", "key", "out"):
+        if not getattr(args, name):
+            p.error(f"--{name.replace('_', '-')} is required unless --smoke is given")
+    verify_freeze(args.freeze_dir, args.sheet, args.key)  # refuses before anything else happens
     reference = schema.read_labels(Path(args.freeze_dir) / "labels" / "adjudicated.csv", version=2)
     items = load_items(args.sheet, reference)
     clusters = load_clusters(args.key, sorted(reference))
@@ -309,7 +371,9 @@ def main(argv=None):
         runtime, checksum = make_runtime(args.release_dir, args.generated)
         for arm in arms:
             records = score_items(items, arm, runtime.analyse_layers, checksum)
-            report = arm_report(arm, {r["item_id"]: r["action"] for r in records}, reference, clusters, args.n_boot)
+            executed_ok = len(records) == len(items) and all(r["layers_ok"] for r in records)
+            report = arm_report(arm, {r["item_id"]: r["action"] for r in records}, reference, clusters, args.n_boot,
+                                executed_ok=executed_ok)
             report["semantic_identity"] = runtime.identity
             (out / f"arm_{arm}.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf8")
             print(json.dumps({"arm": arm, "n": report["n"], "scope_label": report["scope_label"]}))

@@ -175,25 +175,68 @@ class SchemaV2AndGateTests(unittest.TestCase):
         schema.write_csv(path, schema.ADJUDICATION_COLUMNS_V2, [{**base, **row} for row in rows])
         return path
 
-    def test_check_adjudication_requires_resolution_and_adjudicator(self):
+    def disagreeing_sheets(self):
+        first = ["yes" if n % 2 else "no" for n in range(10)]
+        second = list(first)
+        for n in (1, 4):  # the two disagreement items
+            second[n] = "no" if first[n] == "yes" else "yes"
+        return self.two_sheets(second)
+
+    def check(self, adjudicated, *extra, expect):
         import compute_iaa
-        complete = self.adjudication([{}, {"item_id": "it-2", "resolution": "third_adjudicator"}])
+        a, b = self.disagreeing_sheets()
+        with self.assertRaises(SystemExit) as ctx:
+            compute_iaa.main(["--check-adjudication", str(adjudicated), "--sheet", f"A={a}", "--sheet", f"B={b}",
+                              "--schema", "2", *extra])
+        self.assertEqual(ctx.exception.code, expect)
+
+    def test_check_adjudication_requires_full_coverage_resolution_adjudicator_and_valid_final_cells(self):
+        full = [{"item_id": "it-1"}, {"item_id": "it-4", "resolution": "third_adjudicator"}]
+        self.check(self.adjudication(full), expect=0)
+        for bad in ({"resolution": ""}, {"adjudicator": ""}, {"resolution": "agreed-by-me"}, {"sensitive": "maybe"},
+                    {"categories": ""}, {"action": "DENY"}):
+            self.check(self.adjudication([full[0], {**full[1], **bad}]), expect=1)
+
+    def test_check_adjudication_fails_when_a_disagreement_row_was_deleted(self):
+        self.check(self.adjudication([{"item_id": "it-1"}]), expect=1)
+
+    def test_check_adjudication_fails_on_an_extra_item_or_a_duplicate(self):
+        self.check(self.adjudication([{"item_id": "it-1"}, {"item_id": "it-4"}, {"item_id": "it-7"}]), expect=1)
+        self.check(self.adjudication([{"item_id": "it-1"}, {"item_id": "it-4"}, {"item_id": "it-4"}]), expect=1)
+
+    def test_final_columns_are_read_and_an_excluded_item_needs_no_final_label(self):
+        path = self.dir / "adj_final.csv"
+        columns = ["item_id", "final_sensitive", "final_subject", "final_audience", "final_action", "final_categories",
+                   "resolution", "reason", "adjudicator"]
+        good = {"final_sensitive": "yes", "final_subject": "SELF", "final_audience": "P1", "final_action": "WARN",
+                "final_categories": "HEALTH", "resolution": "consensus", "adjudicator": "J"}
+        schema.write_csv(path, columns, [{"item_id": "it-1", **good},
+                                         {"item_id": "it-4", "resolution": "excluded_ambiguous", "adjudicator": "J"}])
+        self.check(path, expect=0)
+        schema.write_csv(path, columns, [{"item_id": "it-1", **good, "final_audience": "P7"},
+                                         {"item_id": "it-4", "resolution": "excluded_ambiguous", "adjudicator": "J"}])
+        self.check(path, expect=1)
+
+    def test_check_adjudication_accepts_the_export_as_the_disagreement_set_and_needs_one_of_them(self):
+        import compute_iaa
+        export = self.dir / "export.csv"
+        schema.write_csv(export, ["item_id"], [{"item_id": "it-1"}, {"item_id": "it-4"}])
+        adjudicated = self.adjudication([{"item_id": "it-1"}, {"item_id": "it-4"}])
         with self.assertRaises(SystemExit) as ok:
-            compute_iaa.main(["--check-adjudication", str(complete)])
+            compute_iaa.main(["--check-adjudication", str(adjudicated), "--to-adjudicate", str(export), "--schema", "2"])
         self.assertEqual(ok.exception.code, 0)
-        for bad in ({"resolution": ""}, {"adjudicator": ""}, {"resolution": "agreed-by-me"}):
-            path = self.adjudication([{}, {"item_id": "it-2", **bad}])
-            with self.assertRaises(SystemExit) as ctx:
-                compute_iaa.main(["--check-adjudication", str(path)])
-            self.assertEqual(ctx.exception.code, 1, bad)
+        with self.assertRaises(SystemExit) as ctx:
+            compute_iaa.main(["--check-adjudication", str(adjudicated), "--schema", "2"])
+        self.assertEqual(ctx.exception.code, 2)
 
     def test_schema2_adjudication_export_is_confined_to_the_returned_directory(self):
         import os
         agree = ["yes" if n % 2 else "no" for n in range(10)]
         a, b = self.two_sheets(agree)
         returned = self.dir / "returned"
-        os.environ["S13A_RETURNED_ROOT"] = str(returned)
-        self.addCleanup(os.environ.pop, "S13A_RETURNED_ROOT", None)
+        for name, value in (("S13A_RETURNED_ROOT", str(returned)), ("S13A_TESTING", "1")):
+            os.environ[name] = value
+            self.addCleanup(os.environ.pop, name, None)
         with self.assertRaises(SystemExit):
             self.run_iaa(a, b, "--disagreements-csv", str(self.dir / "elsewhere.csv"))
         returned.mkdir()

@@ -18,6 +18,10 @@ Status: **tooling and drafts ready; no prompt, label or annotation exists, and n
 | Record, freeze summary, re-derivation | `evaluation/annotation/human_eval_report.py` |
 | Commit-order proof | `evaluation/annotation/check_order.py` |
 
+## Definition awaiting approval
+
+The definition of `sensitive` in guideline v2 and in the writer brief is an **agent draft**. The user must approve or replace it before the pilot (approval: PENDING, date: ____________). It is phrased around harm to the person if the information were disclosed, not around the product's purpose.
+
 ## Provisional decisions
 
 The plan's defaults are applied and marked provisional until the user answers: D1 (writers), D2 (two annotators and one adjudicator), D4 (ethics), D9 and D12. D3 (360 + 30), D5 and D6 use their defaults.
@@ -29,6 +33,13 @@ The plan's defaults are applied and marked provisional until the user answers: D
 ## Quota rules as implemented
 
 `fresh_set.py --check-quotas` enforces: at least 390 usable prompts, at least 45% declared sensitive, at least 20 prompts for each of the ten categories. It reports the counts per category, audience and cell, and enforces no per-cell minimum.
+
+## Contamination, confinement and gates as implemented
+
+- Contamination rules: exact match, 8-gram Jaccard of at least 0.5, and containment (shared n-grams over the prompt's own n-grams) of at least 0.5; a prompt shorter than 8 tokens uses n-grams down to its own length, and one under 3 tokens is compared for equality only. Default sources: this checkout's `evaluation/datasets/`, the main checkout's `evaluation/results/` and `evaluation/datasets/` (the fuzzer curricula). `--source` adds to them. A real freeze fails on a missing source or one with no scanned file.
+- Prompt-bearing output (`fresh_set.py --out`, the quota-mode sampler `--output-dir`, the adjudication export) must lie under the main checkout's Git-ignored `evaluation/results/s13a`. `S13A_RESULTS_ROOT` and `S13A_RETURNED_ROOT` are honoured only when `git check-ignore` confirms the moved root is ignored, or under tests.
+- The sampler's marker gate is always on in quota mode.
+- Scoring: run `score_privoke.py --smoke` under the host lock once before the real run (one invented sentence per arm). A layer error aborts an arm. The freeze gate checks the record, every label file, the packet hashes of `--sheet` and `--key`, and the commit order.
 
 ## Remains user-only
 

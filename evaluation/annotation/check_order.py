@@ -65,6 +65,10 @@ def check(repo, ref, set_manifest, packet_manifest, labels_dir, record, allow_mi
     for older, newer in zip(names, names[1:]):
         if commits[older] and commits[newer] and not is_strict_ancestor(repo, commits[older], commits[newer]):
             problems.append(f"{older} is not a strict ancestor of {newer}")
+    if commits["label_commit"]:
+        changed = git(repo, "diff", "--quiet", commits["label_commit"], ref, "--", labels_dir)
+        if changed.returncode != 0:
+            problems.append("the labels changed after the label commit")
     if record:
         path = Path(repo) / record
         if path.is_file():

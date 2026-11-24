@@ -27,7 +27,7 @@ Does PriVoke's accuracy hold against ground truth that no developer label influe
 | `product` | regex, NER, semantic (V3 balanced, shipped defaults) | `product pipeline (in-process)` |
 | `semantic_only` | semantic | `LLM-only (semantic)` |
 
-Each request names its layers explicitly and the scorer asserts the executed layers. Positive class: `sensitive = yes`; predicted positive: action WARN or BLOCK. Metrics: precision, recall, specificity, F1, under-enforcement and over-enforcement (a PriVoke action less or more strict than the reference `action`), each with a Wilson interval and a cluster bootstrap over quota cells (1,000 replicates, seed 20261124). Per-category recall and per-audience recall and specificity are reported.
+Each request names its layers explicitly and the scorer asserts the executed layers; a layer error aborts the arm. Positive class: `sensitive = yes`; predicted positive: action WARN or BLOCK. Metrics: precision, recall, specificity, F1, under-enforcement and over-enforcement (a PriVoke action less or more strict than the reference `action`). Both enforcement rates are reported with two denominators: over **all scored items**, and conditionally, **under-enforcement among items whose reference action is WARN or BLOCK** and **over-enforcement among items whose reference action is ALLOW**. Each metric carries a Wilson interval and a cluster bootstrap over quota cells (1,000 replicates, seed 20261124; F1 has the bootstrap interval only). Per-category recall and per-audience recall and specificity are reported.
 
 ## Analysis order
 
@@ -35,7 +35,7 @@ Each request names its layers explicitly and the scorer asserts the executed lay
 2. Pilot agreement, then the guideline revision if the gate fails.
 3. Main-round agreement (`compute_iaa.py --schema 2`) and adjudication.
 4. Freeze commit with `human_eval_report.py freeze`.
-5. Score both arms with `score_privoke.py` under the host lock.
+5. Run `score_privoke.py --smoke` once, then score both arms with `score_privoke.py`, under the host lock.
 6. Build and check the record (`human_eval_report.py build`, then `--check`), then `check_order.py`.
 
 ## Not tuned against PriVoke

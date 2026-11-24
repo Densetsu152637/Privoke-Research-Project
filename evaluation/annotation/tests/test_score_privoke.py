@@ -128,6 +128,23 @@ class FreezeGateTests(unittest.TestCase):
         git(self.repo, "init", "-q", "-b", "main")
         self.dir = self.repo / "docs" / "research" / "s13a"
         (self.dir / "labels").mkdir(parents=True)
+        self.packet = self.repo / "packet"
+        (self.packet / "sheets").mkdir(parents=True)
+        (self.packet / "key").mkdir()
+        (self.packet / "sheets" / "main_A.csv").write_text("item_id,text\nit-1,invented\n")
+        (self.packet / "key" / "sampling_key.jsonl").write_text("{}\n")
+
+    def commit(self, message, *paths):
+        git(self.repo, "add", *paths)
+        git(self.repo, "commit", "-q", "-m", message)
+
+    def write_manifests(self):
+        (self.dir / "set_manifest.json").write_text("{}")
+        self.commit("set", "docs/research/s13a/set_manifest.json")
+        files = {"sheets/main_A.csv": sha256(self.packet / "sheets" / "main_A.csv"),
+                 "key/sampling_key.jsonl": sha256(self.packet / "key" / "sampling_key.jsonl")}
+        (self.dir / "packet_manifest.json").write_text(json.dumps({"files": files}))
+        self.commit("packet", "docs/research/s13a/packet_manifest.json")
 
     def write_labels(self):
         rows = [{"item_id": k, **{c: ("|".join(v[0]["categories"]) or "NONE") if c == "categories" else v[0][c]
@@ -136,35 +153,90 @@ class FreezeGateTests(unittest.TestCase):
 
     def freeze_record(self, **override):
         path = self.dir / "labels" / "adjudicated.csv"
-        record = {"files": {"labels/adjudicated.csv": hashlib.sha256(path.read_bytes()).hexdigest()}}
+        record = {"files": {"labels/adjudicated.csv": sha256(path)}}
         record.update(override)
         (self.dir / "iaa.json").write_text(json.dumps(record))
 
+    def frozen(self):
+        self.write_manifests()
+        self.write_labels()
+        self.freeze_record()
+        self.commit("freeze", "docs/research/s13a/labels", "docs/research/s13a/iaa.json")
+
+    def gate(self, **kw):
+        return sp.verify_freeze(self.dir, kw.get("sheet", self.packet / "sheets" / "main_A.csv"),
+                                kw.get("key", self.packet / "key" / "sampling_key.jsonl"))
+
+    def test_a_complete_freeze_passes(self):
+        self.frozen()
+        self.assertIn("files", self.gate())
+
     def test_refuses_without_a_freeze_record(self):
+        self.write_manifests()
         self.write_labels()
         with self.assertRaises(sp.FreezeError):
-            sp.verify_freeze(self.dir)
+            self.gate()
 
     def test_refuses_when_not_committed_or_changed_or_unlisted(self):
+        self.write_manifests()
         self.write_labels()
         self.freeze_record()
         with self.assertRaises(sp.FreezeError):  # present and hash-correct, but never committed
-            sp.verify_freeze(self.dir)
-        git(self.repo, "add", ".")
-        git(self.repo, "commit", "-q", "-m", "freeze")
-        self.assertIn("files", sp.verify_freeze(self.dir))
+            self.gate()
+        self.commit("freeze", "docs/research/s13a/labels", "docs/research/s13a/iaa.json")
+        self.assertIn("files", self.gate())
         path = self.dir / "labels" / "adjudicated.csv"
         path.write_text(path.read_text().replace("BLOCK", "ALLOW", 1))
         with self.assertRaises(sp.FreezeError):  # hash differs from the record
-            sp.verify_freeze(self.dir)
+            self.gate()
 
     def test_refuses_a_record_that_does_not_list_the_adjudicated_file(self):
+        self.write_manifests()
         self.write_labels()
         (self.dir / "iaa.json").write_text(json.dumps({"files": {}}))
-        git(self.repo, "add", ".")
-        git(self.repo, "commit", "-q", "-m", "freeze")
+        self.commit("freeze", "docs/research/s13a")
         with self.assertRaises(sp.FreezeError):
-            sp.verify_freeze(self.dir)
+            self.gate()
+
+    def test_refuses_an_unlisted_annotator_label_file(self):
+        self.frozen()
+        shutil_copy = (self.dir / "labels" / "adjudicated.csv").read_text()
+        (self.dir / "labels" / "A.csv").write_text(shutil_copy)
+        self.commit("late annotator", "docs/research/s13a/labels")
+        with self.assertRaises(sp.FreezeError) as ctx:
+            self.gate()
+        self.assertIn("not listed", str(ctx.exception))
+
+    def test_refuses_an_uncommitted_change_to_the_freeze_record(self):
+        self.frozen()
+        record = json.loads((self.dir / "iaa.json").read_text())
+        (self.dir / "iaa.json").write_text(json.dumps({**record, "x": 1}))
+        with self.assertRaises(sp.FreezeError) as ctx:
+            self.gate()
+        self.assertIn("uncommitted", str(ctx.exception))
+
+    def test_sheet_and_key_must_match_the_packet_manifest(self):
+        self.frozen()
+        other = self.repo / "other.csv"
+        other.write_text("item_id,text\nit-1,changed\n")
+        with self.assertRaises(sp.FreezeError):
+            sp.verify_freeze(self.dir, other, self.packet / "key" / "sampling_key.jsonl")
+        (self.packet / "key" / "sampling_key.jsonl").write_text("{\"x\": 1}\n")
+        with self.assertRaises(sp.FreezeError):
+            self.gate()
+
+    def test_the_commit_order_is_checked_before_scoring(self):
+        (self.dir / "set_manifest.json").write_text("{}")
+        self.write_labels()
+        self.freeze_record()
+        self.commit("labels first", "docs/research/s13a")
+        files = {"sheets/main_A.csv": sha256(self.packet / "sheets" / "main_A.csv"),
+                 "key/sampling_key.jsonl": sha256(self.packet / "key" / "sampling_key.jsonl")}
+        (self.dir / "packet_manifest.json").write_text(json.dumps({"files": files}))
+        self.commit("packet late", "docs/research/s13a/packet_manifest.json")
+        with self.assertRaises(sp.FreezeError) as ctx:
+            self.gate()
+        self.assertIn("commit order", str(ctx.exception))
 
     def test_main_refuses_before_loading_any_model_or_taking_the_lock(self):
         self.write_labels()
@@ -177,6 +249,58 @@ class FreezeGateTests(unittest.TestCase):
             sp.main(["--freeze-dir", str(self.dir), "--sheet", str(sheet), "--key", str(sheet), "--out", str(self.repo / "out")])
         self.assertFalse(lock.exists())
         self.assertFalse((self.repo / "out").exists())
+
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+class ErrorAndSmokeTests(unittest.TestCase):
+    def test_a_layer_error_or_a_response_error_aborts_the_arm(self):
+        items = [{"item_id": "it-1", "text": "invented"}]
+        errored = response("ALLOW", ["semantic"], {"semantic": "error"})
+        with self.assertRaises(sp.LayerAssertionError):
+            sp.score_items(items, "semantic_only", lambda t, r, l: errored)
+        with self.assertRaises(sp.LayerAssertionError):
+            sp.score_items(items, "product", lambda t, r, l: response("ALLOW", ["regex", "ner", "semantic"], {"regex": "ok", "ner": "error", "semantic": "ok"}))
+        with self.assertRaises(sp.LayerAssertionError):
+            sp.score_items(items, "semantic_only", lambda t, r, l: {**response("ALLOW", ["semantic"]), "error": "boom"})
+        records = sp.score_items(items, "semantic_only", lambda t, r, l: response("WARN", ["semantic"]))
+        self.assertEqual(records, [{"item_id": "it-1", "action": "WARN", "layers_ok": True}])
+
+    def test_layers_executed_ok_is_computed_not_hard_coded(self):
+        reference = {k: v[0] for k, v in CASES.items()}
+        predictions = {k: v[1] for k, v in CASES.items()}
+        clusters = {k: "c" for k in CASES}
+        self.assertFalse(sp.arm_report("product", predictions, reference, clusters, n_boot=5)["layers_executed_ok"])
+        self.assertTrue(sp.arm_report("product", predictions, reference, clusters, n_boot=5, executed_ok=True)["layers_executed_ok"])
+
+    def test_conditional_enforcement_rates_have_their_own_denominators(self):
+        reference = {k: v[0] for k, v in CASES.items()}
+        predictions = {k: v[1] for k, v in CASES.items()}
+        m = sp.arm_report("product", predictions, reference, {k: "c" for k in CASES}, n_boot=5)["metrics"]
+        # reference WARN/BLOCK items: it-1, it-2, it-3 (two under-enforced); reference ALLOW items: it-4..it-6 (one over-enforced)
+        self.assertEqual((m["under_enforcement_conditional"]["num"], m["under_enforcement_conditional"]["den"]), (2, 3))
+        self.assertEqual((m["over_enforcement_conditional"]["num"], m["over_enforcement_conditional"]["den"]), (1, 3))
+        self.assertEqual(m["under_enforcement"]["den"], 6)
+
+    def test_smoke_runs_one_invented_sentence_per_arm_under_the_lock_without_labels(self):
+        from unittest import mock
+        seen = []
+
+        class Runtime:
+            def analyse_layers(self, text, request_id, layers):
+                seen.append((text, list(layers)))
+                return response("ALLOW", [sp.LAYER_NAMES[v] for v in layers])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["S13_HOST_LOCK"] = str(Path(tmp) / "host.lock")
+            self.addCleanup(os.environ.pop, "S13_HOST_LOCK", None)
+            with mock.patch.object(sp, "make_runtime", lambda release, generated: (Runtime(), None)):
+                sp.main(["--smoke"])
+            self.assertFalse((Path(tmp) / "host.lock").exists())
+        self.assertEqual([layers for _, layers in seen], [[2, 3, 4], [4]])
+        self.assertTrue(all(text == sp.SMOKE_TEXT for text, _ in seen))
 
 
 class HostLockTests(unittest.TestCase):

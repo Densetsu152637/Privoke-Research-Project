@@ -72,7 +72,7 @@ class ReportTests(unittest.TestCase):
         arms.mkdir()
         for arm in sp.ARMS:
             predictions = {i: ("WARN" if reference[i]["sensitive"] == "yes" and int(i[-2:]) % 4 else "ALLOW") for i in reference}
-            (arms / f"arm_{arm}.json").write_text(json.dumps(sp.arm_report(arm, predictions, reference, clusters, 40)))
+            (arms / f"arm_{arm}.json").write_text(json.dumps(sp.arm_report(arm, predictions, reference, clusters, 40, executed_ok=True)))
         self.assertEqual(her.main(["build", "--freeze-dir", str(self.s13a), "--arms", str(arms), "--date", "20261201",
                                    "--out-dir", str(self.repo / "paper" / "research")]), 0)
         self.record = self.repo / "paper" / "research" / "human-annotated-eval-20261201.json"

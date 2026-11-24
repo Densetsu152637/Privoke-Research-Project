@@ -1,6 +1,7 @@
 """Sampler checks on a small synthetic dataset (the real data is gitignored)."""
 import csv
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -148,6 +149,7 @@ class MarkerGateTests(SamplerTests):
         self.assertEqual(norm["replacement"], "folio")
         self.assertEqual(norm["original_sha256"], __import__("hashlib").sha256(self.input.read_bytes()).hexdigest())
         self.assertEqual(norm["normalised_sha256"], sa.jsonl_sha256(normalised))
+        self.assertEqual(norm["original_rows_sha256"], sa.jsonl_sha256(rows))
         self.assertNotEqual(norm["original_sha256"], norm["normalised_sha256"])
         for who in "AB":
             self.assertNotIn("fresh_eval", (out / f"sheets/main_{who}.csv").read_text(encoding="utf8"))
@@ -201,15 +203,38 @@ class QuotaModeAndVerifyTests(unittest.TestCase):
         import hashlib
         self.set_manifest = self.dir / "set_manifest.json"
         self.set_manifest.write_text(json.dumps({"sha256_jsonl": hashlib.sha256(self.input.read_bytes()).hexdigest()}))
+        self.results = self.dir / "results" / "s13a"
+        for name, value in (("S13A_TESTING", "1"), ("S13A_RESULTS_ROOT", str(self.results))):
+            os.environ[name] = value
+            self.addCleanup(os.environ.pop, name, None)
 
     def args(self, out, *extra):
         return ["--input", str(self.input), "--set-manifest", str(self.set_manifest), "--stratify-by", "quota_cell",
-                "--output-dir", str(out), "--main-size", "120", "--pilot-size", "12", "--fail-on-marker", *extra]
+                "--output-dir", str(out), "--main-size", "120", "--pilot-size", "12", *extra]
 
     def sample(self, name, *extra):
-        out = self.dir / name
+        out = self.results / name
         sa.main(self.args(out, *extra))
         return out
+
+    def test_output_outside_the_results_root_is_refused(self):
+        for bad in (self.dir / "elsewhere", self.results.parent / "s13a-other", self.dir):
+            with self.assertRaises(SystemExit, msg=str(bad)):
+                sa.main(self.args(bad))
+            self.assertFalse((bad / "sheets").exists())
+
+    def test_the_root_override_needs_git_ignore_confirmation_outside_tests(self):
+        os.environ["S13A_TESTING"] = "0"
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(self.results / "x"))
+        self.assertIn("check-ignore", str(ctx.exception))
+
+    def test_verify_fails_on_files_the_manifest_does_not_list(self):
+        out = self.sample("one")
+        (out / "sheets" / "main_C.csv").write_text("item_id,text\n", encoding="utf8")
+        with self.assertRaises(SystemExit) as ctx:
+            sa.main(self.args(out, "--verify-against", str(out / "packet_manifest.json")))
+        self.assertEqual(ctx.exception.code, 1)
 
     def test_quota_mode_writes_v2_blank_sheets_and_a_text_free_packet_manifest(self):
         out = self.sample("one")
@@ -234,7 +259,7 @@ class QuotaModeAndVerifyTests(unittest.TestCase):
 
     def test_quota_mode_needs_a_set_manifest_and_the_right_hash(self):
         with self.assertRaises(SystemExit):
-            sa.main(["--input", str(self.input), "--stratify-by", "quota_cell", "--output-dir", str(self.dir / "x")])
+            sa.main(["--input", str(self.input), "--stratify-by", "quota_cell", "--output-dir", str(self.results / "x")])
         self.set_manifest.write_text(json.dumps({"sha256_jsonl": "0" * 64}))
         with self.assertRaises(SystemExit):
             self.sample("y")
@@ -260,7 +285,7 @@ class QuotaModeAndVerifyTests(unittest.TestCase):
         tampered = self.dir / "tampered.json"
         tampered.write_text(json.dumps(manifest))
         with self.assertRaises(SystemExit) as ctx:
-            sa.main(self.args(self.dir / "scratch-check", "--verify-against", str(tampered)))
+            sa.main(self.args(self.results / "scratch-check", "--verify-against", str(tampered)))
         self.assertEqual(ctx.exception.code, 1)
         rows = quota_rows()
         rows[0]["text"] = "an invented replacement sentence"

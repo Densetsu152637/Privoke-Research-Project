@@ -38,8 +38,9 @@ class FreshSetTests(unittest.TestCase):
         self.raw = self.dir / "raw"
         self.raw.mkdir()
         self.results = self.dir / "results" / "s13a"
-        os.environ["S13A_RESULTS_ROOT"] = str(self.results)
-        self.addCleanup(os.environ.pop, "S13A_RESULTS_ROOT", None)
+        for name, value in (("S13A_RESULTS_ROOT", str(self.results)), ("S13A_TESTING", "1")):
+            os.environ[name] = value
+            self.addCleanup(os.environ.pop, name, None)
         self.source = self.dir / "source"
         self.source.mkdir()
         (self.source / "old.jsonl").write_text(json.dumps({"text": "a completely unrelated invented sentence about gardens and rain"}) + "\n")
@@ -49,13 +50,60 @@ class FreshSetTests(unittest.TestCase):
         (self.raw / name).write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf8")
 
     def run_main(self, *extra, capture=True):
-        argv = ["--input", str(self.raw), "--source", f"src={self.source}", *extra]
+        argv = ["--input", str(self.raw), "--no-default-sources", "--source", f"src={self.source}", *extra]
         return fresh_set.main(argv)
 
-    def freeze(self):
-        return fresh_set.freeze(type("A", (), {"input": str(self.raw), "source": [f"src={self.source}"], "dry_run": True,
-                                               "check_quotas": False, "source_kind": "writers", "marker_pattern": [],
-                                               "id_salt": "t", "out": None})())
+    def freeze(self, **override):
+        values = {"input": str(self.raw), "source": [f"src={self.source}"], "dry_run": True, "check_quotas": False,
+                  "source_kind": "writers", "marker_pattern": [], "id_salt": "t", "out": None, "no_default_sources": True}
+        values.update(override)
+        return fresh_set.freeze(type("A", (), values)())
+
+    def test_containment_catches_a_prompt_embedded_in_a_long_source_text(self):
+        padding = " ".join(f"filler{n}" for n in range(40))
+        (self.source / "long.jsonl").write_text(json.dumps({"text": f"{padding} {sentence(9)} {padding}"}) + "\n")
+        manifest = self.freeze()
+        self.assertEqual(manifest["contamination"]["near"], 1)
+        self.assertEqual(manifest["n"], 39)
+
+    def test_a_short_prompt_uses_ngrams_down_to_its_own_length(self):
+        rows = raw_rows()
+        rows[4]["text"] = "zzshort quick amber fox"
+        self.write_raw(rows)
+        (self.source / "long.jsonl").write_text(json.dumps({"text": "a long invented paragraph that mentions zzshort quick amber fox somewhere inside it"}) + "\n")
+        manifest = self.freeze()
+        self.assertEqual(manifest["contamination"]["near"], 1)
+        (self.source / "long.jsonl").write_text(json.dumps({"text": "a long invented paragraph that mentions zzshort slow amber fox somewhere inside it"}) + "\n")
+        self.assertEqual(self.freeze()["contamination"]["near"], 0)
+
+    def test_a_prompt_under_three_tokens_is_only_compared_for_equality(self):
+        rows = raw_rows()
+        rows[4]["text"] = "zzone zztwo"
+        self.write_raw(rows)
+        (self.source / "long.jsonl").write_text(json.dumps({"text": "an invented line containing zzone zztwo in the middle"}) + "\n")
+        self.assertEqual(self.freeze()["contamination"]["near"], 0)
+
+    def test_a_missing_source_on_a_real_freeze_is_an_error(self):
+        with self.assertRaises(SystemExit) as ctx:
+            self.freeze(source=[f"src={self.source}", f"gone={self.dir / 'does-not-exist'}"], dry_run=False,
+                        out=str(self.results / "packet"))
+        self.assertIn("missing", str(ctx.exception))
+        self.assertFalse((self.results / "packet").exists())
+        self.assertEqual(self.freeze(source=[f"src={self.source}", f"gone={self.dir / 'does-not-exist'}"])["contamination"]["sources_missing"], ["gone"])
+
+    def test_a_source_with_no_scanned_file_is_an_error_on_a_real_freeze(self):
+        empty = self.dir / "empty"
+        empty.mkdir()
+        with self.assertRaises(SystemExit) as ctx:
+            self.freeze(source=[f"src={self.source}", f"empty={empty}"], dry_run=False, out=str(self.results / "packet"))
+        self.assertIn("no scanned file", str(ctx.exception))
+
+    def test_source_adds_to_the_defaults_and_opting_out_is_tests_only(self):
+        sources = fresh_set.resolve_sources([f"extra={self.source}"])
+        self.assertEqual(sorted(sources), ["datasets", "extra", "fuzzer_curricula", "results"])
+        os.environ["S13A_TESTING"] = "0"
+        with self.assertRaises(SystemExit):
+            fresh_set.resolve_sources([], no_defaults=True)
 
     def test_dry_run_reports_counts_and_writes_nothing(self):
         self.run_main("--dry-run")
@@ -148,9 +196,7 @@ class FreshSetTests(unittest.TestCase):
         self.assertFalse((self.results / "packet" / "frozen_set.jsonl").exists())
 
     def test_the_raw_input_is_not_treated_as_its_own_source(self):
-        manifest = fresh_set.freeze(type("A", (), {"input": str(self.raw), "source": [f"raw={self.raw}"], "dry_run": True,
-                                                   "check_quotas": False, "source_kind": "writers", "marker_pattern": [],
-                                                   "id_salt": "t", "out": None})())
+        manifest = self.freeze(source=[f"raw={self.raw}"])
         self.assertEqual(manifest["contamination"]["exact"], 0)
 
 

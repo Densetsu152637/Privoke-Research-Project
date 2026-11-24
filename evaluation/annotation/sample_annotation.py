@@ -6,7 +6,8 @@ Usage (host Python):
       [--main-size 360] [--pilot-size 30] [--annotators A B] [--format csv|jsonl|both]
       [--fail-on-marker] [--marker-pattern REGEX ...] [--normalise-marker folio]
   python sample_annotation.py --input <frozen_set.jsonl> --set-manifest <set_manifest.json> \
-      --stratify-by quota_cell --output-dir <dir> --fail-on-marker     (Stage 13a fresh set, schema v2 sheets)
+      --stratify-by quota_cell --output-dir <results/s13a/packet>     (Stage 13a fresh set, schema v2 sheets;
+      the marker gate is always on and --output-dir must lie under the main checkout's evaluation/results/s13a)
   python sample_annotation.py <the same arguments> --verify-against <packet_manifest.json>
 
 Outputs:
@@ -36,6 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import annotation_schema as schema  # noqa: E402
+import s13_paths  # noqa: E402
 
 PINNED_INPUT_SHA256 = "e965c21a0d43babc0984f46eb70785c8d66d878e00e647eefb9565f219b2da0c"
 DEFAULT_SEED = 20261024
@@ -211,9 +213,11 @@ def build(args, out):
         raise SystemExit("duplicate case ids in input")
     normalisation = None
     if args.normalise_marker:
+        original_rows_sha256 = jsonl_sha256(rows)
         rows = normalise_markers(rows, args.normalise_marker)
         normalisation = {"pattern": FOLIO_TOKEN.pattern, "replacement": args.normalise_marker,
-                         "original_sha256": digest, "normalised_sha256": jsonl_sha256(rows)}
+                         "original_sha256": digest, "original_rows_sha256": original_rows_sha256,
+                         "normalised_sha256": jsonl_sha256(rows)}
     sampler = quota_sample if quota else stratified_sample
     cell_of = (lambda r: r["quota_cell"]) if quota else (lambda r: "/".join(stratum_of(r)))
     main, main_alloc = sampler(rows, args.main_size, args.seed, "main", min_per_cell)
@@ -227,7 +231,7 @@ def build(args, out):
     if audit["items_with_marker"]:
         message = (f"{audit['items_with_marker']} of {audit['items_checked']} annotator-facing texts embed a dataset "
                    "marker (partition name or scenario token)")
-        if args.fail_on_marker:
+        if args.fail_on_marker or quota:  # the gate is always on for the Stage 13a fresh set
             raise SystemExit(f"blinding gate failed: {message}; nothing was written")
         print(f"warning: {message}; see blinding_audit in key/manifest.json", file=sys.stderr)
 
@@ -308,6 +312,12 @@ def verify(args):
         problems.append("input_sha256 differs")
     names = sorted(set(expected["files"]) | set(fresh["files"]))
     on_disk = Path(args.output_dir) if args.output_dir else None
+    if on_disk is not None and on_disk.is_dir():
+        allowed = set(expected["files"]) | {"packet_manifest.json", "key/manifest.json"}
+        for file in sorted(p for p in on_disk.rglob("*") if p.is_file()):
+            rel = file.relative_to(on_disk).as_posix()
+            if rel not in allowed:
+                problems.append(f"{rel}: file in {on_disk} is not listed in the manifest")
     for name in names:
         if expected["files"].get(name) != fresh["files"].get(name):
             problems.append(f"{name}: resampled hash differs from the manifest")
@@ -347,6 +357,8 @@ def main(argv=None):
         raise SystemExit(verify(args))
     if not args.output_dir:
         p.error("--output-dir is required")
+    if args.stratify_by == "quota_cell":
+        s13_paths.require_under(args.output_dir, s13_paths.results_root(), "--output-dir")
     manifest = build(args, args.output_dir)
     print(json.dumps({k: manifest[k] for k in ("main_size", "pilot_size", "main_families", "input_sha256")}))
 
