@@ -1,5 +1,8 @@
 """Golden generator for the Rust fuzzer's audience coverage cycles (`rust/services/fuzzer`, stage 21, RUST-S21H item 2).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracle is the maintained Python fuzzer (`fuzzer_service.py` with `prompt_generation/audience_coverage.py`), run in process as
 `generate_full_adam_cycle_golden.py` does. The audience sampler is the default strategy when no dataset is configured; the pinned
 AU3 release (`services/privoke-fuzzer/data/audience-v3-manifest-v1.json` and its catalogs) is committed, so nothing here needs study

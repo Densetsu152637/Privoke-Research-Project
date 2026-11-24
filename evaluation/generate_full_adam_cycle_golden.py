@@ -1,5 +1,8 @@
 """Golden generator for the Rust fuzzer's FULL Adam policy cycle (`rust/services/fuzzer`, stage 21, RUST-S21F item 1).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracle is the maintained Python fuzzer, `services/privoke-fuzzer/src/fuzzer_service.py`, run in process on the host exactly as
 `generate_fuzzer_golden.py` does: the client runtime is replaced by the response bytes of a real retained cycle, and the
 parameter-update service by a fake that reports no earlier request. Here the retained cycles are the FULL projected Adam cycles of the

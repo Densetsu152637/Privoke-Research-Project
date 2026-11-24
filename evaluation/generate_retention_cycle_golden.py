@@ -1,5 +1,8 @@
 """Local golden generator for complete ORIGINAL retention cycles of the Rust fuzzer (`rust/services/fuzzer`, stage 21, RUST-S21G item 5).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 A retention cycle needs the real approved TRAIN bank, the ORIGINAL teacher artifact, the references and the manifest of a profile,
 and the retained cycles of the sensitive retention pilots (`sensitive-retention-pilot03` gate, `sensitive-retention-pilot04` gate and
 hinge) hold real runtime responses that are bound to those releases. The oracle is the maintained Python fuzzer, run in process as

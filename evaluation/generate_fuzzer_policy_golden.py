@@ -1,5 +1,8 @@
 """Golden generator for the fuzzer's policy admission (`rust/services/fuzzer/src/policy.rs`, RUST-S21D).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracle is `privoke_model.contextual_training.training_policy_expectations` and `training_admission_metadata` (with the
 `full_adam`, `window_training` and `sensitive_retention` expectations they call), run on the host over a fixed list of request
 metadata: every valid policy (FULL Adam, window, ORIGINAL retention gate and hinge, objective-only, backtracking) and each way a

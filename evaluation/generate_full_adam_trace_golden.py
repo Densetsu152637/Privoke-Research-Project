@@ -1,5 +1,8 @@
 """Golden generator for the fuzzer's FULL Adam trace admission (`rust/services/fuzzer/src/full_adam.rs`, RUST-S21E).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracle is `privoke_model.full_adam.validate_trace`. One real FULL Adam fit is the base: a retained iterative-fuzzer cycle whose
 runtime response carries the 64-step recurrence (the trace is prompt-free: fingerprints, losses and counts only). The golden keeps
 the metadata fields the validator reads, plus mutations of them (tampered identities, recurrence breaks, accounting breaks,

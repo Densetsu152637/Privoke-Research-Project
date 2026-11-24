@@ -1,5 +1,8 @@
 """Golden generator for the Rust fuzzer's presence training cycle (`rust/services/fuzzer`, stage 21, RUST-S21H item 3).
 
+Historical (stage V3-R8b): the Rust consumer of this golden, `rust/services/fuzzer`, was deleted when V1 training was retired,
+so the output path below no longer exists in the tree. The generator is kept as the record of how the stage 21 golden was made.
+
 The oracle is the maintained Python fuzzer (`FuzzerTrainingService.RunPresenceTrainingCycle` with `training/presence.py`,
 `runtime_client.compute_presence_gradients` and `validate_presence_training_update`), run in process as
 `generate_full_adam_cycle_golden.py` does. The presence dataset is the committed synthetic fixture of the curriculum crate, so
