@@ -1,6 +1,6 @@
 # Plan: ASIACCS Stage 13, supervisor experiments for submission
 
-Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applied N5; r6 applied N6; r7 applied N7; r8 applied N8; r9 applies N9). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
+Revision: 2026-11-24 r4 (r3 applied the round-2 findings O1–O6 and two nits; r4 applied the round-3 findings N1–N4; r5 applied N5; r6 applied N6; r7 applied N7; r8 applied N8; r9 applied N9; r10 is the improvement pass after the gate converged). This is a planning document. It is based on `369fe0f` on `feat/nick-branch`, branch `plan/asiaccs-stage13`. The Rust facts were checked with `git show` against `origin/feat/rust-rewrite` at `4d838fd`. r2 applies the 16 plan-gate findings and the minor notes that root accepted.
 
 This plan implements [Stage 13 of the ASIACCS plan](asiaccs-2027-revision.md#stage-13-supervisor-experiments-for-submission-queued-19-nov-2026-last-in-the-roadmap). That section holds the settled requirement verbatim:
 
@@ -227,6 +227,7 @@ The imported files are new and byte-identical on both branches, so PR #6 cannot 
 - **Host Python, Docker only for hosting.** Python clients and scoring run on the host. Docker hosts the services and the Rust tests, never test drivers.
 - **Host-heavy runs share one lock.** 13a-5 (PriVoke scoring), 13b-2, 13b-3, 13c-2, 13d-1b and 13d-2, 13e, 13f-1 and 13f-2 each acquire `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13-host.lock` (Git-ignored in the main checkout, shared by every worktree). Each run writes its stage id and process id into the lock and removes it on exit. A run refuses to start while the lock is held.
 - **Process cleanup.** Every stage stops the services, browsers and containers it started, and lists them in its handoff.
+- **Hygiene evidence.** Each stage handoff records the JSON output of its G8 run: `range`, `files_checked`, `local_inputs` and `violations`. For a user stage with no diff, the handoff records "n/a, no stage diff" instead.
 
 ## Time plan (estimates)
 
@@ -261,23 +262,30 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - **Evidence:** the exit status, recorded in each stage handoff.
 - **Depends on:** none. Branch `feat/asiaccs-s13h` from `origin/feat/nick-branch`. Root merges it before any other stage.
 - **Work:**
-  - Write `evaluation/check_s13_commit_hygiene.py --repo <path> --range <a..b> [--local-inputs <dir>...]`.
+  - Write `evaluation/check_s13_commit_hygiene.py --repo <path> --range <a..b> [--local-inputs <dir>...] [--stage <id>]`.
   - **Default inputs.** `--local-inputs` defaults to every `D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13*/` directory of the main checkout. The 8-gram prompt scan therefore always runs from the standard G8 command. The environment variable `S13_LOCAL_INPUTS_ROOT` overrides the default root, in normal runs and in tests.
   - **No local data.** When nothing matches, the script exits 0 and reports `local_inputs: 0`. This is the normal case for 13-H, 13a-0, 13a-1, 13c and 13d. `--require-local-inputs` turns that case into exit 2, and root passes it for 13a-3, 13a-5, 13b-2, 13b-3, 13e, 13f-1 and 13f-2.
   - **Stages without the flag.**
     - 13a-2 and 13a-4 are user stages with no commit, so G8 is "n/a, no stage diff" there.
     - 13b-1 commits only harness code. Its pilot data in `s13b/pilot/` is still scanned whenever the default root finds it.
   - It applies the S13-G8 rules to `git -C <path> diff --name-only <a..b>` and the file contents in that range.
+  - **Wrapped prompts.** Before taking 8-grams, the script joins consecutive added lines of the same hunk with single spaces, so that a prompt wrapped across lines in `.md` or `.tex` is still matched. A newly added file is read as one text.
   - **8-gram lines.** The 8-gram rule reads only what the range adds. For a modified file, these are the `+` lines of `git -C <repo> diff -U0 <a..b> -- <file>`. For a newly added file (`--diff-filter=A`), it is the whole content. Old lines that the range leaves unchanged are never scanned. The name, key and weight rules are unchanged.
   - **8-gram scope.** The 8-gram rule applies to every file except `*.py`, `*.rs` and `*.mjs`. That includes `*.json`, `*.jsonl`, `*.csv`, `*.txt`, and `*.md` and `*.tex` anywhere. The exempt source files are checked only by the name, key and weight rules.
   - **Declared allowlist.** The pins live in a separate file, `evaluation/s13_allowlist.json` (`{path: sha256}`). 13-H creates the file and owns its format. 13a-1 and 13b-1 also own it, each only to add the pin for the file it creates.
     - **Which pins apply.** The script reads the pins from the tip of the target range, `git -C <repo> show <b>:evaluation/s13_allowlist.json`, not from the nick tree. A pin added on a stage branch therefore applies before that branch is merged. A missing file counts as `{}`.
     - **Review.** Root reviews every pin change as part of the stage diff.
     - **Guideline revisions.** When the user's dated guideline revisions land (13a-4), root updates the guideline-v2 pin in the same commit.
-    - **Entries**, one per bullet below:
-    - `evaluation/e2e_evasion_transforms.py` (the 13b template module);
-    - `docs/research/s13a-writer-brief-<date>.md`;
-    - `docs/research/annotation-guideline-v2-<date>.md`.
+    - **Entries:**
+      - `evaluation/e2e_evasion_transforms.py` (the 13b template module);
+      - `docs/research/s13a-writer-brief-<date>.md`;
+      - `docs/research/annotation-guideline-v2-<date>.md`.
+    - **Pin-edit scope (`--stage <id>`).** The script's config maps each stage to the pin paths it may add or change:
+      - 13a-1: the writer brief and guideline v2;
+      - 13b-1: `evaluation/e2e_evasion_transforms.py`;
+      - root runs without `--stage` and may touch any pin.
+
+      A pin change in the range outside the scope of the given `--stage` is a violation, `rule: pin_scope`.
 
     Each pin is added by the stage that creates the file. An allowlisted path that is in the range and whose hash differs from its pin is a violation (`rule: allowlist_pin`).
   - **Speed.** The 8-grams of all local inputs are built once, as a set of 64-bit hashes of normalised token 8-grams. Each scanned file is then checked by set lookup, without comparing it pairwise with the prompts.
@@ -294,6 +302,8 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - a `paper/main.tex` line with a planted prompt **fails**;
     - an old, unchanged line of a modified file that matches a local prompt **passes**;
     - a newly added line of that same file that matches **fails**;
+    - a prompt wrapped over three consecutive added lines of a `.md` file **fails**;
+    - a pin change outside the `--stage` scope (for example 13b-1 changing the guideline pin) **fails** with `pin_scope`, and the same change without `--stage` passes;
     - a pin added only at the range tip is honoured (the allowlist is read from `<b>`);
     - an allowlisted file whose hash differs from its pin **fails** with `allowlist_pin`, and one that matches its pin passes;
     - a planted prompt caught **through the default**: the test points `S13_LOCAL_INPUTS_ROOT` at a fixture root and calls the script without `--local-inputs`;
