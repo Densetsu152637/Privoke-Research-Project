@@ -4,7 +4,17 @@
 Usage:
   python compute_iaa.py --sheet A=main_A_done.csv --sheet B=main_B_done.csv \
       [--key key/sampling_key.jsonl] [--split main] --out-json iaa.json [--out-md iaa.md] \
-      [--disagreements-csv to_adjudicate.csv]
+      [--disagreements-csv to_adjudicate.csv] [--schema 1|2] [--min-kappa X --fields f1,f2]
+  python compute_iaa.py --check-adjudication adjudicated.csv
+
+Stage 13a additions: --schema 2 reads the v2 sheets (sensitive, subject, audience, categories, action);
+Fleiss' kappa is added when three or more annotators are present; --min-kappa/--fields exit non-zero when
+any listed field's kappa (every pair, and Fleiss) is below the bar; --check-adjudication exits non-zero
+unless every disagreement item (from --sheet or --to-adjudicate) has a valid resolution, an adjudicator and valid
+final labels, with no item missing. With --schema 2 the
+adjudication export holds text, so it may only be written under the main checkout's
+evaluation/results/s13a/returned/ (override the root with S13A_RETURNED_ROOT in tests). Keys that carry a
+quota_cell make the bootstrap resample quota cells instead of scenario families.
 
 Reports per field (disclosure, sensitivity, visibility, action) and per category:
 raw agreement, Cohen's kappa per annotator pair, Krippendorff's alpha (nominal; ordinal for
@@ -16,37 +26,46 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agreement as ag  # noqa: E402
 import annotation_schema as schema  # noqa: E402
+import s13_paths  # noqa: E402
 
 
-def load_sheets(specs):
+def require_returned_path(path):
+    """The adjudication export contains text: refuse any path outside the Git-ignored returned/ directory."""
+    s13_paths.require_under(path, s13_paths.returned_root(), "adjudication export")
+
+
+def load_sheets(specs, version=1):
     sheets = {}
     for spec in specs:
         name, _, path = spec.partition("=")
         if not path:
             raise SystemExit("--sheet expects NAME=PATH")
-        sheets[name] = schema.read_labels(path)
+        sheets[name] = schema.read_labels(path, version=version)
     return sheets
 
 
 def load_clusters(key_path, split, item_ids):
     if not key_path:
         return {i: i for i in item_ids}, "item"
-    clusters = {}
+    clusters, unit = {}, "family"
     for line in Path(key_path).read_text(encoding="utf8").splitlines():
         if line.strip():
             row = json.loads(line)
             if split is None or row["split"] == split:
-                clusters[row["item_id"]] = row["family_id"]
+                if "quota_cell" in row:
+                    unit = "quota_cell"
+                clusters[row["item_id"]] = row.get("quota_cell") or row["family_id"]
     missing = [i for i in item_ids if i not in clusters]
     if missing:
         raise SystemExit(f"{len(missing)} sheet items are absent from the key for split {split!r}")
-    return {i: clusters[i] for i in item_ids}, "family"
+    return {i: clusters[i] for i in item_ids}, unit
 
 
 def field_report(sheets, field, spec, clusters, n_boot, seed):
@@ -62,6 +81,13 @@ def field_report(sheets, field, spec, clusters, n_boot, seed):
     report["alpha"] = alpha_of(common)
     lo, hi, used = ag.cluster_bootstrap(common, clusters, alpha_of, n_boot, seed)
     report["alpha_ci95"] = [lo, hi]
+    if len(names) >= 3:
+        def fleiss_of(items):
+            return ag.fleiss_kappa([[sheets[n][i][field] for n in names] for i in items])
+
+        report["fleiss"] = fleiss_of(common)
+        flo, fhi, _ = ag.cluster_bootstrap(common, clusters, fleiss_of, n_boot, seed)
+        report["fleiss_ci95"] = [flo, fhi]
     for a, b in ag.pairs(names):
         xa = [sheets[a][i][field] for i in common]
         xb = [sheets[b][i][field] for i in common]
@@ -111,28 +137,29 @@ def category_report(sheets, clusters, n_boot, seed):
     return out
 
 
-def disagreements(sheets, texts):
+def disagreements(sheets, texts, version=1):
+    fields = schema.fields_for(version)
     names = sorted(sheets)
     common = sorted(set.intersection(*(set(s) for s in sheets.values())))
     rows = []
     for i in common:
-        differing = [f for f in schema.FIELDS if len({sheets[n][i][f] for n in names}) > 1]
+        differing = [f for f in fields if len({sheets[n][i][f] for n in names}) > 1]
         if len({tuple(sheets[n][i]["categories"]) for n in names}) > 1:
             differing.append("categories")
         if not differing:
             continue
         row = {"item_id": i, "text": texts.get(i, ""), "differing_fields": "|".join(differing)}
         for n in names:
-            for f in list(schema.FIELDS) + ["categories"]:
+            for f in list(fields) + ["categories"]:
                 value = sheets[n][i][f]
                 row[f"{n}_{f}"] = schema.format_categories(value) if f == "categories" else value
             row[f"{n}_notes"] = sheets[n][i]["notes"]
-        for f in list(schema.FIELDS) + ["categories"]:
+        for f in list(fields) + ["categories"]:
             row[f"final_{f}"] = ""
         row.update({"resolution": "", "reason": "", "adjudicator": ""})
         rows.append(row)
-    columns = (["item_id", "text", "differing_fields"] + [f"{n}_{f}" for n in names for f in list(schema.FIELDS) + ["categories", "notes"]]
-               + [f"final_{f}" for f in list(schema.FIELDS) + ["categories"]] + ["resolution", "reason", "adjudicator"])
+    columns = (["item_id", "text", "differing_fields"] + [f"{n}_{f}" for n in names for f in list(fields) + ["categories", "notes"]]
+               + [f"final_{f}" for f in list(fields) + ["categories"]] + ["resolution", "reason", "adjudicator"])
     return columns, rows
 
 
@@ -155,19 +182,104 @@ def render_markdown(result):
     return "\n".join(lines) + "\n"
 
 
+def check_adjudication(path, expected_ids, version=1):
+    """Return the problems of an adjudication file against the full disagreement set ``expected_ids``.
+
+    Every disagreeing item must appear exactly once, none may be extra, each needs a valid resolution and a named
+    adjudicator, and (unless excluded as ambiguous) each final label cell must be a valid value of the schema.
+    """
+    rows = schema.read_rows(path)
+    if not rows:
+        return ["adjudication file has no rows"]
+    problems = []
+    seen = []
+    fields = list(schema.fields_for(version)) + ["categories"]
+    for number, row in enumerate(rows, start=2):
+        item = str(row.get("item_id", "")).strip()
+        who = item or f"row {number}"
+        seen.append(item)
+        resolution = str(row.get("resolution", "") or "").strip()
+        if not resolution:
+            problems.append(f"{who}: resolution is empty")
+        elif resolution not in schema.RESOLUTIONS:
+            problems.append(f"{who}: invalid resolution {resolution!r}")
+        if not str(row.get("adjudicator", "") or "").strip():
+            problems.append(f"{who}: adjudicator is empty")
+        if resolution == "excluded_ambiguous":
+            continue
+        final = {"item_id": item}
+        for field in fields:
+            value = row.get(f"final_{field}")
+            final[field] = value if value not in (None, "") else row.get(field, "")
+        try:
+            schema.normalise_row(final, version=version)
+        except schema.SheetError as error:
+            problems.append(f"{who}: final label invalid: {error}")
+    if len(set(seen)) != len(seen):
+        problems.append("duplicate item ids in the adjudication file")
+    missing = sorted(set(expected_ids) - set(seen))
+    extra = sorted(set(seen) - set(expected_ids))
+    if missing:
+        problems.append(f"{len(missing)} disagreement items are missing from the adjudication file: " + ",".join(missing[:10]))
+    if extra:
+        problems.append(f"{len(extra)} items are not in the disagreement set: " + ",".join(extra[:10]))
+    return problems
+
+
+def kappa_failures(result, fields, minimum):
+    """Fields whose lowest pairwise (or Fleiss) kappa is below the bar; an undefined kappa also fails."""
+    failures = {}
+    for field in fields:
+        rep = result["fields"][field]
+        values = [p["kappa"] for p in rep["pairs"].values()] + ([rep["fleiss"]] if "fleiss" in rep else [])
+        if any(v is None or v < minimum for v in values):
+            failures[field] = values
+    return failures
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--sheet", action="append", required=True, help="NAME=PATH of a completed sheet (repeat)")
+    p.add_argument("--sheet", action="append", help="NAME=PATH of a completed sheet (repeat)")
     p.add_argument("--key", help="sampling_key.jsonl, used only for family clustering")
     p.add_argument("--split", help="restrict key to this split (main|pilot)")
     p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--seed", type=int, default=20261024)
-    p.add_argument("--out-json", required=True)
+    p.add_argument("--out-json")
+    p.add_argument("--schema", type=int, choices=[1, 2], default=1, help="sheet schema version (2 for Stage 13a)")
+    p.add_argument("--min-kappa", type=float, help="exit non-zero when a --fields kappa is below this bar")
+    p.add_argument("--fields", help="comma-separated fields that --min-kappa applies to")
+    p.add_argument("--check-adjudication", metavar="ADJUDICATED_CSV",
+                   help="exit non-zero unless every disagreement item has a valid resolution, an adjudicator and valid final "
+                        "labels; needs the disagreement set from --sheet (two or more) or --to-adjudicate")
+    p.add_argument("--to-adjudicate", metavar="CSV", help="the to_adjudicate export that defines the disagreement set")
     p.add_argument("--out-md")
     p.add_argument("--disagreements-csv")
     args = p.parse_args(argv)
 
-    sheets = load_sheets(args.sheet)
+    if args.check_adjudication:
+        if args.sheet:
+            expected = {r["item_id"] for r in disagreements(load_sheets(args.sheet, args.schema), {}, args.schema)[1]}
+        elif args.to_adjudicate:
+            expected = {r["item_id"] for r in schema.read_rows(args.to_adjudicate)}
+        else:
+            p.error("--check-adjudication needs the disagreement set: give --sheet NAME=PATH (repeat) or --to-adjudicate")
+        problems = check_adjudication(args.check_adjudication, expected, args.schema)
+        print(json.dumps({"adjudication": str(args.check_adjudication), "complete": not problems,
+                          "problem_count": len(problems), "problems": problems[:50]}))
+        raise SystemExit(1 if problems else 0)
+    if not args.sheet or not args.out_json:
+        p.error("--sheet and --out-json are required unless --check-adjudication is given")
+    if (args.min_kappa is None) != (args.fields is None):
+        p.error("--min-kappa and --fields go together")
+    fields = schema.fields_for(args.schema)
+    gated = [f.strip() for f in args.fields.split(",") if f.strip()] if args.fields else []
+    unknown = [f for f in gated if f not in fields]
+    if unknown:
+        p.error("unknown --fields for schema %d: %s" % (args.schema, ",".join(unknown)))
+    if args.schema == 2 and args.disagreements_csv:
+        require_returned_path(args.disagreements_csv)
+
+    sheets = load_sheets(args.sheet, args.schema)
     if len(sheets) < 2:
         raise SystemExit("need at least two annotators")
     common = sorted(set.intersection(*(set(s) for s in sheets.values())))
@@ -177,7 +289,7 @@ def main(argv=None):
     result = {
         "annotators": sorted(sheets), "items": len(common), "bootstrap_unit": unit, "bootstrap_replicates": args.n_boot,
         "items_not_shared": {n: len(set(s) - set(common)) for n, s in sheets.items()},
-        "fields": {f: field_report(sheets, f, spec, clusters, args.n_boot, args.seed) for f, spec in schema.FIELDS.items()},
+        "fields": {f: field_report(sheets, f, spec, clusters, args.n_boot, args.seed) for f, spec in fields.items()},
         "categories": category_report(sheets, clusters, args.n_boot, args.seed),
     }
     Path(args.out_json).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf8")
@@ -185,9 +297,14 @@ def main(argv=None):
         Path(args.out_md).write_text(render_markdown(result), encoding="utf8")
     if args.disagreements_csv:
         texts = {r["item_id"]: r.get("text", "") for r in schema.read_rows(args.sheet[0].partition("=")[2])}
-        columns, rows = disagreements(sheets, texts)
+        columns, rows = disagreements(sheets, texts, args.schema)
         schema.write_csv(args.disagreements_csv, columns, rows)
     print(json.dumps({"items": len(common), "alpha": {f: r["alpha"] for f, r in result["fields"].items()}}))
+    if gated:
+        failures = kappa_failures(result, gated, args.min_kappa)
+        print(json.dumps({"min_kappa": args.min_kappa, "fields": gated, "below_bar": failures}))
+        if failures:
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
