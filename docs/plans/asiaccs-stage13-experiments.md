@@ -362,7 +362,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
   - **The sampling tests pass:** `$PY -m unittest discover -s evaluation/annotation/tests -p test_sampling.py`. This includes the new gate, normalisation and partial-replacement tests.
   - **The decision note exists:** `test -f docs/research/annotation-marker-decision-<date>.md`.
 - **User dependency:** USER confirms D5. If the user does not answer, the default stands and the note records it as provisional.
-- **Status:** pending.
+- **Status:** done (D5 provisional, default applied). Outcome: `05651f9`, merged at `59510e0`; sampling tests OK; G8 0 violations.
 - **Handoff notes:**
   - The protocol's step 9 commits annotator sheets, which contain text. Stage 13 commits label-only files instead; the note records this deviation.
   - The AU3 input exists only in the main checkout. Pass it with `--input`.
@@ -472,7 +472,7 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
     - `compute_iaa.py --check-adjudication` failing on a missing resolution.
   - **No labels are committed:** `git ls-files docs/research/s13a/labels` prints nothing on this stage branch.
 - **User dependency:** USER answers D1–D4 and D6, and writes or approves the worked examples (D12).
-- **Status:** pending.
+- **Status:** done (agent part). Outcome: `11b4ac5`, `5cbf68b`, `cd157aa`, merged at `59510e0`; 124 annotation tests OK; G8 0 violations. Implementation gate: 3 rounds, 9 findings accepted (sampler output confinement, the `sensitive` definition flagged for user approval and rephrased around harm, contamination containment, short prompts and empty sources, adjudication coverage, scorer layer errors, freeze gate binding, conditional enforcement rates, a multi-commit label regression, and an environment test switch), 0 rejected. Open before 13a-3: the user approves the `sensitive` definition and supplies worked examples (D12); `score_privoke.py --smoke` runs under the host lock before 13a-5; `fuzzer_curricula` is not a separate default (fuzzer outputs are covered through `results/`).
 - **Handoff notes:** record the `$PYPIPE` interpreter path and the generated-client directory in the record. V3 balanced is read from the main checkout.
 
 ## Stage 13a-2: Recruit, write and deliver the fresh prompts (USER)
