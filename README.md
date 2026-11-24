@@ -15,6 +15,12 @@ The default `docker-compose.yml` runs development images with source mounts and
 loopback ports. For production images and internal-only service ports, use
 `docker compose -f docker-compose.prod.yml up -d --build`.
 
+The development images are tagged `${COMPOSE_PROJECT_NAME:-privoke-research-project}-<service>-dev`,
+and `deploy/gce/tests/smoke.py` reuses images from the project named by `COMPOSE_PROJECT_NAME`
+(default: the checkout directory's name, lower-cased). In a checkout whose directory has another name,
+such as the anonymous artifact export, set `COMPOSE_PROJECT_NAME=privoke-research-project` (or one
+consistent name) before building and running the smoke test, so both find the same images.
+
 The standard `latest` profile is the selected AU3 V3 balanced package. Preparation
 verifies existing local exports and copies their original bytes into an ignored,
 read-only distribution store; it does not train or download models. All three V3
