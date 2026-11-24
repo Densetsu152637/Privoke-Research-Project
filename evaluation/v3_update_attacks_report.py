@@ -96,7 +96,8 @@ SAMPLERS = (
 )
 MODELS = ("privoke-v3-efficient", "privoke-v3-balanced", "privoke-v3-quality")
 SHA = re.compile(r"^[0-9a-f]{64}$")
-REFUSED = "refused:"
+# The one fail-closed value an at-rest fault may leave in place of the served version (C9f-serve only).
+AT_REST_REFUSAL = "refused:DATA_LOSS"
 
 
 def load_json(path: Path) -> Any:
@@ -189,7 +190,7 @@ def check_allocations(items: Any) -> list[str]:
 
 
 def _state_equal(before: dict[str, Any], after: dict[str, Any], key: str, *, fail_closed: bool = False) -> bool:
-    if key == "served_manifest" and fail_closed and str(after.get(key)).startswith(REFUSED):
+    if key == "served_manifest" and fail_closed and after.get(key) == AT_REST_REFUSAL:
         return True
     return before.get(key) == after.get(key)
 
@@ -214,8 +215,6 @@ def derive_property(row: dict[str, Any]) -> bool | None:
             _state_equal(before, after, key, fail_closed=row["id"] == "C9f-serve")
             for key in (*sorted(STATE_KEYS), "publications_count")
         )
-        if row["id"] == "C3b":
-            unchanged = unchanged and row["observed"].get("grpc_code") == "OK"
         return unchanged
     changed = after.get("store_current") not in (None, before.get("store_current"))
     if expected == "applied_recovered":
@@ -228,6 +227,27 @@ def _check_state(where: str, state: Any) -> list[str]:
     if not isinstance(state, dict) or not STATE_KEYS <= set(state):
         return [f"{where}: records {sorted(STATE_KEYS)}"]
     return []
+
+
+def check_observed(row: dict[str, Any]) -> list[str]:
+    """Tie what was observed to what was expected: the receipt, the call and the named rejecting check."""
+    if row.get("not_run_reason") or not isinstance(row["observed"], dict) or not isinstance(row["rejecting_check"], dict):
+        return []
+    ident, expected, observed = row["id"], row["expected"], row["observed"]
+    status = observed.get("receipt_status")
+    errors: list[str] = []
+    if expected == "rejected_unchanged" and status == "applied":
+        errors.append(f"{ident}: a rejected row cannot carry an applied receipt")
+    if expected in ("noop_unchanged", "accepted_by_design"):
+        if row["surface"] in ("commit", "rollback"):
+            if status != "applied":
+                errors.append(f"{ident}: {expected} requires an applied receipt, observed {status!r}")
+        elif observed.get("grpc_code") != "OK":
+            errors.append(f"{ident}: {expected} requires an OK call, observed {observed.get('grpc_code')!r}")
+    reason, named = observed.get("receipt_reason"), row["rejecting_check"].get("reason")
+    if reason and named and reason != named:
+        errors.append(f"{ident}: the receipt reason {reason!r} differs from the rejecting check's {named!r}")
+    return errors
 
 
 def check_row(row: Any, manifest: dict[str, dict[str, Any]]) -> list[str]:
@@ -262,6 +282,7 @@ def check_row(row: Any, manifest: dict[str, dict[str, Any]]) -> list[str]:
         errors.append(f"{ident}: observed records {sorted(OBSERVED_KEYS)}")
     if not _is_count(row["orphan_blobs"]):
         errors.append(f"{ident}: orphan_blobs is a count")
+    errors += check_observed(row)
     not_run = row["not_run_reason"]
     if not_run is not None and (not isinstance(not_run, str) or not not_run):
         errors.append(f"{ident}: not_run_reason is a non-empty text or null")

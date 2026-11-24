@@ -387,7 +387,7 @@ async fn the_client_refuses_every_forged_stale_or_corrupt_version_and_keeps_its_
                 "mutation": attempt.mutation
             },
             "expected": "rejected_unchanged",
-            "observed": {"grpc_code": null, "receipt_status": null, "receipt_reason": attempt.reason, "message": message},
+            "observed": {"grpc_code": null, "receipt_status": null, "receipt_reason": null, "message": message},
             "rejecting_check": {"file": check.0, "symbol": check.1, "reason": check.2},
             "active_before": before, "active_after": after, "orphan_blobs": 0, "property_met": before == after, "not_run_reason": null
         }));

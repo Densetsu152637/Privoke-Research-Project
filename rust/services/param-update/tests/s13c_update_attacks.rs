@@ -1318,7 +1318,7 @@ async fn stale_parent_replay_and_duplicate_change_nothing() {
         (STORE, "put (content addressed)", "the second stage is idempotent"),
         &before,
         &after,
-        "rejected_unchanged",
+        "noop_unchanged",
         met,
         None,
     );
@@ -1942,12 +1942,19 @@ async fn an_interrupted_publication_is_recovered_or_never_applied() {
         // (model-streaming reads the authority, and a missing directory fails closed); never anything partial.
         let window = world.observe();
         let pointer = world.publisher.as_ref().unwrap().served(MODEL).unwrap().map(|served| served.manifest_sha);
-        assert!(
-            [world.pin.clone(), built.manifest_sha.clone(), "refused:UNAVAILABLE".to_string()].contains(&window.served),
-            "{id}: model-streaming serves the old version, the new one, or refuses: {}",
-            window.served
-        );
-        assert!(pointer.as_ref().is_none_or(|sha| *sha == built.manifest_sha), "{id}: the pointer names a complete version: {pointer:?}");
+        let allowed: Vec<String> = match phase {
+            "staged" | "signed" => vec![world.pin.clone()],
+            "committed" => vec![built.manifest_sha.clone(), "refused:UNAVAILABLE".to_string()],
+            _ => vec![built.manifest_sha.clone()],
+        };
+        assert!(allowed.contains(&window.served), "{id}: served before the restart must be one of {allowed:?}: {}", window.served);
+        match phase {
+            "staged" | "signed" | "committed" => assert!(pointer.is_none(), "{id}: no pointer yet: {pointer:?}"),
+            _ => assert!(
+                pointer.as_ref().is_none_or(|sha| *sha == built.manifest_sha),
+                "{id}: the pointer names a complete version: {pointer:?}"
+            ),
+        }
         assert_eq!(window.current == built.manifest_sha, applied, "{id}: the authority applied the candidate only after the transaction");
         let report = world.restart().expect("a publisher reconciles");
         let after = world.observe();
@@ -2005,8 +2012,9 @@ async fn a_better_aggregate_with_a_broken_guard_is_refused_and_the_boundary_is_a
 
     // A rejected commit of `spec`: the row, the receipt reason and an unchanged authority.
     macro_rules! rejected_row {
-        ($id:expr, $variant:expr, $mutation:expr, $built:expr, $reason:expr, $file:expr, $symbol:expr) => {{
+        ($id:expr, $variant:expr, $mutation:expr, $built:expr, $reason:expr, $file:expr, $symbol:expr $(; $extra:expr)?) => {{
             let built: &Built = $built;
+            let extra: Option<Json> = None $(.or(Some($extra)))?;
             world.stage(built).await.unwrap();
             let before = world.observe();
             let outcome = Outcome::of(world.commit(World::commit_of(built)).await);
@@ -2024,10 +2032,11 @@ async fn a_better_aggregate_with_a_broken_guard_is_refused_and_the_boundary_is_a
                 &after,
                 "rejected_unchanged",
                 unchanged(&before, &after, false),
-                None,
+                extra,
             );
         }};
     }
+    let stubbed = json!({"label": "defence in depth: admission source validation stubbed in CI (production refuses this at stage)"});
     let base = world.current();
     let spec = |name: &str, heads: f32| Spec::heads(&format!("s13c-{name}"), &base, heads);
 
@@ -2072,7 +2081,8 @@ async fn a_better_aggregate_with_a_broken_guard_is_refused_and_the_boundary_is_a
         &built,
         "guard_rows_differ",
         GUARD,
-        "GuardGate::prepare"
+        "GuardGate::prepare";
+        stubbed.clone()
     );
 
     // C11d: a trainer-chosen source (hashes that the commitment does not cover), and a trainer-chosen seed (the source record names a seed other than the derived one).
@@ -2087,7 +2097,8 @@ async fn a_better_aggregate_with_a_broken_guard_is_refused_and_the_boundary_is_a
         &built,
         "commitment_mismatch",
         GUARD,
-        "GuardGate::prepare"
+        "GuardGate::prepare";
+        json!({"label": "defence in depth: admission source validation stubbed in CI (production refuses this at stage); the seed-only variant is also asserted here, as commitment_mismatch"})
     );
     let mut seeded = spec("c11d-seed", 2.25);
     seeded.source = SourceFault::Seed;

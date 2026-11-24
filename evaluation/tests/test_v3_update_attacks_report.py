@@ -56,6 +56,8 @@ def row_of(entry: dict, leg: str = "ci", **changes) -> dict:
         "property_met": True,
         "not_run_reason": None,
     }
+    if expected in ("noop_unchanged", "accepted_by_design"):
+        row["observed"] = {"grpc_code": "OK", "receipt_status": "applied", "receipt_reason": "", "message": ""}
     row.update(changes)
     return row
 
@@ -182,6 +184,8 @@ class PropertyTest(unittest.TestCase):
         row = self.row("C9f-serve")
         row["active_after"]["served_manifest"] = "refused:DATA_LOSS"
         self.assertIs(report.derive_property(row), True)
+        row["active_after"]["served_manifest"] = "refused:UNAVAILABLE"
+        self.assertIs(report.derive_property(row), False)
         other = self.row("C1a")
         other["active_after"]["served_manifest"] = "refused:DATA_LOSS"
         self.assertIs(report.derive_property(other), False)
@@ -214,6 +218,29 @@ class PropertyTest(unittest.TestCase):
         self.assertTrue(any("expected" in error for error in report.check_row(row, self.by_id)))
         stray = self.row("C1a", id="NOPE")
         self.assertTrue(any("no manifest id" in error for error in report.check_row(stray, self.by_id)))
+
+    def test_observed_is_tied_to_expected(self):
+        def errors(ident: str, **observed) -> list[str]:
+            row = self.row(ident)
+            row["observed"] = {**row["observed"], **observed}
+            return report.check_observed(row)
+
+        self.assertEqual(errors("C1a"), [])
+        self.assertTrue(errors("C1a", receipt_status="applied"))
+        self.assertEqual(errors("C2a"), [])
+        self.assertTrue(errors("C2a", receipt_status="rejected"))
+        self.assertTrue(errors("C11g", receipt_status="rejected"))
+        self.assertTrue(errors("C11g", receipt_status=""))
+        # A staging row that is a no-op has no receipt, and must be an OK call.
+        stage = self.row("C3b", surface="stage", observed={"grpc_code": "OK", "receipt_status": "", "receipt_reason": "", "message": ""})
+        self.assertEqual(report.check_observed(stage), [])
+        stage["observed"]["grpc_code"] = "INVALID_ARGUMENT"
+        self.assertTrue(report.check_observed(stage))
+        # The receipt reason must be the one the row names as its rejecting check.
+        self.assertTrue(errors("C1a", receipt_reason="guard_rejected"))
+        self.assertEqual(errors("C1a", receipt_reason=""), [])
+        mismatched = self.row("C1a", observed={"grpc_code": "OK", "receipt_status": "rejected", "receipt_reason": "drift_exceeded", "message": ""})
+        self.assertTrue(any("rejecting check" in error for error in report.check_row(mismatched, self.by_id)))
 
     def test_a_row_that_did_not_run_gives_its_reason(self):
         row = self.row("C8b", leg="container", not_run_reason="synthetic only", property_met=None)

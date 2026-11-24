@@ -115,7 +115,7 @@
   {
     "id": "C3b",
     "attack_class": 3,
-    "expected": "rejected_unchanged",
+    "expected": "noop_unchanged",
     "chain": "main",
     "surface": "param-update",
     "wire_path": true,

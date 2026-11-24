@@ -109,8 +109,6 @@ fn open_checkpoint(config: &V3Config, allocations: &std::path::Path) -> Result<C
     let sources = Arc::new(PinnedSources::from_root(&config.source_root, config.audience.clone()));
     let mut store =
         CheckpointStore::open(&config.store, sources.clone()).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
-    // The gates run in this order before the transaction, cheapest first: the drift bounds, the recomputed guard over the
-    // scheduler's journalled allocations, the retention check, and last the publisher that stages the files.
     let (observers, publisher) =
         build_observers(config, sources.clone(), Arc::new(JournalAllocations::new(allocations)), no_crash(), None, None)?;
     store = store.with_observer(Arc::new(ChainObserver::new(observers)));
