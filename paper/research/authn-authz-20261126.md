@@ -22,7 +22,7 @@ UPDSEC-20261116 and UPDSEC-20261117 and the totals; `--check-s13d-coverage` veri
 | user_actions | none |
 
 **Record date and timezone.** The record is named by the local run date, Australia/Sydney (AEDT, UTC+11), as V3UPDATK-20261126 is. The
-harness names its output by the UTC date (AUTHZ-20261125). When the harness output (`evaluation/results/s13d/13d-2/authz-13d2-run1.json`
+harness names its output by the UTC date (AUTHZ-20261125). When the harness output (`models/experiments/s13d-20261126/runs/13d-2/authz-13d2-run1.json`, moved there after the run from `evaluation/results/s13d/13d-2/`
 in the main checkout, Git-ignored) was promoted to this record, four header fields were changed: `study_id`, `id` and `chain.evidence`
 (AUTHZ-20261125 to AUTHZ-20261126) and `run_dates`. Four fields were added: `header_promotion` (which lists these changes),
 `run_window_utc`, `image_provenance` and `client_high_water_mark`. Two notes were appended to `not_established`. No row, summary,

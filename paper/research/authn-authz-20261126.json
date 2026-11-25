@@ -2996,7 +2996,7 @@
         "AUTHZ-20261126"
       ]
     },
-    "harness_output": "evaluation/results/s13d/13d-2/authz-13d2-run1.json (main checkout, Git-ignored)",
+    "harness_output": "models/experiments/s13d-20261126/runs/13d-2/authz-13d2-run1.json (main checkout, Git-ignored; written to evaluation/results/s13d/13d-2/ and moved after the run because it is hash-only)",
     "reason": "The harness names the record by the UTC date; Stage 13 records are named by the local run date (Australia/Sydney, AEDT, UTC+11), as V3UPDATK-20261126 is. Only these header fields were changed; no row, summary, coverage or gap entry was edited."
   },
   "host": {
