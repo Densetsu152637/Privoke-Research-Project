@@ -2768,7 +2768,7 @@ SURFACE_MESSAGE = "method is not served on this listener"
 # The rows of 13d-1b: they need the genuine 13c-2 candidate. Without the export (or when its stack cannot run) they are recorded as
 # not_run with the reason, so that the record names what did not run.
 PENDING_ROWS = (
-    ("TL1-candidate", "replayed_request", "The recorded TLS 1.3 bytes of an authenticated CommitCandidate that carries a valid 13c candidate, replayed on a new connection: the store-unchanged half is not vacuous."),
+    ("TL1-candidate", "replayed_request", "The TLS 1.3 bytes of a publisher's authenticated CommitCandidate of the genuine 13c candidate, recorded while the proxy held the request back from the server, replayed on a new connection: no receipt, the authority unchanged, and the same commit is applied when sent cleanly afterwards (the unchanged store is not vacuous)."),
     ("CK8", "impersonation", "CommitCandidate from a valid trainer carrying a valid 13c candidate with an unallocated request id (application layer; cross-identity misuse)."),
     ("CK-positive-publisher-commit", "control", "A publisher commits an allocated valid candidate (applied)."),
     ("CK-positive-publisher-rollback", "control", "A publisher rolls back to the pin (applied)."),
@@ -2888,7 +2888,8 @@ def pending_rows(reason: str = PENDING_REASON, only: tuple[str, ...] | None = No
     return [{"id": row_id, "class": cls, "path": "rust-tls" if row_id.startswith("TL") else "rust-checkpoint", "description": text,
              "expected": "rejected_unchanged" if row_id in ("CK8", "TL1-candidate") else "positive_control",
              "observed": "not_run", "code": "NOT_RUN", "message": short(reason), "model_unchanged": None, "expected_codes": None,
-             "identity": "trainer" if row_id in ("CK8", "TL1-candidate") else "publisher" if "publisher" in row_id else "runtime", "property_met": None, "gap": None, "evidence": [],
+             "identity": "trainer" if row_id == "CK8" else "publisher" if row_id == "TL1-candidate" or "publisher" in row_id else "runtime",
+             "property_met": None, "gap": None, "evidence": [],
              "duration_s": 0.0, "denied_by": None, "credential_issuer": pki_tools.ISSUER_PKI} for row_id, cls, text in PENDING_ROWS
             if only is None or row_id in only]
 
@@ -3644,8 +3645,10 @@ def tl1_candidate_verdict(original: dict, withheld: int, replay: dict, held_back
     commit, sent afterwards on a clean connection, is applied: the request was admissible, so the unchanged store is not vacuous."""
     if not held_back:
         return harness_error("the store changed during the held-back exchange: the proxy let the request through")
-    if original["code"] != "DEADLINE_EXCEEDED" or withheld < 1:
-        return harness_error(f"the proxy did not hold back the request after a completed handshake (client {original['code']}, {withheld} records held)")
+    after_flight = original.get("server_records_after_flight", 0)
+    if original["code"] != "DEADLINE_EXCEEDED" or withheld < 1 or after_flight < 1:
+        return harness_error(f"the proxy did not hold back the request after a completed handshake (client {original['code']}, {withheld} records held, "
+                             f"{after_flight} server records after the client's flight)")
     if not replay_unchanged:
         return {"observed": "accepted", "code": "OK", "message": "the replayed request reached the store"}
     if not control_applied:
@@ -3885,6 +3888,14 @@ def run_authz_target(args) -> int:
         if problem:
             print(f"the 13d-1b rows cannot run: {problem}", file=sys.stderr)
             return 2
+    elif not args.allow_no_candidate:
+        absent = [flag for flag, value in (("--s13c-candidates", args.s13c_candidates), ("--s13c-evidence", args.s13c_evidence),
+                                           ("--s13c-originals", args.s13c_originals), ("--s13c-retention-bank-dir", args.s13c_retention_bank_dir))
+                  if value is None]
+        if absent:
+            print(f"a full authz run needs the 13c-2 export for the 13d-1b rows: name {', '.join(absent)}, or pass --allow-no-candidate to "
+                  "record them as not_run", file=sys.stderr)
+            return 2
     scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
     work = Path(tempfile.mkdtemp(prefix="updsec-authz-", dir=scratch_parent))
     try:
@@ -3961,6 +3972,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--s13c-originals", type=Path, default=None, help="--rust-service authz: the ORIGINAL packages (V3_ORIGINAL_DIR)")
     parser.add_argument("--s13c-retention-bank-dir", type=Path, default=None,
                         help="--rust-service authz: the directory of the approved retention bank (V3_RETENTION_BANK_DIR; prompt-bearing, read only)")
+    parser.add_argument("--allow-no-candidate", action="store_true",
+                        help="--rust-service authz: run every family without the 13c-2 export; the 13d-1b rows are then recorded as not_run")
     parser.add_argument("--stack-name", default="s13d", help="--rust-service authz: the Compose project and container-name prefix of the 13d-1b stack")
     parser.add_argument("--stack-cpus", default="8", help="--rust-service authz: the CPU cap of the 13d-1b param-update container and of the RUSTDOCK helpers")
     parser.add_argument("--lineage-rows", type=Path, default=None,

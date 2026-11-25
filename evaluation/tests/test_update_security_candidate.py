@@ -221,7 +221,34 @@ class CandidateRowTests(unittest.TestCase):
 
 class Tl1CandidateVerdictTests(unittest.TestCase):
     refused = {"stats": {"first_record_type": 22, "records": 4, "last_record_bytes": 24}, "closed": True}
-    deadline = {"observed": "rejected", "code": "DEADLINE_EXCEEDED", "message": "x"}
+    deadline = {"observed": "rejected", "code": "DEADLINE_EXCEEDED", "message": "x", "server_records_after_flight": 1}
+
+    def test_a_held_back_exchange_counts_only_after_a_completed_handshake(self):
+        verdict = harness.tl1_candidate_verdict
+        for incomplete in ({**self.deadline, "server_records_after_flight": 0}, {k: v for k, v in self.deadline.items() if k != "server_records_after_flight"}):
+            result = verdict(incomplete, 3, self.refused, True, True, True)
+            self.assertEqual(result["code"], "HARNESS_ERROR")
+            self.assertIn("server records after the client's flight", result["message"])
+
+    def test_the_recorded_run2_verdict_is_rederived_unchanged(self):
+        """Run 2 of 13d-1b (evaluation/results/s13d/13d-1b, Git-ignored): the verdict re-derived from its evidence under the stricter rule."""
+        path = Path("D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13d/13d-1b/authz-13d1b-run2.json")
+        if not path.is_file():
+            self.skipTest("the run 2 record is local to the run host")
+        row = next(item for item in json.loads(path.read_text(encoding="utf-8"))["attacks"] if item["id"] == "TL1-candidate")
+        withheld_line, replay_line = row["evidence"][0], row["evidence"][1]
+        code = re.search(r"client (\w+);", withheld_line).group(1)
+        held = int(re.search(r"(\d+) client records held back", withheld_line).group(1))
+        after_flight = int(re.search(r"server records after the client's flight: (\d+)", withheld_line).group(1))
+        stats = eval(re.search(r"replay server stream: (\{.*\}); closed", replay_line).group(1), {})  # noqa: S307 - a dict literal the harness wrote
+        closed = replay_line.endswith("closed: True")
+        receipts = eval(re.search(r"after the replay: (\[.*\])", row["evidence"][2]).group(1), {})  # noqa: S307
+        self.assertEqual((code, after_flight, receipts), ("DEADLINE_EXCEEDED", 1, ["unknown"] * 3))
+        control = next(item for item in json.loads(path.read_text(encoding="utf-8"))["attacks"] if item["id"] == "CK-positive-publisher-commit")
+        result = harness.tl1_candidate_verdict({"code": code, "server_records_after_flight": after_flight}, held, {"stats": stats, "closed": closed},
+                                               row["model_unchanged"], row["model_unchanged"], control["property_met"])
+        self.assertEqual((result["observed"], result["code"]), (row["observed"], row["code"]))
+        self.assertEqual(result["code"], "CONNECTION_ABORTED")
 
     def test_refused_only_with_a_tls_abort_an_unchanged_store_and_an_applied_control(self):
         verdict = harness.tl1_candidate_verdict
@@ -461,11 +488,34 @@ class ExitAndOptionTests(unittest.TestCase):
         broken = harness.finalize_authz_rows(harness.candidate_rows(FakeStack(export, allows_unallocated=True), []), harness.StackIssuers())
         self.assertEqual(harness.authz_exit_status(self.record(broken), candidate_only=True), 1)
 
-    def test_a_full_run_without_an_export_still_passes_but_a_failed_stack_does_not(self):
+    def test_a_full_run_without_an_export_passes_only_when_allowed_and_a_failed_stack_does_not(self):
+        # Without the export, a full run must be started with --allow-no-candidate (refused otherwise, see the next test); its 13d-1b
+        # rows are then not_run, which does not fail the exit status. A stack that failed (HARNESS_ERROR) does.
         rows = map_rows()
         self.assertEqual(harness.authz_exit_status(self.record(rows), candidate_only=False), 0)
         failed = [{**row, "code": "HARNESS_ERROR"} if row["id"] == "CK8" else row for row in rows]
         self.assertEqual(harness.authz_exit_status(self.record(failed), candidate_only=False), 1)
+        self.assertTrue(harness.build_parser().parse_args(["--allow-no-candidate"]).allow_no_candidate)
+        self.assertFalse(harness.build_parser().parse_args([]).allow_no_candidate)
+
+    def test_a_full_run_refuses_to_start_without_the_export_flags_unless_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = ["--target", "rust", "--rust-service", "authz", "--pki-linux-binary", "p", "--release-dir", directory]
+            args = harness.build_parser().parse_args([*base, "--s13c-candidates", "c"])
+            with mock.patch.object(harness.subprocess, "run") as run, mock.patch.object(harness, "run_authz_rows") as rows, \
+                    contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(harness.run_authz_target(args), 2)
+                run.assert_not_called()
+                rows.assert_not_called()
+            message = errors.getvalue()
+            self.assertIn("--s13c-evidence, --s13c-originals, --s13c-retention-bank-dir", message)
+            self.assertNotIn("--s13c-candidates,", message)
+            self.assertIn("--allow-no-candidate", message)
+            allowed = harness.build_parser().parse_args([*base, "--allow-no-candidate"])
+            with mock.patch.object(harness, "run_authz_rows", side_effect=RuntimeError("hosting started")), \
+                    contextlib.redirect_stderr(io.StringIO()), mock.patch.object(harness.pki_tools, "PrivokePki"):
+                with self.assertRaisesRegex(RuntimeError, "hosting started"):
+                    harness.run_authz_target(allowed)
 
     def test_the_candidate_options_parse_and_a_candidate_run_needs_no_privoke_pki_build(self):
         args = harness.build_parser().parse_args(["--target", "rust", "--rust-service", "authz", "--authz-families", "candidate", "--s13c-candidates", "c",
