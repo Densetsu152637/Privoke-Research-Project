@@ -674,7 +674,7 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
   - **S13-G2 holds:** `$PY evaluation/e2e_evasion_report.py --check <json>` exits 0. The check fails if a browser is neither run nor listed with a reason.
   - **No outside host was contacted:** the record's `host_guard.outside_lookups` is 0, which `--check` verifies.
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** paused at the user's request (26 Nov 2026: "We will run them later"). The pilot is done: Chrome and Edge ran, Firefox is not_run. The full run set is built (N_seed 1500, 33,334 sends per browser). Chrome has 1,860 rows. Edge and the detector arm have not started. The lock is released and the stack is stopped. Resume steps are in `models/experiments/s13b2-20261126/RESUME.md` (main checkout, Git-ignored), along with the record finaliser. The worktree `wt-s13b2` (branch feat/asiaccs-s13b2) is kept. Remaining: about 2.6 h for Chrome, about 2.8 h for Edge, and 1–2 h for the detector arm.
 - **Handoff notes:** release the host lock, and stop the supervisor, bridge, receiver and browsers.
 - **User decisions after the pilot, 26 Nov 2026:**
   - N_seed is 1,500 (about 5 h in total), not the 8-h-per-browser rule (6,783).
