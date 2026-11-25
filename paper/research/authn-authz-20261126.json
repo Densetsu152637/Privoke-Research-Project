@@ -1,0 +1,3245 @@
+{
+  "attack_map": [
+    {
+      "attack": "Invalid credentials",
+      "cross_references": [],
+      "rows": [
+        "R3-*",
+        "R4",
+        "R4-self-signed"
+      ]
+    },
+    {
+      "attack": "Expired certificate",
+      "cross_references": [],
+      "rows": [
+        "R3-expired",
+        "R3-not-yet-valid"
+      ]
+    },
+    {
+      "attack": "Missing credentials",
+      "cross_references": [],
+      "rows": [
+        "R7-no-cert",
+        "R8-no-cert",
+        "CK5",
+        "R10-no-cert"
+      ]
+    },
+    {
+      "attack": "Wrong client identity",
+      "cross_references": [],
+      "rows": [
+        "R7-unregistered",
+        "CK3",
+        "X8"
+      ]
+    },
+    {
+      "attack": "Unauthorised model retrieval",
+      "cross_references": [],
+      "rows": [
+        "R7-*",
+        "R8-*",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12"
+      ]
+    },
+    {
+      "attack": "Unauthorised update submission",
+      "cross_references": [],
+      "rows": [
+        "CK1",
+        "CK3",
+        "CK4",
+        "R9-submit-update"
+      ]
+    },
+    {
+      "attack": "Unauthorised publication",
+      "cross_references": [],
+      "rows": [
+        "CK2",
+        "CK6",
+        "CK7"
+      ]
+    },
+    {
+      "attack": "Replayed authenticated request",
+      "cross_references": [
+        "13c C2a",
+        "13c C2b"
+      ],
+      "rows": [
+        "TL1"
+      ]
+    },
+    {
+      "attack": "Tampered request",
+      "cross_references": [
+        "13c C9"
+      ],
+      "rows": [
+        "TL2",
+        "TL3"
+      ]
+    },
+    {
+      "attack": "Cross-identity misuse",
+      "cross_references": [],
+      "rows": [
+        "CK2",
+        "CK4",
+        "CK8",
+        "R7-reporter",
+        "R10-installation"
+      ]
+    }
+  ],
+  "attacks": [
+    {
+      "class": "invalid_certificate",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "Registered installation certificate from the client CA (positive control): fetch the default V3 manifest.",
+      "duration_s": 0.016,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "X1",
+      "identity": "registered",
+      "message": "ModelPackageResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "Registered installation streams the legacy catalogue model over mutual TLS (positive control that needs no V3 package).",
+      "duration_s": 0.02,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "X1d",
+      "identity": "registered",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "Registered installation streams config.json of the default V3 package and verifies its pin (G8 positive control).",
+      "duration_s": 0.047,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "X1b",
+      "identity": "registered",
+      "message": "Verified",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "Registered installation streams the whole model.safetensors of the default V3 package over mutual TLS and verifies its pin.",
+      "duration_s": 0.439,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "X1c",
+      "identity": "registered",
+      "message": "Verified",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "Model download by an unauthenticated consumer with an arbitrary consumer_id.",
+      "duration_s": 0.082,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "T1",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "impersonation",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Model download by a registered installation claiming the installed runtime's consumer_id.",
+      "duration_s": 0.013,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-IDENTITY-SELF-ASSERTED",
+      "id": "T2",
+      "identity": "registered",
+      "message": "claimed identity differs from the client certificate",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "Model download with no consumer_id and no client certificate.",
+      "duration_s": 0.051,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "T3",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Model download with a control character in consumer_id (registered installation).",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "INVALID_ARGUMENT",
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "T4",
+      "identity": "registered",
+      "message": "claimed identity differs from the client certificate",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "NOT_FOUND",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Download of a model id that is not in the catalogue (registered installation).",
+      "duration_s": 0.007,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "NOT_FOUND"
+      ],
+      "gap": null,
+      "id": "T5",
+      "identity": "registered",
+      "message": "model \"privoke-not-a-model\" is unavailable",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "NOT_FOUND",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Download with a path-traversal model id (registered installation).",
+      "duration_s": 0.008,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "NOT_FOUND"
+      ],
+      "gap": null,
+      "id": "T6",
+      "identity": "registered",
+      "message": "model \"../etc/passwd\" is unavailable",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "FAILED_PRECONDITION",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Legacy float-tensor download of the standard V3 model (registered installation).",
+      "duration_s": 0.007,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "FAILED_PRECONDITION"
+      ],
+      "gap": null,
+      "id": "T7",
+      "identity": "registered",
+      "message": "V3 models require the binary package RPCs; legacy float tensor limits are unchanged",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "Standard V3 package manifest requested by an unauthenticated consumer.",
+      "duration_s": 0.08,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "T8",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "INVALID_ARGUMENT",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Asset stream with a wrong manifest pin (registered installation).",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "INVALID_ARGUMENT"
+      ],
+      "gap": null,
+      "id": "T9",
+      "identity": "registered",
+      "message": "explicit standard model and manifest pin required",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "INVALID_ARGUMENT",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Asset stream for a non-allowlisted asset name (path traversal).",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "INVALID_ARGUMENT"
+      ],
+      "gap": null,
+      "id": "T10",
+      "identity": "registered",
+      "message": "asset is not allowlisted",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "INVALID_ARGUMENT",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "Asset stream for a legacy model id (registered installation).",
+      "duration_s": 0.035,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "INVALID_ARGUMENT"
+      ],
+      "gap": null,
+      "id": "T11",
+      "identity": "registered",
+      "message": "explicit standard model and manifest pin required",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "Asset stream with correct pin and name by an unauthenticated consumer.",
+      "duration_s": 0.191,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "T12",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "expired_credentials",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "An expired client certificate, for a registered identity, is refused at the TLS handshake.",
+      "duration_s": 0.053,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "R3-expired",
+      "identity": "expired",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "expired_credentials",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "A not-yet-valid client certificate, for a registered identity, is refused at the TLS handshake.",
+      "duration_s": 0.081,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "R3-not-yet-valid",
+      "identity": "future",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "A client certificate with no extended key usage, for a registered identity, is refused at the TLS handshake.",
+      "duration_s": 0.091,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "R3-no-client-auth-eku",
+      "identity": "no-eku",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "A client certificate whose only usage is serverAuth, for a registered identity, is refused at the TLS handshake.",
+      "duration_s": 0.093,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "R3-server-auth-only",
+      "identity": "server-only",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "impersonation",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "A certificate from a foreign CA carrying a registered installation's subject is refused at the handshake.",
+      "duration_s": 0.098,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-IDENTITY-SELF-ASSERTED",
+      "id": "R4",
+      "identity": "foreign",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "A self-signed certificate carrying a registered installation's subject is refused at the handshake.",
+      "duration_s": 0.113,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "R4-self-signed",
+      "identity": "self-signed",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "GetModelPackage without a client certificate.",
+      "duration_s": 0.096,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "R7-no-cert",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "GetModelPackage by a valid, unregistered installation certificate.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "R7-unregistered",
+      "identity": "second",
+      "message": "identity is not registered",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "GetModelPackage with the telemetry reporter credential.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "R7-reporter",
+      "identity": "reporter",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "NOT_FOUND",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "GetModelPackage with a path-traversal model id (registered installation).",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "NOT_FOUND"
+      ],
+      "gap": null,
+      "id": "R7-traversal",
+      "identity": "registered",
+      "message": "model is unavailable",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "NOT_FOUND",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "GetModelPackage for a model that is not in the catalogue (registered installation).",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "NOT_FOUND"
+      ],
+      "gap": null,
+      "id": "R7-unknown",
+      "identity": "registered",
+      "message": "model is unavailable",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "StreamModelAsset without a client certificate.",
+      "duration_s": 0.092,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-RETRIEVAL-AUTH",
+      "id": "R8-no-cert",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "StreamModelAsset by a valid, unregistered installation certificate.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "R8-unregistered",
+      "identity": "second",
+      "message": "identity is not registered",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "StreamModelAsset with the telemetry reporter credential.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "R8-reporter",
+      "identity": "reporter",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "INVALID_ARGUMENT",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "StreamModelAsset with a wrong pin (registered installation).",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "INVALID_ARGUMENT"
+      ],
+      "gap": null,
+      "id": "R8-wrong-pin",
+      "identity": "registered",
+      "message": "explicit standard model and manifest pin required",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "INVALID_ARGUMENT",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "StreamModelAsset for a non-allowlisted asset name (registered installation).",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "INVALID_ARGUMENT"
+      ],
+      "gap": null,
+      "id": "R8-not-allowlisted",
+      "identity": "registered",
+      "message": "asset is not allowlisted",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "standard-v3",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "GetModelParameters on the public listener (registered installation).",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": null,
+      "id": "R9-get-model-parameters",
+      "identity": "registered",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_update",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "ParamUpdateService.SubmitParameterUpdate on the public listener (registered installation).",
+      "duration_s": 0.011,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": null,
+      "id": "R9-submit-update",
+      "identity": "registered",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_update",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "ParamUpdateService.GetParameterUpdateStatus on the public listener (registered installation).",
+      "duration_s": 0.013,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": null,
+      "id": "R9-update-status",
+      "identity": "registered",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "impersonation",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "A second, distinct installation certificate from the same client CA whose id is not registered.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "X8",
+      "identity": "second",
+      "message": "identity is not registered",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "impersonation",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A second installation certificate from the same client CA whose id is registered (positive control).",
+      "duration_s": 0.011,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "X8b",
+      "identity": "second-registered",
+      "message": "ModelPackageResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A registered service identity downloads a legacy model on the internal listener (positive control).",
+      "duration_s": 0.02,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "I1",
+      "identity": "runtime",
+      "message": "ModelParametersResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-internal",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "A registered installation (consumer role) on the internal listener.",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "I2",
+      "identity": "registered",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-internal",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "FAILED_PRECONDITION",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "A registered service identity asks the internal listener for the V3 model through the legacy float RPC.",
+      "duration_s": 0.01,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "FAILED_PRECONDITION"
+      ],
+      "gap": null,
+      "id": "I3",
+      "identity": "runtime",
+      "message": "V3 models require the binary package RPCs; legacy float tensor limits are unchanged",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-internal",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "A registered service identity calls a consumer RPC on the internal listener.",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": null,
+      "id": "I4",
+      "identity": "runtime",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-internal",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the public model-streaming port.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-model-main-public",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52268: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the internal model-streaming port.",
+      "duration_s": 0.005,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-model-main-internal",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52269: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "RecordTelemetry on the public listener without a client certificate.",
+      "duration_s": 0.025,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "R10-no-cert",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52345: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "RecordTelemetry on the public listener with a registered installation certificate (not the reporter credential).",
+      "duration_s": 0.039,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "R10-installation",
+      "identity": "registered",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "RecordTelemetry on the public listener with a valid but unregistered installation certificate.",
+      "duration_s": 0.044,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "R10-unregistered",
+      "identity": "second",
+      "message": "identity is not registered",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "GetTelemetrySummary on the internal listener without a client certificate.",
+      "duration_s": 0.055,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": null,
+      "id": "R10-summary-no-cert",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52347: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "GetTelemetrySummary on the internal listener with a registered installation certificate.",
+      "duration_s": 0.015,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "R10-summary-installation",
+      "identity": "registered",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "GetTelemetrySummary on the internal listener with an unregistered installation certificate.",
+      "duration_s": 0.037,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "R10-summary-unregistered",
+      "identity": "second",
+      "message": "identity is not registered",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "GetTelemetrySummary on the internal listener with the shared reporter credential.",
+      "duration_s": 0.016,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": null,
+      "id": "R10-summary-reporter",
+      "identity": "reporter",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "GetTelemetrySummary on the public listener with the reporter credential.",
+      "duration_s": 0.026,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": null,
+      "id": "R10-summary-public",
+      "identity": "reporter",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The shared reporter credential records a randomised report (positive control).",
+      "duration_s": 0.046,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "R10-reporter",
+      "identity": "reporter",
+      "message": "RecordTelemetryResponse",
+      "model_unchanged": false,
+      "observed": "accepted",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "unauthorized_retrieval",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A registered service identity reads the aggregate summary on the internal listener (positive control).",
+      "duration_s": 0.047,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "R10-summary-service",
+      "identity": "runtime",
+      "message": "GetTelemetrySummaryResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the public telemetry port.",
+      "duration_s": 0.001,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-telemetry-public",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52345: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the internal telemetry port.",
+      "duration_s": 0.001,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-telemetry-internal",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52347: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "none",
+      "denied_by": null,
+      "description": "After refused and accepted requests from named identities, the container log holds none of their installation ids.",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "no_identity_logged",
+      "expected_codes": null,
+      "gap": "GAP-IDENTITY-SELF-ASSERTED",
+      "id": "R10-no-identity-in-log",
+      "identity": "registered, unregistered, reporter",
+      "message": "no installation id in the container log",
+      "model_unchanged": null,
+      "observed": "rejected",
+      "path": "rust-telemetry",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "telemetry"
+    },
+    {
+      "class": "expired_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A registered installation (x13-revoked) is served before any revocation (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-baseline-x13-revoked",
+      "identity": "x13-revoked",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A registered installation (x13-denied) is served before any revocation (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-baseline-x13-denied",
+      "identity": "x13-denied",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A registered installation (x13-bystander) is served before any revocation (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-baseline-x13-bystander",
+      "identity": "x13-bystander",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The installation that will be deny-listed has an open, working connection (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-open-connection-baseline",
+      "identity": "x13-denied",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "expired_credentials",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "revocation",
+      "description": "A revoked installation's new handshake fails after the CRL is swapped, without a restart.",
+      "duration_s": 0.532,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-revoked",
+      "identity": "x13-revoked",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52391: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "An installation that was not revoked is still served after the CRL swap (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-bystander",
+      "identity": "x13-bystander",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "revocation",
+      "description": "After the CRL file is replaced by garbage, the revoked installation is still refused (the old configuration is kept).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-corrupt-crl-keeps-revocation",
+      "identity": "x13-revoked",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52391: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "After the CRL file is replaced by garbage, the service keeps serving a valid installation (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-corrupt-crl-keeps-serving",
+      "identity": "x13-bystander",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "A deny-listed identity gets PERMISSION_DENIED on a connection that was already open.",
+      "duration_s": 1.037,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-denylist-open-connection",
+      "identity": "x13-denied",
+      "message": "identity is revoked",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "The same deny-listed identity is also refused on a new connection.",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-denylist-new-connection",
+      "identity": "x13-denied",
+      "message": "identity is revoked",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A registered installation that is not deny-listed is still served (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-bystander-after-denylist",
+      "identity": "x13-bystander",
+      "message": "stream opened (first message ModelParameterChunk)",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "expired_credentials",
+      "code": "OK",
+      "credential_issuer": "none",
+      "denied_by": null,
+      "description": "None of the changes above needed a restart: the service process is the one that started the run.",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "same_process",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "X13-no-restart",
+      "identity": "operator",
+      "message": "the service was never restarted",
+      "model_unchanged": null,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the public model-streaming port.",
+      "duration_s": 0.004,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-model-public",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52391: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the internal model-streaming port.",
+      "duration_s": 0.002,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-model-internal",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52392: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-public",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "model-streaming"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The publisher service identity reaches CheckpointService.Health (positive control: the denials below are not a configuration failure).",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK0-publisher-health",
+      "identity": "publisher",
+      "message": "HealthResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The trainer service identity reaches CheckpointService.Health (positive control: the denials below are not a configuration failure).",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK0-trainer-health",
+      "identity": "trainer",
+      "message": "HealthResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The runtime service identity reaches CheckpointService.Health (positive control: the denials below are not a configuration failure).",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK0-runtime-health",
+      "identity": "runtime",
+      "message": "HealthResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "unauthorized_update",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "CommitCandidate as a runtime service. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.009,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PUBLISHER-AUTH",
+      "id": "CK1",
+      "identity": "runtime",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "unauthorized_publication",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "RollbackModel as a trainer service. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PUBLISHER-AUTH",
+      "id": "CK2",
+      "identity": "trainer",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "impersonation",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "CommitCandidate with a registered installation certificate. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.007,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "CK3",
+      "identity": "registered",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "impersonation",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "role_policy",
+      "description": "CommitCandidate with the shared reporter credential. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.006,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "id": "CK4",
+      "identity": "reporter",
+      "message": "role may not call this method",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "invalid_credentials",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "StageCheckpoint with no client certificate. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.011,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-PUBLISHER-AUTH",
+      "id": "CK5",
+      "identity": "no client certificate",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52424: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "unauthorized_update",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "An RPC the policy does not list (TrainingService.FitCandidate), called by a publisher. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.067,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": "GAP-NO-PUBLISHER-AUTH",
+      "id": "CK9",
+      "identity": "publisher",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "unauthorized_update",
+      "code": "UNIMPLEMENTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "rpc_surface",
+      "description": "The removed V1 SubmitParameterUpdate on the update listener, called by a publisher. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.007,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNIMPLEMENTED"
+      ],
+      "gap": "GAP-NO-PUBLISHER-AUTH",
+      "id": "CK9-submit-update",
+      "identity": "publisher",
+      "message": "method is not served on this listener",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "invalid_certificate",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "none",
+      "denied_by": "tls_handshake",
+      "description": "A plaintext call to the update service port that serves CheckpointService.",
+      "duration_s": 0.001,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "id": "R6-checkpoint",
+      "identity": "no TLS at all",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52424: End of TCP stream",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The trainer that will be revoked reaches CheckpointService.Health before the CRL changes (positive control).",
+      "duration_s": 0.007,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK6-baseline",
+      "identity": "ck-revoked-trainer",
+      "message": "HealthResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "unauthorized_publication",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "revocation",
+      "description": "CommitCandidate from a revoked trainer after an atomic CRL swap, with no restart. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.544,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-REVOCATION",
+      "id": "CK6",
+      "identity": "ck-revoked-trainer",
+      "message": "failed to connect to all addresses; last error: UNAVAILABLE: ipv4:127.0.0.1:52424: Unwrap failed (TSI_DATA_CORRUPTED)",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "The trainer that will be deny-listed has an open, working connection (positive control).",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK7-baseline",
+      "identity": "ck-denied-trainer",
+      "message": "HealthResponse",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "unauthorized_publication",
+      "code": "PERMISSION_DENIED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "registry",
+      "description": "CommitCandidate from a deny-listed trainer on a connection that was already open. The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 1.105,
+      "evidence": [],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "PERMISSION_DENIED"
+      ],
+      "gap": "GAP-NO-REVOCATION",
+      "id": "CK7",
+      "identity": "ck-denied-trainer",
+      "message": "identity is revoked",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "expired_credentials",
+      "code": "OK",
+      "credential_issuer": "none",
+      "denied_by": null,
+      "description": "Neither the CRL swap nor the deny-list entry needed a restart.",
+      "duration_s": 0.0,
+      "evidence": [],
+      "expected": "same_process",
+      "expected_codes": null,
+      "gap": "GAP-NO-REVOCATION",
+      "id": "CK-no-restart",
+      "identity": "operator",
+      "message": "the update service was never restarted",
+      "model_unchanged": null,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "replayed_request",
+      "code": "CONNECTION_ABORTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "tls_handshake",
+      "description": "The recorded TLS 1.3 bytes of an authenticated CommitCandidate, replayed on a new connection (no receipt). The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.399,
+      "evidence": [
+        "original: NOT_FOUND; clean exchange after the replay: NOT_FOUND",
+        "original server stream: {'bytes': 1031, 'records': 6, 'application_records': 4, 'application_bytes': 865, 'last_record_bytes': 136, 'first_record_type': 22}",
+        "replay sent 1521 bytes; server stream: {'bytes': 819, 'records': 4, 'application_records': 2, 'application_bytes': 653, 'last_record_bytes': 24, 'first_record_type': 22}; closed: True"
+      ],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "CONNECTION_ABORTED"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "TL1",
+      "identity": "trainer",
+      "message": "the recorded bytes got a TLS alert and no response",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-tls",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "param-update"
+    },
+    {
+      "class": "tampered_request",
+      "code": "CONNECTION_ABORTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "tls_handshake",
+      "description": "One bit flipped in each client record that carries the request, through a loopback proxy (the connection aborts, no receipt). The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 1.042,
+      "evidence": [
+        "record 2 (type 23, 104 bytes): flipped=True client=UNKNOWN server_alert_seen=True server_closed=True server_answered=False; clean control: NOT_FOUND; store_unchanged=True",
+        "record 3 (type 23, 31 bytes): flipped=True client=UNKNOWN server_alert_seen=True server_closed=True server_answered=False; clean control: NOT_FOUND; store_unchanged=True",
+        "record 4 (type 23, 578 bytes): flipped=True client=UNKNOWN server_alert_seen=True server_closed=True server_answered=False; clean control: NOT_FOUND; store_unchanged=True"
+      ],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "CONNECTION_ABORTED"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "TL2",
+      "identity": "trainer",
+      "message": "every one-bit change to the 3 request records tested aborted the connection",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-tls",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "param-update",
+      "variants": [
+        {
+          "aborted": true,
+          "client_code": "UNKNOWN",
+          "control_code": "NOT_FOUND",
+          "control_ok": true,
+          "flipped": true,
+          "record": 2,
+          "record_bytes": 104,
+          "record_type": 23,
+          "server_alert_seen": true,
+          "server_answered": false,
+          "server_closed": true,
+          "store_unchanged": true
+        },
+        {
+          "aborted": true,
+          "client_code": "UNKNOWN",
+          "control_code": "NOT_FOUND",
+          "control_ok": true,
+          "flipped": true,
+          "record": 3,
+          "record_bytes": 31,
+          "record_type": 23,
+          "server_alert_seen": true,
+          "server_answered": false,
+          "server_closed": true,
+          "store_unchanged": true
+        },
+        {
+          "aborted": true,
+          "client_code": "UNKNOWN",
+          "control_code": "NOT_FOUND",
+          "control_ok": true,
+          "flipped": true,
+          "record": 4,
+          "record_bytes": 578,
+          "record_type": 23,
+          "server_alert_seen": true,
+          "server_answered": false,
+          "server_closed": true,
+          "store_unchanged": true
+        }
+      ]
+    },
+    {
+      "class": "tampered_request",
+      "code": "CONNECTION_ABORTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "tls_handshake",
+      "description": "Extra to TL2: one bit flipped in the client's handshake flight (Certificate, CertificateVerify, Finished). The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.",
+      "duration_s": 0.32,
+      "evidence": [
+        "record 1 (type 23, 552 bytes): flipped=True client=UNAVAILABLE server_alert_seen=True server_closed=True server_answered=False; clean control: NOT_FOUND; store_unchanged=True"
+      ],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "CONNECTION_ABORTED"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "TL2-handshake",
+      "identity": "trainer",
+      "message": "every one-bit change to the 1 request records tested aborted the connection",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-tls",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "param-update",
+      "variants": [
+        {
+          "aborted": true,
+          "client_code": "UNAVAILABLE",
+          "control_code": "NOT_FOUND",
+          "control_ok": true,
+          "flipped": true,
+          "record": 1,
+          "record_bytes": 552,
+          "record_type": 23,
+          "server_alert_seen": true,
+          "server_answered": false,
+          "server_closed": true,
+          "store_unchanged": true
+        }
+      ]
+    },
+    {
+      "class": "tampered_request",
+      "code": "UNAVAILABLE",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "tls_handshake",
+      "description": "A man in the middle presents a server certificate that is not from the server CA: the client refuses before it sends a request.",
+      "duration_s": 1.616,
+      "evidence": [
+        "man in the middle saw {'handshakes_completed': 0, 'handshakes_failed': 1, 'application_bytes': 0}"
+      ],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "UNAVAILABLE"
+      ],
+      "gap": "GAP-NO-CREDENTIAL-MECHANISM",
+      "id": "TL3",
+      "identity": "trainer (client) against a foreign-CA server certificate",
+      "message": "the client refused the server certificate",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-tls",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "openssl-helper",
+      "denied_by": "not_denied",
+      "description": "The same server certificate completes a handshake with a client that trusts its CA (positive control: the refusal above is about the CA).",
+      "duration_s": 0.0,
+      "evidence": [
+        "man in the middle saw {'handshakes_completed': 1, 'handshakes_failed': 1, 'application_bytes': 82}"
+      ],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "TL3-control",
+      "identity": "trainer (client) trusting the foreign CA",
+      "message": "the handshake completed",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-tls",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A runtime service stages the genuine 13c candidate: its evidence, then its checkpoint with the manifest (accepted).",
+      "duration_s": 2.205,
+      "evidence": [
+        "stage replies: ['33d8b74d4bfc0d7d25bb9c88c39a51fd1b63de8b242e55e070370afbc309024b', '81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa']",
+        "authority before {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}; after {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}"
+      ],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK-positive-runtime-stage",
+      "identity": "v3-runtime (runtime)",
+      "message": "staged the evidence and the checkpoint",
+      "model_unchanged": true,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "impersonation",
+      "code": "RECEIPT_REJECTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "application",
+      "description": "CommitCandidate from a valid trainer carrying a valid 13c candidate (the genuine checkpoint, evidence naming an unallocated request id): rejected/request_not_allocated, the authority unchanged.",
+      "duration_s": 2.013,
+      "evidence": [
+        "request s13c2-c11e (no allocation); candidate 13bda37d5110c8e8facac81742e70a71c13f58bbb5375dcd84dcce9c2bc29b3f; receipt after: rejected",
+        "authority before {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}; after {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}"
+      ],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "RECEIPT_REJECTED"
+      ],
+      "gap": null,
+      "id": "CK8",
+      "identity": "s13c2-trainer (trainer)",
+      "message": "request_not_allocated",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "replayed_request",
+      "code": "CONNECTION_ABORTED",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "tls_handshake",
+      "description": "The TLS 1.3 bytes of a publisher's authenticated CommitCandidate of the genuine 13c candidate, recorded while the proxy held the request back from the server, replayed on a new connection: no receipt, the authority unchanged, and the same commit is applied when sent cleanly afterwards (the unchanged store is not vacuous).",
+      "duration_s": 12.609,
+      "evidence": [
+        "withheld exchange: client DEADLINE_EXCEEDED; 4 client records held back; sent 1840 bytes in all; server records after the client's flight: 1",
+        "replay server stream: {'bytes': 913, 'records': 4, 'application_records': 2, 'application_bytes': 747, 'last_record_bytes': 24, 'first_record_type': 22}; closed: True",
+        "receipts of v3r-c0-efficient-heads-a0-ff9e1fcd: before, after the withheld exchange, after the replay: ['unknown', 'unknown', 'unknown']",
+        "authority before {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}; after the withheld exchange {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}; after the replay {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}"
+      ],
+      "expected": "rejected_unchanged",
+      "expected_codes": [
+        "CONNECTION_ABORTED"
+      ],
+      "gap": null,
+      "id": "TL1-candidate",
+      "identity": "s13c2-publisher (publisher)",
+      "message": "the replayed bytes got a TLS alert; no receipt and the authority unchanged",
+      "model_unchanged": true,
+      "observed": "rejected",
+      "path": "rust-tls",
+      "property_met": true,
+      "scope_label": "transport (Rust)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A publisher commits the allocated genuine 13c candidate on the pin (applied, signed and served).",
+      "duration_s": 3.194,
+      "evidence": [
+        "request v3r-c0-efficient-heads-a0-ff9e1fcd; candidate 81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa; receipt applied ",
+        "authority before {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 2, 'publications': 0, 'max_sequence': 0, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}; after {'current': '81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa', 'versions': 3, 'publications': 1, 'max_sequence': 1, 'served': '81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa'}"
+      ],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK-positive-publisher-commit",
+      "identity": "s13c2-publisher (publisher)",
+      "message": "applied",
+      "model_unchanged": false,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    },
+    {
+      "class": "control",
+      "code": "OK",
+      "credential_issuer": "privoke-pki",
+      "denied_by": "not_denied",
+      "description": "A publisher rolls back to the pin (applied: a new signed publication with a higher sequence, served).",
+      "duration_s": 2.173,
+      "evidence": [
+        "request s13d2-rollback-52f123ca; receipt applied rollback",
+        "authority before {'current': '81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa', 'versions': 3, 'publications': 1, 'max_sequence': 1, 'served': '81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa'}; after {'current': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd', 'versions': 3, 'publications': 2, 'max_sequence': 2, 'served': '1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd'}"
+      ],
+      "expected": "positive_control",
+      "expected_codes": null,
+      "gap": null,
+      "id": "CK-positive-publisher-rollback",
+      "identity": "s13c2-publisher (publisher)",
+      "message": "applied (rollback)",
+      "model_unchanged": false,
+      "observed": "accepted",
+      "path": "rust-checkpoint",
+      "property_met": true,
+      "scope_label": "update path (Rust V3)",
+      "service": "param-update"
+    }
+  ],
+  "build": {
+    "branch": "feat/asiaccs-s13d2",
+    "clean": true,
+    "sha": "4e3f0ed0720250bbaeffd1eec4602b2b25734f0d"
+  },
+  "chain": {
+    "defense": "Mutual TLS with the rustls verifier and CRL hot reload; the registry; the role policy; the RPC surface; the V3 store's application checks.",
+    "evidence": "AUTHZ-20261126",
+    "experiment": "Negative rows from a host Python client against the Rust containers on loopback.",
+    "metric": "For each attack, denial (required) and the denying layer (denied_by).",
+    "threat": "An attacker with no credentials, wrong credentials or stolen low-privilege credentials."
+  },
+  "client_high_water_mark": "Not observed. The shared convention's 'unchanged' authority includes the client high-water mark, but no client (runtime supervisor) runs in this stack; the version model-streaming serves stands in for it in every authority observation.",
+  "commands": [
+    "evaluation/update_security.py --target rust --rust-service authz --authz-families all --pki-linux-binary rust/target-docker/release/privoke-pki --release-dir D:/Git Repositories/Privoke-Research-Project/models/standard-releases --s13c-candidates D:/Git Repositories/Privoke-Research-Project/models/experiments/s13c2-20261126/candidates --s13c-evidence D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13c/evidence --s13c-originals D:/Git Repositories/Privoke-Research-Project/models/experiments/pretrained_v3_20261012/initials --s13c-retention-bank-dir D:/Git Repositories/Privoke-Research-Project/evaluation/results/iterative_fuzzer_20261011/train-sensitive-retention --rust-image privoke-model-streaming-rust:s13d1b --rust-update-image privoke-param-update-rust:s13d1b --rust-telemetry-image privoke-telemetry-rust:s13d2 --stack-name s13d2 --stack-cpus 8 --output D:/Git Repositories/Privoke-Research-Project/evaluation/results/s13d/13d-2/authz-13d2-run1.json",
+    "privoke-pki init-ca --dir client-ca --name privoke-s13d-client-ca --days 2",
+    "privoke-pki init-ca --dir server-ca --name privoke-s13d-server-ca --days 2",
+    "privoke-pki issue-server --ca-dir server-ca --dns localhost --dns 127.0.0.1 --out-dir server --days 2",
+    "privoke-pki issue-reporter --ca-dir client-ca --days 2",
+    "privoke-pki enrol --dir installations/registered",
+    "privoke-pki enrol --dir installations/second",
+    "privoke-pki enrol --dir installations/second-registered",
+    "privoke-pki enrol --dir installations/x13-revoked",
+    "privoke-pki enrol --dir installations/x13-denied",
+    "privoke-pki enrol --dir installations/x13-bystander",
+    "privoke-pki sign --ca-dir client-ca --csr installations/registered/client.csr --installation 66e5facf-034c-4182-8a4e-8d473a975f21 --days 1 --out-dir installations/registered/bundle --server-ca server-ca/ca.crt --label registered --registry registry.toml",
+    "privoke-pki install-cert --dir installations/registered --cert installations/registered/bundle/client.crt --server-ca server-ca/ca.crt",
+    "privoke-pki sign --ca-dir client-ca --csr installations/second/client.csr --installation 53b82f4b-d135-4d8f-9368-747084146623 --days 1 --out-dir installations/second/bundle --server-ca server-ca/ca.crt --label second",
+    "privoke-pki install-cert --dir installations/second --cert installations/second/bundle/client.crt --server-ca server-ca/ca.crt",
+    "privoke-pki sign --ca-dir client-ca --csr installations/second-registered/client.csr --installation e967daae-88d7-4c70-92b1-aa74b1978292 --days 1 --out-dir installations/second-registered/bundle --server-ca server-ca/ca.crt --label second-registered --registry registry.toml",
+    "privoke-pki install-cert --dir installations/second-registered --cert installations/second-registered/bundle/client.crt --server-ca server-ca/ca.crt",
+    "privoke-pki sign --ca-dir client-ca --csr installations/x13-revoked/client.csr --installation cbd28854-b768-4a21-b08f-91b47c466ef1 --days 1 --out-dir installations/x13-revoked/bundle --server-ca server-ca/ca.crt --label x13-revoked --registry registry.toml",
+    "privoke-pki install-cert --dir installations/x13-revoked --cert installations/x13-revoked/bundle/client.crt --server-ca server-ca/ca.crt",
+    "privoke-pki sign --ca-dir client-ca --csr installations/x13-denied/client.csr --installation 27899c1e-b4eb-46f1-8fbc-ab9ff0a89348 --days 1 --out-dir installations/x13-denied/bundle --server-ca server-ca/ca.crt --label x13-denied --registry registry.toml",
+    "privoke-pki install-cert --dir installations/x13-denied --cert installations/x13-denied/bundle/client.crt --server-ca server-ca/ca.crt",
+    "privoke-pki sign --ca-dir client-ca --csr installations/x13-bystander/client.csr --installation 0908ed05-4199-4840-86c6-d5871b3529ee --days 1 --out-dir installations/x13-bystander/bundle --server-ca server-ca/ca.crt --label x13-bystander --registry registry.toml",
+    "privoke-pki install-cert --dir installations/x13-bystander --cert installations/x13-bystander/bundle/client.crt --server-ca server-ca/ca.crt",
+    "privoke-pki sign-service --ca-dir client-ca --name server-fuzzer --role publisher --days 1 --out-dir services --registry registry.toml",
+    "privoke-pki sign-service --ca-dir client-ca --name trainer --role trainer --days 1 --out-dir services --registry registry.toml",
+    "privoke-pki sign-service --ca-dir client-ca --name client-runtime --role runtime --days 1 --out-dir services --registry registry.toml",
+    "privoke-pki sign-service --ca-dir client-ca --name ck-revoked-trainer --role trainer --days 1 --out-dir services --registry registry.toml",
+    "privoke-pki sign-service --ca-dir client-ca --name ck-denied-trainer --role trainer --days 1 --out-dir services --registry registry.toml",
+    "privoke-pki sign-service --ca-dir client-ca --name stranger --role runtime --days 1 --out-dir services",
+    "privoke-pki crl --ca-dir client-ca --out crl.pem --days 2",
+    "privoke-pki revoke --ca-dir client-ca --installation cbd28854-b768-4a21-b08f-91b47c466ef1",
+    "privoke-pki crl --ca-dir client-ca --out crl.pem --days 2",
+    "privoke-pki revoke --ca-dir client-ca --service ck-revoked-trainer",
+    "privoke-pki crl --ca-dir client-ca --out crl.pem --days 2",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_compose_pki (S13C_PKI_DIR)",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_source_root (S13C_WRITE_SOURCE_ROOT)",
+    "docker compose -p s13d2 -f docker-compose.prod.yml -f <scratch override> --profile v3-training up -d --no-build param-update-service model-streaming-service (FUZZER_PROMPT_COUNT=0, test PKI and publication key)",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_journal_seed (S13C_ALLOCATIONS, S13C_JOURNAL)"
+  ],
+  "container_log_tail": "model-streaming-service listening public=0.0.0.0:50443 internal=0.0.0.0:50051 latest=\"privoke-v3-balanced\" models=[\"privoke-balanced\", \"privoke-v3-balanced\", \"privoke-v3-efficient\", \"privoke-v3-quality\"]\nparameter request consumer=\"66e5facf-034c-4182-8a4e-8d473a975f21\" model=\"privoke-balanced\" version=\"v0.3.0\"\nparameter request consumer=\"param-update\" model=\"privoke-balanced\" version=\"v0.3.0\"\n",
+  "coverage": {
+    "attacks": [
+      {
+        "attack": "Invalid credentials",
+        "counted": [
+          "R3-expired",
+          "R3-not-yet-valid",
+          "R3-no-client-auth-eku",
+          "R3-server-auth-only",
+          "R4",
+          "R4-self-signed"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "tls_handshake"
+        ],
+        "matchers": [
+          "R3-*",
+          "R4",
+          "R4-self-signed"
+        ],
+        "rows": [
+          "R3-expired",
+          "R3-not-yet-valid",
+          "R3-no-client-auth-eku",
+          "R3-server-auth-only",
+          "R4",
+          "R4-self-signed"
+        ]
+      },
+      {
+        "attack": "Expired certificate",
+        "counted": [
+          "R3-expired",
+          "R3-not-yet-valid"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "tls_handshake"
+        ],
+        "matchers": [
+          "R3-expired",
+          "R3-not-yet-valid"
+        ],
+        "rows": [
+          "R3-expired",
+          "R3-not-yet-valid"
+        ]
+      },
+      {
+        "attack": "Missing credentials",
+        "counted": [
+          "R7-no-cert",
+          "R8-no-cert",
+          "R10-no-cert",
+          "CK5"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "tls_handshake"
+        ],
+        "matchers": [
+          "R7-no-cert",
+          "R8-no-cert",
+          "CK5",
+          "R10-no-cert"
+        ],
+        "rows": [
+          "R7-no-cert",
+          "R8-no-cert",
+          "R10-no-cert",
+          "CK5"
+        ]
+      },
+      {
+        "attack": "Wrong client identity",
+        "counted": [
+          "R7-unregistered",
+          "X8",
+          "CK3"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "registry",
+          "role_policy"
+        ],
+        "matchers": [
+          "R7-unregistered",
+          "CK3",
+          "X8"
+        ],
+        "rows": [
+          "R7-unregistered",
+          "X8",
+          "CK3"
+        ]
+      },
+      {
+        "attack": "Unauthorised model retrieval",
+        "counted": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6",
+          "T7",
+          "T8",
+          "T9",
+          "T10",
+          "T11",
+          "T12",
+          "R7-no-cert",
+          "R7-unregistered",
+          "R7-reporter",
+          "R7-traversal",
+          "R7-unknown",
+          "R8-no-cert",
+          "R8-unregistered",
+          "R8-reporter",
+          "R8-wrong-pin",
+          "R8-not-allowlisted"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "application",
+          "registry",
+          "role_policy",
+          "tls_handshake"
+        ],
+        "matchers": [
+          "R7-*",
+          "R8-*",
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6",
+          "T7",
+          "T8",
+          "T9",
+          "T10",
+          "T11",
+          "T12"
+        ],
+        "rows": [
+          "T1",
+          "T2",
+          "T3",
+          "T4",
+          "T5",
+          "T6",
+          "T7",
+          "T8",
+          "T9",
+          "T10",
+          "T11",
+          "T12",
+          "R7-no-cert",
+          "R7-unregistered",
+          "R7-reporter",
+          "R7-traversal",
+          "R7-unknown",
+          "R8-no-cert",
+          "R8-unregistered",
+          "R8-reporter",
+          "R8-wrong-pin",
+          "R8-not-allowlisted"
+        ]
+      },
+      {
+        "attack": "Unauthorised update submission",
+        "counted": [
+          "R9-submit-update",
+          "CK1",
+          "CK3",
+          "CK4"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "role_policy",
+          "rpc_surface"
+        ],
+        "matchers": [
+          "CK1",
+          "CK3",
+          "CK4",
+          "R9-submit-update"
+        ],
+        "rows": [
+          "R9-submit-update",
+          "CK1",
+          "CK3",
+          "CK4"
+        ]
+      },
+      {
+        "attack": "Unauthorised publication",
+        "counted": [
+          "CK2",
+          "CK6",
+          "CK7"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "registry",
+          "revocation",
+          "role_policy"
+        ],
+        "matchers": [
+          "CK2",
+          "CK6",
+          "CK7"
+        ],
+        "rows": [
+          "CK2",
+          "CK6",
+          "CK7"
+        ]
+      },
+      {
+        "attack": "Replayed authenticated request",
+        "counted": [
+          "TL1"
+        ],
+        "covered": true,
+        "cross_references": [
+          "13c C2a",
+          "13c C2b"
+        ],
+        "denied_by": [
+          "tls_handshake"
+        ],
+        "matchers": [
+          "TL1"
+        ],
+        "rows": [
+          "TL1"
+        ]
+      },
+      {
+        "attack": "Tampered request",
+        "counted": [
+          "TL2",
+          "TL3"
+        ],
+        "covered": true,
+        "cross_references": [
+          "13c C9"
+        ],
+        "denied_by": [
+          "tls_handshake"
+        ],
+        "matchers": [
+          "TL2",
+          "TL3"
+        ],
+        "rows": [
+          "TL2",
+          "TL3"
+        ]
+      },
+      {
+        "attack": "Cross-identity misuse",
+        "counted": [
+          "R7-reporter",
+          "R10-installation",
+          "CK2",
+          "CK4",
+          "CK8"
+        ],
+        "covered": true,
+        "cross_references": [],
+        "denied_by": [
+          "application",
+          "role_policy"
+        ],
+        "matchers": [
+          "CK2",
+          "CK4",
+          "CK8",
+          "R7-reporter",
+          "R10-installation"
+        ],
+        "rows": [
+          "R7-reporter",
+          "R10-installation",
+          "CK2",
+          "CK4",
+          "CK8"
+        ]
+      }
+    ],
+    "ok": true,
+    "pending_13d_1b": [],
+    "problems": [],
+    "unmet_properties": []
+  },
+  "credential_issuers": {
+    "ck-denied-trainer": "privoke-pki",
+    "ck-revoked-trainer": "privoke-pki",
+    "expired": "openssl-helper",
+    "foreign": "openssl-helper",
+    "future": "openssl-helper",
+    "mitm-server": "openssl-helper",
+    "no-eku": "openssl-helper",
+    "publisher": "privoke-pki",
+    "registered": "privoke-pki",
+    "reporter": "privoke-pki",
+    "runtime": "privoke-pki",
+    "second": "privoke-pki",
+    "second-registered": "privoke-pki",
+    "self-signed": "openssl-helper",
+    "server-only": "openssl-helper",
+    "stranger": "privoke-pki",
+    "trainer": "privoke-pki",
+    "x13-bystander": "privoke-pki",
+    "x13-denied": "privoke-pki",
+    "x13-revoked": "privoke-pki"
+  },
+  "fixture": {
+    "legacy_model": "privoke-balanced",
+    "standard_v3_packages": "present",
+    "v3_model": "privoke-v3-balanced"
+  },
+  "gaps": [
+    {
+      "claimed_status": "kept (telemetry)",
+      "id": "GAP-IDENTITY-SELF-ASSERTED",
+      "reason": "source_id and consumer_id come from the certificate for update and model retrieval (met). Telemetry reports carry no identity field and the shared reporter credential is deliberately not individual, so nothing is bound there (kept).",
+      "rows": [
+        "T2",
+        "R10-no-identity-in-log"
+      ],
+      "rows_that_ran": [
+        "T2",
+        "R10-no-identity-in-log"
+      ],
+      "rows_unmet": [],
+      "static": [],
+      "status": "kept (telemetry)"
+    },
+    {
+      "claimed_status": "met",
+      "id": "GAP-NO-CREDENTIAL-MECHANISM",
+      "reason": "Client certificates are checked by the service itself: a bearer token is ignored, and expired, not-yet-valid, wrong-usage and foreign-CA certificates are refused at the handshake.",
+      "rows": [
+        "R3-expired",
+        "R3-not-yet-valid",
+        "R3-no-client-auth-eku",
+        "R3-server-auth-only"
+      ],
+      "rows_that_ran": [
+        "R3-expired",
+        "R3-not-yet-valid",
+        "R3-no-client-auth-eku",
+        "R3-server-auth-only"
+      ],
+      "rows_unmet": [],
+      "static": [],
+      "status": "met"
+    },
+    {
+      "claimed_status": "met",
+      "id": "GAP-NO-RETRIEVAL-AUTH",
+      "reason": "Every model RPC except Health needs the consumer role; the private RPCs answer UNIMPLEMENTED on the public listener. GetModelPackage and StreamModelAsset are public by design (G8).",
+      "rows": [
+        "T1",
+        "T3",
+        "T8",
+        "T12",
+        "R4",
+        "R4-self-signed",
+        "R7-no-cert",
+        "R7-unregistered",
+        "R7-reporter",
+        "R7-traversal",
+        "R7-unknown",
+        "R8-no-cert",
+        "R8-unregistered",
+        "R8-reporter",
+        "R8-wrong-pin",
+        "R8-not-allowlisted",
+        "R9-get-model-parameters",
+        "R9-submit-update",
+        "R9-update-status"
+      ],
+      "rows_that_ran": [
+        "T1",
+        "T3",
+        "T8",
+        "T12",
+        "R4",
+        "R4-self-signed",
+        "R7-no-cert",
+        "R7-unregistered",
+        "R7-reporter",
+        "R7-traversal",
+        "R7-unknown",
+        "R8-no-cert",
+        "R8-unregistered",
+        "R8-reporter",
+        "R8-wrong-pin",
+        "R8-not-allowlisted",
+        "R9-get-model-parameters",
+        "R9-submit-update",
+        "R9-update-status"
+      ],
+      "rows_unmet": [],
+      "static": [
+        "ST2",
+        "ST7"
+      ],
+      "status": "met"
+    },
+    {
+      "claimed_status": "kept (telemetry)",
+      "id": "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "reason": "Model retrieval admits only registered installations (met). Telemetry accepts the one shared reporter credential, which avoids linkable reports and is revocable only as a whole (kept).",
+      "rows": [
+        "R7-no-cert",
+        "R7-unregistered",
+        "R7-reporter",
+        "R7-traversal",
+        "R7-unknown",
+        "X8",
+        "X8b",
+        "R10-no-cert",
+        "R10-installation",
+        "R10-unregistered",
+        "R10-summary-no-cert",
+        "R10-summary-installation",
+        "R10-summary-unregistered",
+        "R10-summary-reporter",
+        "R10-summary-public",
+        "R10-reporter",
+        "R10-summary-service",
+        "R10-no-identity-in-log"
+      ],
+      "rows_that_ran": [
+        "R7-no-cert",
+        "R7-unregistered",
+        "R7-reporter",
+        "R7-traversal",
+        "R7-unknown",
+        "X8",
+        "X8b",
+        "R10-no-cert",
+        "R10-installation",
+        "R10-unregistered",
+        "R10-summary-no-cert",
+        "R10-summary-installation",
+        "R10-summary-unregistered",
+        "R10-summary-reporter",
+        "R10-summary-public",
+        "R10-reporter",
+        "R10-summary-service",
+        "R10-no-identity-in-log"
+      ],
+      "rows_unmet": [],
+      "static": [],
+      "status": "kept (telemetry)"
+    },
+    {
+      "claimed_status": "met",
+      "id": "GAP-NO-REVOCATION",
+      "reason": "A revoked installation's new handshake fails after an atomic CRL swap, a corrupt CRL keeps the old configuration, and a deny-list entry takes effect on an open connection, all without a restart.",
+      "rows": [
+        "X13-baseline-x13-revoked",
+        "X13-baseline-x13-denied",
+        "X13-baseline-x13-bystander",
+        "X13-open-connection-baseline",
+        "X13-revoked",
+        "X13-bystander",
+        "X13-corrupt-crl-keeps-revocation",
+        "X13-corrupt-crl-keeps-serving",
+        "X13-denylist-open-connection",
+        "X13-denylist-new-connection",
+        "X13-bystander-after-denylist",
+        "X13-no-restart"
+      ],
+      "rows_that_ran": [
+        "X13-baseline-x13-revoked",
+        "X13-baseline-x13-denied",
+        "X13-baseline-x13-bystander",
+        "X13-open-connection-baseline",
+        "X13-revoked",
+        "X13-bystander",
+        "X13-corrupt-crl-keeps-revocation",
+        "X13-corrupt-crl-keeps-serving",
+        "X13-denylist-open-connection",
+        "X13-denylist-new-connection",
+        "X13-bystander-after-denylist",
+        "X13-no-restart"
+      ],
+      "rows_unmet": [],
+      "static": [],
+      "status": "met"
+    },
+    {
+      "claimed_status": "kept",
+      "id": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "reason": "Plaintext is refused on every Compose-network listener (closed). Workstation loopback traffic between the supervisor, the worker and the bridge stays plaintext because it never leaves the host (kept; row X16).",
+      "rows": [
+        "R6-model-main-public",
+        "R6-model-main-internal",
+        "R6-telemetry-public",
+        "R6-telemetry-internal",
+        "R6-model-public",
+        "R6-model-internal",
+        "R6-checkpoint"
+      ],
+      "rows_that_ran": [
+        "R6-model-main-public",
+        "R6-model-main-internal",
+        "R6-telemetry-public",
+        "R6-telemetry-internal",
+        "R6-model-public",
+        "R6-model-internal",
+        "R6-checkpoint"
+      ],
+      "rows_unmet": [],
+      "static": [
+        "ST1"
+      ],
+      "status": "kept"
+    },
+    {
+      "claimed_status": "cited",
+      "id": "UPDSEC-20261116",
+      "reason": "The Go-era record: guarded-update and authentication rows against the Python services. This record repeats its authentication classes against the Rust stack.",
+      "rows": [],
+      "rows_that_ran": [],
+      "rows_unmet": [],
+      "static": [],
+      "status": "cited"
+    },
+    {
+      "claimed_status": "cited",
+      "id": "UPDSEC-20261117",
+      "reason": "The Rust-stack record. Its nine V3 rows that were not_run without the standard packages (T7, T9, T10, R8-wrong-pin, R8-not-allowlisted, I3, X1, X1b, X1c) are run here.",
+      "rows": [],
+      "rows_that_ran": [],
+      "rows_unmet": [],
+      "static": [],
+      "status": "cited"
+    }
+  ],
+  "generated_unix": 1795631880,
+  "header_promotion": {
+    "added_fields": [
+      "header_promotion",
+      "run_window_utc",
+      "image_provenance",
+      "client_high_water_mark"
+    ],
+    "changed_fields": {
+      "chain.evidence": [
+        "AUTHZ-20261125",
+        "AUTHZ-20261126"
+      ],
+      "id": [
+        "AUTHZ-20261125",
+        "AUTHZ-20261126"
+      ],
+      "run_dates": [
+        [
+          "2026-11-25"
+        ],
+        [
+          "2026-11-25 (UTC)",
+          "2026-11-26 (AEDT, UTC+11)"
+        ]
+      ],
+      "study_id": [
+        "AUTHZ-20261125",
+        "AUTHZ-20261126"
+      ]
+    },
+    "harness_output": "evaluation/results/s13d/13d-2/authz-13d2-run1.json (main checkout, Git-ignored)",
+    "reason": "The harness names the record by the UTC date; Stage 13 records are named by the local run date (Australia/Sydney, AEDT, UTC+11), as V3UPDATK-20261126 is. Only these header fields were changed; no row, summary, coverage or gap entry was edited."
+  },
+  "host": {
+    "grpc": "1.82.1",
+    "images": {
+      "model-streaming": "privoke-model-streaming-rust:s13d1b",
+      "param-update": "privoke-param-update-rust:s13d1b",
+      "telemetry": "privoke-telemetry-rust:s13d2"
+    },
+    "openssl": "OpenSSL 1.1.1s  1 Nov 2022",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.13.2"
+  },
+  "id": "AUTHZ-20261126",
+  "image_provenance": {
+    "privoke-model-streaming-rust:s13d1b": "image 7aff0f8c7f5f, built by 13d-1b from 7982a0c; rust/ and docker-compose.prod.yml are identical between 7982a0c and 4e3f0ed (empty git diff), so it is the service at the build sha.",
+    "privoke-param-update-rust:s13d1b": "image eb41b5bf6f67, built by 13d-1b from 7982a0c; identical service source at 4e3f0ed, as above.",
+    "privoke-pki": "Linux release build of the privoke-pki crate at 4e3f0ed (cargo build --release --locked -p privoke-pki in rust:1.99.1-bookworm, --cpus=8), run in a container by the harness; deleted after the run.",
+    "privoke-telemetry-rust:s13d2": "image cd0264c29d84, built for this run with rust/services/telemetry/Dockerfile (unchanged) from git archive of 4e3f0ed (rust/, shared/proto) on a buildx docker-container builder capped at 8 CPUs; removed after the run.",
+    "rustdock": "rust:1.99.1-bookworm, cargo test of the 13c-2 seam helpers at 4e3f0ed, --cpus=8."
+  },
+  "not_established": [
+    "CK8, the positive controls and TL1-candidate run on their own Compose v3-training stack (param-update with its real gates over the pinned efficient release, and model-streaming), with the test PKI of the 13c-2 helper s13c_compose_pki (the privoke_pki crate), not the privoke-pki CLI PKI of the other rows. Their candidates are the 13c-2 export; no candidate was fitted here.",
+    "Application-level replay and tamper are the 13c rows C2a, C2b and C9, cross-referenced here, not repeated.",
+    "The store-unchanged half of TL1, TL2 and CK1 to CK7 is vacuous: their store is empty, so an admitted request and a refused one leave the same state. CK8 and TL1-candidate carry the check on a store that holds the pin and an admissible candidate.",
+    "The TL rows show that the TLS record layer refuses replayed and altered bytes; they say nothing about the supervisor's client admission (13c).",
+    "The client high-water mark is not observed: no client runs in this stack, and the version model-streaming serves stands in for it.",
+    "One run on one host (Windows 11, Docker Desktop, loopback); the rows are deterministic denials, not samples, and no repeat run was made."
+  ],
+  "revision": "4e3f0ed0720250bbaeffd1eec4602b2b25734f0d",
+  "rows_not_run": [],
+  "run_dates": [
+    "2026-11-25 (UTC)",
+    "2026-11-26 (AEDT, UTC+11)"
+  ],
+  "run_window_utc": {
+    "builds": "2026-11-25T18:27:41Z to 18:33:49Z",
+    "harness_run": "2026-11-25T18:34:19Z to 18:38:00Z",
+    "local": "2026-11-26 05:27 to 05:38 AEDT",
+    "lock_taken": "2026-11-25T18:27:41Z"
+  },
+  "schema": "privoke.authn-authz.v1",
+  "scope_label": [
+    "transport (Rust)",
+    "update path (Rust V3)"
+  ],
+  "service": "authz",
+  "standard_release_store_unchanged": true,
+  "static_evidence": [
+    {
+      "claim": "Every Rust server in the production and deployment Compose files starts with the five TLS flags (--cert, --key, --client-ca, --crl, --registry), passes no plaintext or insecure flag and sets no plaintext opt-out variable.",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST1"
+    },
+    {
+      "claim": "The only published ports are the two public listeners, 50443 and 58443, on loopback unless the operator overrides them.",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST2"
+    },
+    {
+      "claim": "No internal listener (50051, 50052, 50053, 50054, 50055) is published.",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST3"
+    },
+    {
+      "claim": "No reverse proxy is referenced in any deployment path (G1).",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST4"
+    },
+    {
+      "claim": "Every deployed container has a read-only root, drops all capabilities, sets no-new-privileges and keeps Docker's default seccomp profile.",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST5"
+    },
+    {
+      "claim": "The cloud images are built with no cargo feature, so the workstation-loopback listener is never compiled in.",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST6"
+    },
+    {
+      "claim": "The model and telemetry servers still name their private RPCs, so the public/internal split that R9 and R10 exercise live is present in the source.",
+      "detail": [
+        "every rendered service satisfies it"
+      ],
+      "holds": true,
+      "id": "ST7"
+    }
+  ],
+  "study_id": "AUTHZ-20261126",
+  "summary": {
+    "by_class": {
+      "control": {
+        "accepted": 9,
+        "applied_once": 0,
+        "attacks": 9,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 9,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 0
+      },
+      "expired_credentials": {
+        "accepted": 1,
+        "applied_once": 0,
+        "attacks": 6,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 6,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 5
+      },
+      "impersonation": {
+        "accepted": 1,
+        "applied_once": 0,
+        "attacks": 7,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 7,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 6
+      },
+      "invalid_certificate": {
+        "accepted": 4,
+        "applied_once": 0,
+        "attacks": 14,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 14,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 10
+      },
+      "invalid_credentials": {
+        "accepted": 7,
+        "applied_once": 0,
+        "attacks": 15,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 15,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 8
+      },
+      "replayed_request": {
+        "accepted": 0,
+        "applied_once": 0,
+        "attacks": 2,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 2,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 2
+      },
+      "tampered_request": {
+        "accepted": 0,
+        "applied_once": 0,
+        "attacks": 3,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 3,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 3
+      },
+      "unauthorized_publication": {
+        "accepted": 0,
+        "applied_once": 0,
+        "attacks": 3,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 3,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 3
+      },
+      "unauthorized_retrieval": {
+        "accepted": 2,
+        "applied_once": 0,
+        "attacks": 32,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 32,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 30
+      },
+      "unauthorized_update": {
+        "accepted": 0,
+        "applied_once": 0,
+        "attacks": 5,
+        "idempotent_noop": 0,
+        "not_applicable": 0,
+        "not_run": 0,
+        "property_met": 5,
+        "property_na": 0,
+        "property_unmet": 0,
+        "rejected": 5
+      }
+    },
+    "gap_ids_exercised": [
+      "GAP-IDENTITY-SELF-ASSERTED",
+      "GAP-LOOPBACK-PLAINTEXT-POLICY",
+      "GAP-NO-CREDENTIAL-MECHANISM",
+      "GAP-NO-PER-INSTALLATION-AUTHZ",
+      "GAP-NO-PUBLISHER-AUTH",
+      "GAP-NO-RETRIEVAL-AUTH",
+      "GAP-NO-REVOCATION"
+    ],
+    "property_unmet_ids": [],
+    "total_rows": 96
+  },
+  "target": "rust",
+  "title": "Authentication and authorisation against the Rust stack",
+  "user_actions": []
+}
