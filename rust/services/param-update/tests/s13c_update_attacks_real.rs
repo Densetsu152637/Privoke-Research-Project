@@ -1985,7 +1985,12 @@ async fn s13c_container_leg() {
     let before = stack.observe().await;
     let rolled = Outcome::of(stack.rollback(&rollback_id, &pin).await);
     let after = stack.observe().await;
-    let rollback_met = rolled.applied() && after.current == pin && after.max_sequence == before.max_sequence + 1 && after.served == pin;
+    let rollback_met = rolled.code == Code::Ok
+        && rolled.status == "applied"
+        && rolled.reason == "rollback"
+        && after.current == pin
+        && after.max_sequence == before.max_sequence + 1
+        && after.served == pin;
     assert!(rollback_met, "the rollback control failed: {rolled:?} {after:?}");
     controls.push(json!({
         "control": "rollback to the pin applied", "request_id": rollback_id, "observed": rolled.json(),
