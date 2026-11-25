@@ -659,7 +659,7 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
     - stopping on a layer mismatch.
   - **The templates are frozen before scoring:** `$PY evaluation/e2e_evasion.py verify-templates --expected-sha256 <hash>` exits 0. The template-hash commit must also be an ancestor of the first scored-run record (`git merge-base --is-ancestor`).
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** done. Outcome: `b053673` (template freeze, sha256 73a6589f), `137e754`, `9782d98`, `fd93959`, `e88feb7`, merged at `e205961`. 135 e2e tests OK; G8 0 violations. Implementation gate: 4 rounds, 3 acceptance-changing findings accepted: a variant delivered without analysis was dropped (now evaded); a fail-closed BLOCK was mislabelled; the fail-open WARN was scored as BLOCK, a bias toward protection. 0 rejected. 8 improvements adopted, among them a cross-arm model checksum, observed WARN-masking settings, the lock taken before the stack probe, the timeout notice read from the DOM, and mandatory --exclude-ids. User decision applied: the local Docker stack serves V3 balanced, checked by a --stack preflight. Notes for 13b-2: the DOM notice check is untested against a real page; the run command sequence is in the e2e_evasion.py help.
 - **Handoff notes:** take the request layers from the bridge log. `requireExplicitLayers` (`extension/src/analysis-request.js`) enforces a non-empty list in the extension.
 
 ## Stage 13b-2: Headless installed-extension run (agent)
