@@ -58,6 +58,7 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
     - `paper/research/claims.md`
     - `paper/research/source-restoration-guide-20261017.md`
     - `paper/REWRITE_SCOPE.md`
+    - `paper/research/artifacts.md` (an index; added 25 Nov 2026, when the final pass found its EDGE-COPILOT-1 index entry)
 - **G12. The revision introduces no new test failures relative to the baseline at `bca457df`.** The suites, and the environment each uses:
 
   | Suite | Environment |
@@ -284,7 +285,7 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - **Excludes:** `docs/research/`, `docs/experiments/`, `docs/plans/`, the param-update and model-streaming READMEs, and every dated record.
 - **Pass B, after the experiment stages land:** covers the files pass A excluded, plus index links.
 - **Acceptance checks:** G11.
-- **Status:** pass A done (`742438c`); pass B for the services, runtime and ingress docs done (`4114781`, merged before `7384ec7`); a final pass is pending after Stage 3.
+- **Status:** done. Pass A `742438c`; pass B `4114781`; final pass `80bc93b`, merged at `6557aa3` (indexes in `docs/README.md` and `evaluation/README.md` for the Stage 3, 4, 5, 11, 13-H and 13a tools and records; `docs/deployment/anonymous-artifact.md` matched to the exporter). G8: 0 violations; G11 diff unchanged. The param-update and model-streaming service READMEs do not exist on this branch. Left: eleven results docs link to ignored local evidence paths by design. Implementation gate: 1 round, 0 findings; the 2 non-blocking notes were declined as minor simplifications, and no further improvement round was run (usage).
 - **Outcome:** see the merge commits.
 - **Handoff notes:** none.
 
