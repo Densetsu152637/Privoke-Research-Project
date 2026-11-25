@@ -676,6 +676,11 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
 - **User dependency:** none.
 - **Status:** pending.
 - **Handoff notes:** release the host lock, and stop the supervisor, bridge, receiver and browsers.
+- **User decision, 26 Nov 2026:** "the V3 balanced model not only lives locally on the machine, but also should be available through a local docker spin up test of the server stack."
+  - 13b-2 measures the full three-layer product, with V3 balanced served by the local Docker server stack on loopback. It is not a reduced regex+NER arm.
+  - Under the host lock, 13b-2 starts that stack and passes the harness `--stack` preflight before sending anything. The preflight checks that model streaming serves privoke-v3-balanced with the pinned checksum.
+  - 13b-2 tears the stack down afterwards.
+  - Before the run, apply the cross-session hardware rule.
 
 ## Stage 13b-3: Attended real-browser subset (USER)
 
