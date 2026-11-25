@@ -1,4 +1,4 @@
-\documentclass[sigconf,anonymous,review]{acmart}
+\documentclass[sigconf]{acmart}
 % Future rewrites must follow paper/REWRITE_SCOPE.md; change study scope only on direct user instruction.
 % ACM sigconf, anonymous submission (ASIACCS 2027 authorization, 16 November 2026).
 \usepackage{array}
@@ -28,9 +28,7 @@
 
 \title{\privoke: A Client-Side Privacy Firewall for LLM Prompts}
 
-\author{Anonymous Author(s)}
-\affiliation{\institution{Anonymous Institution}\country{Anonymous}}
-
+\author{}
 
 \begin{abstract}
 Prompts sent to hosted language models can disclose personal or confidential information before a provider processes them. We examine how local inspection, request enforcement, guarded model revision and operational reporting connect in one workflow. \privoke combines local inspection, ALLOW/WARN/BLOCK handling on supported requests (ALLOW and WARN forward the original body; BLOCK cancels), version-bound detector updates with a retention guard, and separate randomized telemetry. On 1,560 authored cases with provisional targets, updated packages improved agreement; 33 installed receiver probes observed the declared send/block behavior on tested paths. All matched full-model candidates improved aggregate agreement but failed the configured retention guard. Registered fresh detector-layer tests found that the shipped rework passed the 0.5-point BLOCK-recall margin (difference $+0.01$ points; 95\% CI $-0.33$ to $+0.35$) while its union-recall result stayed inconclusive and a 1.05-point loss against the original detectors did not meet the promotion rule. Controlled telemetry fixtures verified delivery and accounting; finite-arithmetic loss slightly exceeded nominal budgets and simulated estimation error was substantial. The findings support bounded mechanism claims, not validated contextual judgments, universal interception, an accepted update, useful live monitoring or user benefit. End-to-end evasion by fixed transforms succeeded on 2.99\% of protected pairs (6.52\% counting fail-closed BLOCKs as misses; a floor, not an adaptive attacker) while 65.5\% of clean control prompts are already non-ALLOW; update attacks were rejected except where mechanisms are missing (no cumulative bound, no publisher authentication or credentials); masking a warned prompt prevented 0.545 of sensitive transmissions against 0.413 (regex and NER layers, development data).
