@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  25 NOV 2026 23:29
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  25 NOV 2026 23:31
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -2171,11 +2171,11 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: C67BB6CD8A469657CC00CC2BB8879EB1;8577.
  ) 
 Here is how much of TeX's memory you used:
- 44166 strings out of 467392
- 981514 string characters out of 5404181
+ 44163 strings out of 467392
+ 981439 string characters out of 5404181
  1538158 words of memory out of 5000000
  71629 multiletter control sequences out of 15000+600000
- 883196 words of font info for 647 fonts, out of 8000000 for 9000
+ 882923 words of font info for 645 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
  107i,19n,131p,1950b,2631s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsola
@@ -2201,7 +2201,7 @@ x/txexs.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public
 /newtx/txmiaX.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/newtx/txsys.pfb>
 Output written on F:/Git-Worktrees\Privoke-Research-Project\wt-paper-sync\paper
-\main.pdf (22 pages, 884552 bytes).
+\main.pdf (22 pages, 884549 bytes).
 PDF statistics:
  731 PDF objects out of 1000 (max. 8388607)
  158 named destinations out of 1000 (max. 500000)
