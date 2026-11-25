@@ -1837,6 +1837,8 @@ dependencies = [
  "privoke-semantic",
  "privoke-training",
  "privoke-transport",
+ "privoke-v3-fuzzer",
+ "privoke-v3-runtime",
  "prost",
  "rusqlite",
  "serde_json",

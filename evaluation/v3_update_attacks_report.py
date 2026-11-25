@@ -15,6 +15,8 @@ Modes:
 * ``--ci-rows FILE ...``: judge the rows the two CI tests wrote (every manifest id with a ``ci`` leg has exactly one ``ci`` row).
 * ``--check-manifest``: judge the manifest alone.
 * ``--validate-allocations FILE``: judge a ``S13C_ALLOCATIONS`` file (the format of ``v3_allocations``, defined in 13c-1).
+* ``--assemble HEADER --rows FILE ... --out RECORD [--markdown MD]`` (13c-2): join the header and the rows of the legs into a
+  record, compute the aggregates, judge it as ``--check`` does and write it (with its Markdown) only when it passes.
 
 "Unchanged" is the authority, not the blob directory: the ``current`` row, the number of ``versions``, the ``publications`` (count and
 highest sequence), the version model-streaming serves and the client's high-water mark. Orphan blobs are reported and never counted.
@@ -302,18 +304,46 @@ def check_row(row: Any, manifest: dict[str, dict[str, Any]]) -> list[str]:
     return errors
 
 
+def observed_label(row: dict[str, Any]) -> str:
+    """What a row observed, in one label: ``not_run``, ``applied``, ``rejected:<reason>``, ``refused:<gRPC code>`` or ``ok``."""
+    if row.get("not_run_reason"):
+        return "not_run"
+    observed = row["observed"]
+    code, status, reason = observed.get("grpc_code"), observed.get("receipt_status"), observed.get("receipt_reason")
+    if code != "OK":
+        return f"refused:{code}"
+    if status:
+        return f"{status}:{reason}" if reason else status
+    return "ok"
+
+
+def _counted(items) -> dict[str, int]:
+    return dict(sorted(Counter(items).items()))
+
+
 def aggregates(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Every aggregate the record states, from the rows alone."""
     ran = [row for row in rows if not row.get("not_run_reason")]
+    legs = sorted({row["leg"] for row in rows})
     return {
         "rows": len(rows),
         "rows_run": len(ran),
         "rows_not_run": len(rows) - len(ran),
-        "by_leg": dict(sorted(Counter(row["leg"] for row in rows).items())),
-        "by_attack_class": dict(sorted(Counter(str(row["attack_class"]) for row in rows).items())),
-        "by_expected": dict(sorted(Counter(row["expected"] for row in rows).items())),
+        "by_leg": _counted(row["leg"] for row in rows),
+        "by_attack_class": _counted(str(row["attack_class"]) for row in rows),
+        "by_expected": _counted(row["expected"] for row in rows),
+        "by_leg_expected": {leg: _counted(row["expected"] for row in rows if row["leg"] == leg) for leg in legs},
+        "by_leg_observed": {leg: _counted(observed_label(row) for row in rows if row["leg"] == leg) for leg in legs},
         "property_met": sum(1 for row in ran if row["property_met"] is True),
         "property_not_met": sum(1 for row in ran if row["property_met"] is not True),
+        "property_by_leg": {
+            leg: {
+                "met": sum(1 for row in ran if row["leg"] == leg and row["property_met"] is True),
+                "not_met": sum(1 for row in ran if row["leg"] == leg and row["property_met"] is not True),
+                "not_run": sum(1 for row in rows if row["leg"] == leg and row.get("not_run_reason")),
+            }
+            for leg in legs
+        },
         "orphan_blobs": sum(row["orphan_blobs"] for row in rows),
     }
 
@@ -398,6 +428,129 @@ def check_ci_rows(files: list[Path], manifest_rows: list[dict[str, Any]]) -> lis
     return errors
 
 
+LEG_ORDER = {leg: index for index, leg in enumerate(LEGS)}
+
+
+def assemble(header: dict[str, Any], row_files: list[Path], manifest_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """A V3UPDATK record: the header, every row of the legs (in manifest order, then ci, real, container) and the aggregates."""
+    order = {row["id"]: index for index, row in enumerate(manifest_rows)}
+    rows: list[dict[str, Any]] = []
+    for path in row_files:
+        loaded = load_json(path)
+        if not isinstance(loaded, list):
+            raise ValueError(f"{path}: not a JSON array of rows")
+        rows += loaded
+    rows.sort(key=lambda row: (order.get(row.get("id"), len(order)), LEG_ORDER.get(row.get("leg"), len(LEG_ORDER))))
+    record = {**{key: value for key, value in header.items() if key not in ("rows", "aggregates")}, "rows": rows}
+    record["aggregates"] = aggregates(rows)
+    return record
+
+
+def _cell(value: Any) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def _table(head: list[str], body: list[list[Any]]) -> list[str]:
+    lines = ["| " + " | ".join(head) + " |", "|" + "|".join(" --- " for _ in head) + "|"]
+    lines += ["| " + " | ".join(_cell(item) for item in row) + " |" for row in body]
+    return lines
+
+
+def _counts_table(title: str, by_leg: dict[str, dict[str, int]]) -> list[str]:
+    labels = sorted({label for counts in by_leg.values() for label in counts})
+    legs = list(by_leg)
+    body = [[label, *[by_leg[leg].get(label, 0) for leg in legs]] for label in labels]
+    return [f"### {title}", "", *_table(["outcome", *legs], body), ""]
+
+
+def render_markdown(record: dict[str, Any]) -> str:
+    """The Markdown of a record. Every number comes from the record's JSON."""
+    build, totals, chain = record.get("build", {}), record["aggregates"], record.get("chain", {})
+    lines = [f"# V3 update attacks ({record.get('study_id')})", ""]
+    lines += ["Rendered from the JSON record of the same name by `evaluation/v3_update_attacks_report.py --assemble`.", ""]
+    lines += ["## Header", ""]
+    lines += _table(
+        ["field", "value"],
+        [
+            ["schema", record.get("schema")],
+            ["study_id", record.get("study_id")],
+            ["scope_label", record.get("scope_label")],
+            ["build.branch", build.get("branch")],
+            ["build.sha", build.get("sha")],
+            ["build.clean", build.get("clean")],
+            ["build.update_path", build.get("update_path")],
+            ["host", "; ".join(f"{key}: {value}" for key, value in record.get("host", {}).items())],
+            ["run_dates", ", ".join(record.get("run_dates", []))],
+        ],
+    )
+    lines += ["", "## Chain", ""]
+    lines += _table(["link", "statement"], [[key, chain.get(key)] for key in ("threat", "defense", "experiment", "metric", "evidence")])
+    lines += ["", "## Aggregates", ""]
+    lines += _table(
+        ["measure", "value"],
+        [
+            ["rows", totals["rows"]],
+            ["rows run", totals["rows_run"]],
+            ["rows not run", totals["rows_not_run"]],
+            ["property met", totals["property_met"]],
+            ["property not met", totals["property_not_met"]],
+            ["orphan blobs (reported, not a change)", totals["orphan_blobs"]],
+        ],
+    )
+    by_leg = [
+        [leg, totals["by_leg"][leg], counts["met"], counts["not_met"], counts["not_run"]] for leg, counts in totals["property_by_leg"].items()
+    ]
+    lines += ["", *_table(["leg", "rows", "met", "not met", "not run"], by_leg), ""]
+    lines += _counts_table("Rows by expected outcome", totals["by_leg_expected"])
+    lines += _counts_table("Rows by observed outcome", totals["by_leg_observed"])
+    controls = record.get("controls", [])
+    if controls:
+        lines += ["## Positive controls (container leg)", ""]
+        body = [
+            [item.get("control"), item.get("request_id"), observed_label({"observed": item.get("observed", {})}), item.get("met")]
+            for item in controls
+        ]
+        lines += [*_table(["control", "request", "observed", "met"], body), ""]
+    timings = record.get("fit_timings", [])
+    lines += ["## Fit timings (planning only, not a result)", ""]
+    if timings:
+        body = [
+            [item.get("request_id"), item.get("tier"), item.get("scope"), item.get("wall_seconds"), item.get("cpus"), item.get("outcome")]
+            for item in timings
+        ]
+        lines += _table(["request", "tier", "scope", "wall seconds", "cpus", "outcome"], body)
+    else:
+        lines.append("No fit ran.")
+    lines += ["", "## Rows", ""]
+    body = []
+    for row in record["rows"]:
+        check = row.get("rejecting_check") or {}
+        body.append(
+            [
+                row["id"],
+                row["leg"],
+                row["surface"],
+                row["expected"],
+                observed_label(row),
+                f"{check.get('symbol', '')}: {check.get('reason', '')}" if check else "",
+                "not run" if row.get("not_run_reason") else row["property_met"],
+                row.get("not_run_reason") or "",
+            ]
+        )
+    lines += _table(["id", "leg", "surface", "expected", "observed", "rejecting check", "property", "not run reason"], body)
+    sections = (
+        ("Deviations from the plan", "deviations"),
+        ("Not established", "not_established"),
+        ("User actions", "user_actions"),
+        ("Commands", "commands"),
+    )
+    for title, key in sections:
+        items = record.get(key, [])
+        lines += ["", f"## {title}", ""]
+        lines += [f"- `{item}`" if key == "commands" else f"- {item}" for item in items] or ["- none"]
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST, help="the row manifest (s13c_rows.json)")
@@ -406,8 +559,24 @@ def main(argv: list[str] | None = None) -> int:
     modes.add_argument("--ci-rows", type=Path, nargs="+", metavar="ROWS", help="judge the rows the CI tests wrote")
     modes.add_argument("--check-manifest", action="store_true", help="judge the manifest alone")
     modes.add_argument("--validate-allocations", type=Path, metavar="FILE", help="judge an S13C_ALLOCATIONS file")
+    modes.add_argument("--assemble", type=Path, metavar="HEADER", help="assemble a record from a header and the legs' rows")
+    parser.add_argument("--rows", type=Path, nargs="+", default=[], help="with --assemble: the row files of the legs")
+    parser.add_argument("--out", type=Path, help="with --assemble: the record JSON to write")
+    parser.add_argument("--markdown", type=Path, help="with --assemble: the record Markdown to write")
     args = parser.parse_args(argv)
-    if args.validate_allocations:
+    if args.assemble:
+        if not args.out or not args.rows:
+            parser.error("--assemble needs --rows and --out")
+        manifest_rows = load_manifest(args.manifest)
+        record = assemble(load_json(args.assemble), args.rows, manifest_rows)
+        errors = check_manifest(manifest_rows) or check_record(record, manifest_rows)
+        if not errors:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+            if args.markdown:
+                args.markdown.parent.mkdir(parents=True, exist_ok=True)
+                args.markdown.write_text(render_markdown(record), encoding="utf-8", newline="\n")
+    elif args.validate_allocations:
         errors = check_allocations(load_json(args.validate_allocations))
     else:
         manifest_rows = load_manifest(args.manifest)

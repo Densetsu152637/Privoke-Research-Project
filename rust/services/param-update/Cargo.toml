@@ -41,6 +41,11 @@ uuid = { version = "1", default-features = false, features = ["v4"] }
 # The deterministic publication keys of the publication tests.
 privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
 privoke-pki = { path = "../../tools/privoke-pki" }
+# The real-weight leg of stage 13c-2 (`tests/s13c_update_attacks_real.rs`, local only) fits the genuine candidate with the real V3
+# runtime and the routine engine in process, as `v3-fuzzer/tests/scheduler_real.rs` does. Cargo allows the cycle: those crates
+# depend on this one only through their own integration tests.
+privoke-v3-fuzzer = { path = "../v3-fuzzer" }
+privoke-v3-runtime = { path = "../v3-runtime" }
 tempfile = { workspace = true }
 serde_json = "1"
 base64 = { workspace = true }

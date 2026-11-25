@@ -352,5 +352,69 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(report.main(["--check-manifest"]), 0)
 
 
+class AssembleTest(unittest.TestCase):
+    """Stage 13c-2: the record is assembled from a header and the rows of the legs, and its Markdown is rendered from it."""
+
+    def setUp(self):
+        self.manifest = report.load_manifest()
+
+    def header(self) -> dict:
+        return {
+            "schema": report.SCHEMA,
+            "study_id": "V3UPDATK-test",
+            "chain": {"threat": "t", "defense": "d", "experiment": "e", "metric": "m", "evidence": "v"},
+            "build": {"branch": "b", "sha": "0" * 40, "clean": True, "update_path": "Rust only"},
+            "host": {"os": "test"},
+            "run_dates": ["2026-11-26"],
+            "commands": ["a command"],
+            "scope_label": report.SCOPE_LABEL,
+            "not_established": ["n"],
+            "user_actions": [],
+            "fit_timings": [{"request_id": "r1", "tier": "efficient", "scope": "heads", "wall_seconds": 50.0, "cpus": "8", "outcome": "applied"}],
+        }
+
+    def legs(self) -> tuple[list[dict], list[dict]]:
+        ci = [row_of(entry) for entry in self.manifest]
+        container = [row_of(entry, leg="container") for entry in self.manifest if entry["wire_path"] and entry["legs"] != ["ci"]]
+        container[0] = row_of(
+            next(entry for entry in self.manifest if entry["id"] == container[0]["id"]), leg="container", not_run_reason="a reason", property_met=None
+        )
+        return ci, container
+
+    def test_the_observed_label_names_what_happened(self):
+        entry = self.manifest[0]
+        self.assertEqual(report.observed_label(row_of(entry)), "rejected:stale_base")
+        refused = row_of(entry, observed={"grpc_code": "INVALID_ARGUMENT", "receipt_status": "", "receipt_reason": "", "message": "m"})
+        self.assertEqual(report.observed_label(refused), "refused:INVALID_ARGUMENT")
+        self.assertEqual(report.observed_label(row_of(entry, not_run_reason="r")), "not_run")
+
+    def test_a_record_is_assembled_checked_and_rendered(self):
+        ci, container = self.legs()
+        with tempfile.TemporaryDirectory() as directory:
+            paths = {name: Path(directory, f"{name}.json") for name in ("header", "ci", "container", "record")}
+            paths["header"].write_text(json.dumps(self.header()), encoding="utf-8")
+            paths["ci"].write_text(json.dumps(ci), encoding="utf-8")
+            paths["container"].write_text(json.dumps(container[::-1]), encoding="utf-8")
+            markdown = Path(directory, "record.md")
+            arguments = ["--assemble", str(paths["header"]), "--rows", str(paths["ci"]), str(paths["container"]), "--out", str(paths["record"])]
+            self.assertEqual(report.main([*arguments, "--markdown", str(markdown)]), 0)
+            record = json.loads(paths["record"].read_text(encoding="utf-8"))
+            self.assertEqual(report.check_record(record, self.manifest), [])
+            self.assertEqual(report.main(["--check", str(paths["record"])]), 0)
+            self.assertEqual(record["aggregates"]["by_leg"], {"ci": len(ci), "container": len(container)})
+            self.assertEqual(record["aggregates"]["property_by_leg"]["container"]["not_run"], 1)
+            ids = [row["id"] for row in record["rows"]]
+            self.assertEqual(ids[:2], [self.manifest[0]["id"], self.manifest[0]["id"]], "manifest order, then the legs")
+            text = markdown.read_text(encoding="utf-8")
+            self.assertIn(f"| rows | {len(ci) + len(container)} |", text)
+            self.assertIn("## Fit timings", text)
+            self.assertIn("| r1 | efficient | heads | 50.0 | 8 | applied |", text)
+            # A record that fails the check is not written.
+            paths["record"].unlink()
+            paths["ci"].write_text(json.dumps(ci[:-1]), encoding="utf-8")
+            self.assertEqual(report.main(arguments), 1)
+            self.assertFalse(paths["record"].exists())
+
+
 if __name__ == "__main__":
     unittest.main()
