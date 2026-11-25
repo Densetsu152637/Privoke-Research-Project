@@ -248,6 +248,29 @@ Work that does not need the host, such as harness code and CI-only tests, runs i
 
 **Go or no-go (D11).** 13e and 13f start only if the 13a–13d records are `ready for review` by 4 December. If 13a is not frozen by 6 December, the "13a not run" outcome applies (13-P).
 
+### Resume queue (paused 25 Nov 2026 for usage)
+
+Work paused after 13d-1a, because the weekly usage limit was nearly reached. It resumes in a new session after the weekly usage reset (Sunday 03:00), starting from the queue below. The windows above still apply. If the pause pushes 13c-2 past 1 December, re-check D11.
+
+**State at pause:**
+- All branches are pushed: `feat/nick-branch` `1f3f421`, `feat/rust-rewrite` `1edb6be`, `feat/asiaccs-s13a` `cd157aa`, `feat/asiaccs-s13d` `4462ee4`.
+- CI is green on `feat/rust-rewrite` at `1edb6be`.
+- The stage worktrees were removed. Recreate them from their branches under `F:/Git-Worktrees/Privoke-Research-Project`.
+- Long-lived worktrees `wt-asiaccs-s9` and `wt-rust-integrate` are kept. `wt-rust-integrate` holds the local goldens.
+
+**Agent queue, in order:**
+1. **13c-2.** Branch from `feat/rust-rewrite`; host lock.
+2. **13b-1.** Branch `feat/asiaccs-s13b` from `feat/nick-branch`; no host lock. It can run in parallel with 13c-2 (2-worker cap).
+3. **13d-1b.** On `feat/asiaccs-s13d`, after 13c-2. Covers CK8, the three positive controls and `TL1-candidate`.
+4. **13d-2.** Host lock.
+5. **13b-2.** Host lock.
+6. **`score_privoke.py --smoke`.** Runs under the host lock before 13a-5.
+
+**Blocked on the user:**
+- **13a-3, 13a-5, 13e:** need D1, D2, D4, D9 and D12, approval of the `sensitive` definition, and delivered prompts and labels (13a-2, 13a-4).
+- **13e and 13f:** also need the D11 go decision.
+- **13-P:** comes last.
+
 ---
 
 ## Stage 13-H: Commit-hygiene check (agent, first)
