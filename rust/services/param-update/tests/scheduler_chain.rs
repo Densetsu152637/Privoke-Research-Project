@@ -464,6 +464,7 @@ async fn the_scheduler_trains_three_tiers_through_the_real_chain_and_every_versi
             (directory.path().join(format!("{}-original", tier.name)), directory.path().join(format!("{}-release", tier.name)));
         package(&original, tier, Version { heads: 0.0, encoder: 0.0 }, &original_manifest);
         package(&release, tier, release_version, &release_manifest);
+        std::fs::write(release.join("evidence.json"), b"the evidence of the release").unwrap();
         pins.insert(model_of(tier.name), sha256_hex(&release_manifest));
         prepared.push((original, release));
     }

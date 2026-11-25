@@ -821,6 +821,7 @@ impl World {
         let pin = sha256_hex(&release_manifest);
         package(&layout.original, &original_entries, &original_manifest);
         package(&layout.release, &release_entries, &release_manifest);
+        std::fs::write(layout.release.join("evidence.json"), b"the evidence of the release").unwrap();
         // The release store of model-streaming: the pinned release, with the evidence file its manifest names, and two tiny tiers.
         let served_pin = layout.releases.join(MODEL);
         package(&served_pin, &release_entries, &release_manifest);
