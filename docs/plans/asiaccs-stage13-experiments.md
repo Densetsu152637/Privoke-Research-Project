@@ -262,7 +262,7 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
 
 **Agent queue, in order:**
 1. **13c-2.** Branch from `feat/rust-rewrite`; host lock.
-2. **13b-1.** Branch `feat/asiaccs-s13b` from `feat/nick-branch`; no host lock. It can run in parallel with 13c-2 (2-worker cap).
+2. **13b-1.** Branch `feat/asiaccs-s13b` from `feat/nick-branch`; no host lock. It can run in parallel with 13c-2 (agent cap 4 since 25 Nov 2026).
 3. **13d-1b.** On `feat/asiaccs-s13d`, after 13c-2. Covers CK8, the three positive controls and `TL1-candidate`.
 4. **13d-2.** Host lock.
 5. **13b-2.** Host lock.
