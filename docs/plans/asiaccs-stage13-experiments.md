@@ -676,6 +676,13 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
 - **User dependency:** none.
 - **Status:** pending.
 - **Handoff notes:** release the host lock, and stop the supervisor, bridge, receiver and browsers.
+- **User decisions after the pilot, 26 Nov 2026:**
+  - N_seed is 1,500 (about 5 h in total), not the 8-h-per-browser rule (6,783).
+  - The run goes ahead without Firefox: the installed Firefox 134 is below the extension minimum of 142. Firefox is recorded as not_run.
+- **Root decisions after the pilot:**
+  - Accept `--runtime-env PRIVOKE_CLOUD_TARGET=127.0.0.1:50051`, disclosed in the record. The disposable profile defaults to `useLocalStack: false`, which would otherwise drop the semantic layer.
+  - The build uses `--allow-no-exclude`. The 13a set will be freshly written prompts, and the 13a-1 contamination check compares them with results/, which includes the frozen Stage 3 set. The 13b-2 seed ids are written for the 13a-3 check.
+  - The pilot finding is recorded, not fixed: the long-context variants exceed the V3 limit of 512 WordPiece tokens, and the runtime fails open (WARN, inspection unavailable).
 - **User decision, 26 Nov 2026:** "the V3 balanced model not only lives locally on the machine, but also should be available through a local docker spin up test of the server stack."
   - 13b-2 measures the full three-layer product, with V3 balanced served by the local Docker server stack on loopback. It is not a reduced regex+NER arm.
   - Under the host lock, 13b-2 starts that stack and passes the harness `--stack` preflight before sending anything. The preflight checks that model streaming serves privoke-v3-balanced with the pinned checksum.
