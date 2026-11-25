@@ -1,0 +1,87 @@
+{
+ "by_scope": {
+  "detector_ablation": {
+   "compared": 60,
+   "identical": 60
+  },
+  "llm_only": {
+   "compared": 53,
+   "identical": 53
+  },
+  "product_pipeline": {
+   "compared": 88,
+   "identical": 88
+  }
+ },
+ "comparison": "Responses are compared as serialized protobuf bytes (deterministic maps) with elapsed_ms and metadata['elapsed_ms'] cleared on both paths; nothing else is normalised.",
+ "environment": {
+  "python": "3.11.9",
+  "torch": "2.11.0+cpu",
+  "torch_threads": 1,
+  "v3_package_captured": true
+ },
+ "files": {
+  "analysis.json": {
+   "bytes": 515223,
+   "cases": 191,
+   "sha256": "24cba9c9ae0ed1d30755be374dd79252bac745e2ebadf186dafb1fa76f9d42f1"
+  },
+  "protocol.json": {
+   "bytes": 12756,
+   "cases": 9,
+   "sha256": "15940a2324e824d3f062ee1a1592a6b157876de7c9581ba78a731949ecd03896"
+  },
+  "training.json": {
+   "bytes": 7917,
+   "cases": 10,
+   "sha256": "a5be1c96b7c8054c32666b3f4a0971f48e820eb718f9f7f98eda5e0739819dd1"
+  }
+ },
+ "grpc_path_identical": {
+  "compared": 201,
+  "identical": 201
+ },
+ "limits": {
+  "AnalyzePrompt": {
+   "default_deadline_ms": 25000,
+   "max_deadline_ms": 25000,
+   "max_request_payload": 262144,
+   "max_response_payload": 1048576
+  },
+  "ComputePresenceGradients": {
+   "default_deadline_ms": 120000,
+   "max_deadline_ms": 900000,
+   "max_request_payload": 4194304,
+   "max_response_payload": 67108864
+  },
+  "ComputeSemanticGradients": {
+   "default_deadline_ms": 120000,
+   "max_deadline_ms": 900000,
+   "max_request_payload": 4194304,
+   "max_response_payload": 67108864
+  },
+  "ComputeUnderlyingModelGradients": {
+   "default_deadline_ms": 300000,
+   "max_deadline_ms": 900000,
+   "max_request_payload": 4194304,
+   "max_response_payload": 67108864
+  },
+  "DetectAnnotationPresence": {
+   "default_deadline_ms": 25000,
+   "max_deadline_ms": 25000,
+   "max_request_payload": 262144,
+   "max_response_payload": 1048576
+  },
+  "Health": {
+   "default_deadline_ms": 5000,
+   "max_deadline_ms": 5000,
+   "max_request_payload": 1024,
+   "max_response_payload": 4096
+  }
+ },
+ "prompts_file": "prompts.json",
+ "prompts_sha256": "1692594ffb47a9a8ea2276c92e70010b7af9f783433c5a35d40a0a700fe9b4cd",
+ "schema": 1,
+ "scope_note": "llm_only = semantic layer or semantic-only RPCs. detector_ablation and product_pipeline cases include regex or NER and are never LLM-only evidence.",
+ "stage_0_prompts": "None: the stage 0 corpus holds no PrivokeRuntimeService prompt bodies; prompts.json supplies them."
+}

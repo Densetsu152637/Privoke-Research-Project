@@ -1,0 +1,120 @@
+{"id": "p0", "text": "Presence sample 0 discloses a diagnosis number 0", "sensitive": true, "group_id": "g0"}
+{"id": "p1", "text": "Presence sample 1 asks for a recipe number 7", "sensitive": false, "group_id": "g0"}
+{"id": "p2", "text": "Presence sample 2 asks for a recipe number 14", "sensitive": false, "group_id": "g1"}
+{"id": "p3", "text": "Presence sample 3 discloses a diagnosis number 21", "sensitive": true, "group_id": "g1"}
+{"id": "p4", "text": "Presence sample 4 asks for a recipe number 28", "sensitive": false, "group_id": "g2"}
+{"id": "p5", "text": "Presence sample 5 asks for a recipe number 35", "sensitive": false, "group_id": "g2"}
+{"id": "p6", "text": "Presence sample 6 discloses a diagnosis number 42", "sensitive": true, "group_id": "g3"}
+{"id": "p7", "text": "Presence sample 7 asks for a recipe number 49", "sensitive": false, "group_id": "g3"}
+{"id": "p8", "text": "Presence sample 8 asks for a recipe number 56", "sensitive": false, "group_id": "g4"}
+{"id": "p9", "text": "Presence sample 9 discloses a diagnosis number 63", "sensitive": true, "group_id": "g4"}
+{"id": "p10", "text": "Presence sample 10 asks for a recipe number 70", "sensitive": false, "group_id": "g5"}
+{"id": "p11", "text": "Presence sample 11 asks for a recipe number 77", "sensitive": false, "group_id": "g5"}
+{"id": "p12", "text": "Presence sample 12 discloses a diagnosis number 84", "sensitive": true, "group_id": "g6"}
+{"id": "p13", "text": "Presence sample 13 asks for a recipe number 91", "sensitive": false, "group_id": "g6"}
+{"id": "p14", "text": "Presence sample 14 asks for a recipe number 98", "sensitive": false, "group_id": "g7"}
+{"id": "p15", "text": "Presence sample 15 discloses a diagnosis number 105", "sensitive": true, "group_id": "g7"}
+{"id": "p16", "text": "Presence sample 16 asks for a recipe number 112", "sensitive": false, "group_id": "g8"}
+{"id": "p17", "text": "Presence sample 17 asks for a recipe number 119", "sensitive": false, "group_id": "g8"}
+{"id": "p18", "text": "Presence sample 18 discloses a diagnosis number 126", "sensitive": true, "group_id": "g9"}
+{"id": "p19", "text": "Presence sample 19 asks for a recipe number 133", "sensitive": false, "group_id": "g9"}
+{"id": "p20", "text": "Presence sample 20 asks for a recipe number 140", "sensitive": false, "group_id": "g10"}
+{"id": "p21", "text": "Presence sample 21 discloses a diagnosis number 147", "sensitive": true, "group_id": "g10"}
+{"id": "p22", "text": "Presence sample 22 asks for a recipe number 154", "sensitive": false, "group_id": "g11"}
+{"id": "p23", "text": "Presence sample 23 asks for a recipe number 161", "sensitive": false, "group_id": "g11"}
+{"id": "p24", "text": "Presence sample 24 discloses a diagnosis number 168", "sensitive": true, "group_id": "g12"}
+{"id": "p25", "text": "Presence sample 25 asks for a recipe number 175", "sensitive": false, "group_id": "g12"}
+{"id": "p26", "text": "Presence sample 26 asks for a recipe number 182", "sensitive": false, "group_id": "g13"}
+{"id": "p27", "text": "Presence sample 27 discloses a diagnosis number 189", "sensitive": true, "group_id": "g13"}
+{"id": "p28", "text": "Presence sample 28 asks for a recipe number 196", "sensitive": false, "group_id": "g14"}
+{"id": "p29", "text": "Presence sample 29 asks for a recipe number 203", "sensitive": false, "group_id": "g14"}
+{"id": "p30", "text": "Presence sample 30 discloses a diagnosis number 210", "sensitive": true, "group_id": "g15"}
+{"id": "p31", "text": "Presence sample 31 asks for a recipe number 217", "sensitive": false, "group_id": "g15"}
+{"id": "p32", "text": "Presence sample 32 asks for a recipe number 224", "sensitive": false, "group_id": "g16"}
+{"id": "p33", "text": "Presence sample 33 discloses a diagnosis number 231", "sensitive": true, "group_id": "g16"}
+{"id": "p34", "text": "Presence sample 34 asks for a recipe number 238", "sensitive": false, "group_id": "g17"}
+{"id": "p35", "text": "Presence sample 35 asks for a recipe number 245", "sensitive": false, "group_id": "g17"}
+{"id": "p36", "text": "Presence sample 36 discloses a diagnosis number 252", "sensitive": true, "group_id": "g18"}
+{"id": "p37", "text": "Presence sample 37 asks for a recipe number 259", "sensitive": false, "group_id": "g18"}
+{"id": "p38", "text": "Presence sample 38 asks for a recipe number 266", "sensitive": false, "group_id": "g19"}
+{"id": "p39", "text": "Presence sample 39 discloses a diagnosis number 273", "sensitive": true, "group_id": "g19"}
+{"id": "p40", "text": "Presence sample 40 asks for a recipe number 280", "sensitive": false, "group_id": "g20"}
+{"id": "p41", "text": "Presence sample 41 asks for a recipe number 287", "sensitive": false, "group_id": "g20"}
+{"id": "p42", "text": "Presence sample 42 discloses a diagnosis number 294", "sensitive": true, "group_id": "g21"}
+{"id": "p43", "text": "Presence sample 43 asks for a recipe number 301", "sensitive": false, "group_id": "g21"}
+{"id": "p44", "text": "Presence sample 44 asks for a recipe number 308", "sensitive": false, "group_id": "g22"}
+{"id": "p45", "text": "Presence sample 45 discloses a diagnosis number 315", "sensitive": true, "group_id": "g22"}
+{"id": "p46", "text": "Presence sample 46 asks for a recipe number 322", "sensitive": false, "group_id": "g23"}
+{"id": "p47", "text": "Presence sample 47 asks for a recipe number 329", "sensitive": false, "group_id": "g23"}
+{"id": "p48", "text": "Presence sample 48 discloses a diagnosis number 336", "sensitive": true, "group_id": "g24"}
+{"id": "p49", "text": "Presence sample 49 asks for a recipe number 343", "sensitive": false, "group_id": "g24"}
+{"id": "p50", "text": "Presence sample 50 asks for a recipe number 350", "sensitive": false, "group_id": "g25"}
+{"id": "p51", "text": "Presence sample 51 discloses a diagnosis number 357", "sensitive": true, "group_id": "g25"}
+{"id": "p52", "text": "Presence sample 52 asks for a recipe number 364", "sensitive": false, "group_id": "g26"}
+{"id": "p53", "text": "Presence sample 53 asks for a recipe number 371", "sensitive": false, "group_id": "g26"}
+{"id": "p54", "text": "Presence sample 54 discloses a diagnosis number 378", "sensitive": true, "group_id": "g27"}
+{"id": "p55", "text": "Presence sample 55 asks for a recipe number 385", "sensitive": false, "group_id": "g27"}
+{"id": "p56", "text": "Presence sample 56 asks for a recipe number 392", "sensitive": false, "group_id": "g28"}
+{"id": "p57", "text": "Presence sample 57 discloses a diagnosis number 399", "sensitive": true, "group_id": "g28"}
+{"id": "p58", "text": "Presence sample 58 asks for a recipe number 406", "sensitive": false, "group_id": "g29"}
+{"id": "p59", "text": "Presence sample 59 asks for a recipe number 413", "sensitive": false, "group_id": "g29"}
+{"id": "p60", "text": "Presence sample 60 discloses a diagnosis number 420", "sensitive": true, "group_id": "g30"}
+{"id": "p61", "text": "Presence sample 61 asks for a recipe number 427", "sensitive": false, "group_id": "g30"}
+{"id": "p62", "text": "Presence sample 62 asks for a recipe number 434", "sensitive": false, "group_id": "g31"}
+{"id": "p63", "text": "Presence sample 63 discloses a diagnosis number 441", "sensitive": true, "group_id": "g31"}
+{"id": "p64", "text": "Presence sample 64 asks for a recipe number 448", "sensitive": false, "group_id": "g32"}
+{"id": "p65", "text": "Presence sample 65 asks for a recipe number 455", "sensitive": false, "group_id": "g32"}
+{"id": "p66", "text": "Presence sample 66 discloses a diagnosis number 462", "sensitive": true, "group_id": "g33"}
+{"id": "p67", "text": "Presence sample 67 asks for a recipe number 469", "sensitive": false, "group_id": "g33"}
+{"id": "p68", "text": "Presence sample 68 asks for a recipe number 476", "sensitive": false, "group_id": "g34"}
+{"id": "p69", "text": "Presence sample 69 discloses a diagnosis number 483", "sensitive": true, "group_id": "g34"}
+{"id": "p70", "text": "Presence sample 70 asks for a recipe number 490", "sensitive": false, "group_id": "g35"}
+{"id": "p71", "text": "Presence sample 71 asks for a recipe number 497", "sensitive": false, "group_id": "g35"}
+{"id": "p72", "text": "Presence sample 72 discloses a diagnosis number 504", "sensitive": true, "group_id": "g36"}
+{"id": "p73", "text": "Presence sample 73 asks for a recipe number 511", "sensitive": false, "group_id": "g36"}
+{"id": "p74", "text": "Presence sample 74 asks for a recipe number 518", "sensitive": false, "group_id": "g37"}
+{"id": "p75", "text": "Presence sample 75 discloses a diagnosis number 525", "sensitive": true, "group_id": "g37"}
+{"id": "p76", "text": "Presence sample 76 asks for a recipe number 532", "sensitive": false, "group_id": "g38"}
+{"id": "p77", "text": "Presence sample 77 asks for a recipe number 539", "sensitive": false, "group_id": "g38"}
+{"id": "p78", "text": "Presence sample 78 discloses a diagnosis number 546", "sensitive": true, "group_id": "g39"}
+{"id": "p79", "text": "Presence sample 79 asks for a recipe number 553", "sensitive": false, "group_id": "g39"}
+{"id": "p80", "text": "Presence sample 80 asks for a recipe number 560", "sensitive": false, "group_id": "g40"}
+{"id": "p81", "text": "Presence sample 81 discloses a diagnosis number 567", "sensitive": true, "group_id": "g40"}
+{"id": "p82", "text": "Presence sample 82 asks for a recipe number 574", "sensitive": false, "group_id": "g41"}
+{"id": "p83", "text": "Presence sample 83 asks for a recipe number 581", "sensitive": false, "group_id": "g41"}
+{"id": "p84", "text": "Presence sample 84 discloses a diagnosis number 588", "sensitive": true, "group_id": "g42"}
+{"id": "p85", "text": "Presence sample 85 asks for a recipe number 595", "sensitive": false, "group_id": "g42"}
+{"id": "p86", "text": "Presence sample 86 asks for a recipe number 602", "sensitive": false, "group_id": "g43"}
+{"id": "p87", "text": "Presence sample 87 discloses a diagnosis number 609", "sensitive": true, "group_id": "g43"}
+{"id": "p88", "text": "Presence sample 88 asks for a recipe number 616", "sensitive": false, "group_id": "g44"}
+{"id": "p89", "text": "Presence sample 89 asks for a recipe number 623", "sensitive": false, "group_id": "g44"}
+{"id": "p90", "text": "Presence sample 90 discloses a diagnosis number 630", "sensitive": true, "group_id": "g45"}
+{"id": "p91", "text": "Presence sample 91 asks for a recipe number 637", "sensitive": false, "group_id": "g45"}
+{"id": "p92", "text": "Presence sample 92 asks for a recipe number 644", "sensitive": false, "group_id": "g46"}
+{"id": "p93", "text": "Presence sample 93 discloses a diagnosis number 651", "sensitive": true, "group_id": "g46"}
+{"id": "p94", "text": "Presence sample 94 asks for a recipe number 658", "sensitive": false, "group_id": "g47"}
+{"id": "p95", "text": "Presence sample 95 asks for a recipe number 665", "sensitive": false, "group_id": "g47"}
+{"id": "p96", "text": "Presence sample 96 discloses a diagnosis number 672", "sensitive": true, "group_id": "g48"}
+{"id": "p97", "text": "Presence sample 97 asks for a recipe number 679", "sensitive": false, "group_id": "g48"}
+{"id": "p98", "text": "Presence sample 98 asks for a recipe number 686", "sensitive": false, "group_id": "g49"}
+{"id": "p99", "text": "Presence sample 99 discloses a diagnosis number 693", "sensitive": true, "group_id": "g49"}
+{"id": "p100", "text": "Presence sample 100 asks for a recipe number 700", "sensitive": false, "group_id": "g50"}
+{"id": "p101", "text": "Presence sample 101 asks for a recipe number 707", "sensitive": false, "group_id": "g50"}
+{"id": "p102", "text": "Presence sample 102 discloses a diagnosis number 714", "sensitive": true, "group_id": "g51"}
+{"id": "p103", "text": "Presence sample 103 asks for a recipe number 721", "sensitive": false, "group_id": "g51"}
+{"id": "p104", "text": "Presence sample 104 asks for a recipe number 728", "sensitive": false, "group_id": "g52"}
+{"id": "p105", "text": "Presence sample 105 discloses a diagnosis number 735", "sensitive": true, "group_id": "g52"}
+{"id": "p106", "text": "Presence sample 106 asks for a recipe number 742", "sensitive": false, "group_id": "g53"}
+{"id": "p107", "text": "Presence sample 107 asks for a recipe number 749", "sensitive": false, "group_id": "g53"}
+{"id": "p108", "text": "Presence sample 108 discloses a diagnosis number 756", "sensitive": true, "group_id": "g54"}
+{"id": "p109", "text": "Presence sample 109 asks for a recipe number 763", "sensitive": false, "group_id": "g54"}
+{"id": "p110", "text": "Presence sample 110 asks for a recipe number 770", "sensitive": false, "group_id": "g55"}
+{"id": "p111", "text": "Presence sample 111 discloses a diagnosis number 777", "sensitive": true, "group_id": "g55"}
+{"id": "p112", "text": "Presence sample 112 asks for a recipe number 784", "sensitive": false, "group_id": "g56"}
+{"id": "p113", "text": "Presence sample 113 asks for a recipe number 791", "sensitive": false, "group_id": "g56"}
+{"id": "p114", "text": "Presence sample 114 discloses a diagnosis number 798", "sensitive": true, "group_id": "g57"}
+{"id": "p115", "text": "Presence sample 115 asks for a recipe number 805", "sensitive": false, "group_id": "g57"}
+{"id": "p116", "text": "Presence sample 116 asks for a recipe number 812", "sensitive": false, "group_id": "g58"}
+{"id": "p117", "text": "Presence sample 117 discloses a diagnosis number 819", "sensitive": true, "group_id": "g58"}
+{"id": "p118", "text": "Presence sample 118 asks for a recipe number 826", "sensitive": false, "group_id": "g59"}
+{"id": "p119", "text": "Presence sample 119 asks for a recipe number 833", "sensitive": false, "group_id": "g59"}

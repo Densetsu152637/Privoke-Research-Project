@@ -1,0 +1,18 @@
+[package]
+name = "privoke-training"
+description = "The V3 encoder fit and retention reference, and the V1 presence model (inference only), in Rust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+privoke-contracts = { path = "../privoke-contracts" }
+privoke-rules = { path = "../privoke-rules" }
+privoke-semantic = { path = "../privoke-semantic", default-features = false }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

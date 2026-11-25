@@ -17,6 +17,55 @@ extension_root="$repository_root/extension"
 identity_path="$extension_root/extension-identities.json"
 python_path="$extension_root/client-runtime/.venv/bin/python"
 source_host_path="$supervisor_root/src/native_messaging_host.py"
+# The Rust controller (rust/services/runtime-supervisor) is the native host when PRIVOKE_SUPERVISOR_BINARY names its
+# executable. Unset, the Python host stays the registered one.
+supervisor_binary="${PRIVOKE_SUPERVISOR_BINARY:-}"
+if [ -n "$supervisor_binary" ]; then
+  python_path="$supervisor_binary"
+  source_host_path="$supervisor_binary"
+fi
+
+# The frozen backbone and tokenizer of the pretrained contextual encoder (the runtime's PRIVOKE_PRETRAINED_CONTEXT_DIR).
+# The browser starts the host with a clean environment, so the value in effect when this installer runs is stored in the
+# launcher, which both the Rust controller (it passes it to the Rust worker as --pretrained-context-dir) and the Python
+# runtime read. Unset, the launcher carries none and the encoder stays unavailable, as before.
+pretrained_context_dir="${PRIVOKE_PRETRAINED_CONTEXT_DIR:-}"
+if [ -n "$pretrained_context_dir" ]; then
+  case "$pretrained_context_dir" in
+    /*) ;;
+    *)
+      echo "PRIVOKE_PRETRAINED_CONTEXT_DIR must be an absolute path: $pretrained_context_dir" >&2
+      exit 1
+      ;;
+  esac
+  if [ ! -d "$pretrained_context_dir" ]; then
+    echo "PRIVOKE_PRETRAINED_CONTEXT_DIR is not a directory: $pretrained_context_dir" >&2
+    exit 1
+  fi
+fi
+
+# The V3 models the Rust controller keeps fresh (V3_PACKAGE_REFRESH_MODELS, comma-separated `privoke-v3-<tier>` ids; see
+# docs/runtime/v3-publication.md, Refresh). The browser starts the host with a clean environment, so the value in effect when
+# this installer runs is stored in the launcher. Unset, the default is the standard model `privoke-v3-balanced`; set to an empty
+# string, the controller starts no refresh loop. The interval V3_PACKAGE_REFRESH_SECONDS is stored the same way when set.
+refresh_models=''
+refresh_seconds=''
+if [ -n "$supervisor_binary" ]; then
+  refresh_models="${V3_PACKAGE_REFRESH_MODELS-privoke-v3-balanced}"
+  refresh_seconds="${V3_PACKAGE_REFRESH_SECONDS:-}"
+  case "$refresh_models" in
+    *[!a-z0-9,-]*)
+      echo "V3_PACKAGE_REFRESH_MODELS must be a comma-separated list of model ids: $refresh_models" >&2
+      exit 1
+      ;;
+  esac
+  case "$refresh_seconds" in
+    *[!0-9]*)
+      echo "V3_PACKAGE_REFRESH_SECONDS must be a positive number of seconds: $refresh_seconds" >&2
+      exit 1
+      ;;
+  esac
+fi
 
 for required_file in "$identity_path" "$python_path" "$source_host_path"; do
   if [ ! -f "$required_file" ]; then
@@ -69,16 +118,25 @@ if [ "$browser" = auto ]; then
   fi
 fi
 
-host_name=org.privoke.runtime_launcher
+# The Rust controller has its own host name so it can be registered beside the Python launcher.
+if [ -n "$supervisor_binary" ]; then
+  host_name=org.privoke.runtime_controller
+else
+  host_name=org.privoke.runtime_launcher
+fi
 mkdir -p "$install_root"
 installed_host_path="$install_root/native_messaging_host.py"
 launcher_path="$install_root/privoke-native-host"
 chromium_manifest_path="$install_root/$host_name.chromium.json"
 firefox_manifest_path="$install_root/$host_name.firefox.json"
-cp "$source_host_path" "$installed_host_path"
+if [ -z "$supervisor_binary" ]; then
+  cp "$source_host_path" "$installed_host_path"
+fi
 
+# Writes the text with every single quote as quote, backslash, quote, quote, so that it can sit inside single quotes.
+# (Inside the double quotes the shell halves the backslashes, and sed then reads two as one literal backslash.)
 escape_shell_single_quotes() {
-  printf '%s' "$1" | sed "s/'/'\\''/g"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
 }
 
 escaped_python=$(escape_shell_single_quotes "$python_path")
@@ -87,7 +145,20 @@ escaped_root=$(escape_shell_single_quotes "$repository_root")
 {
   echo '#!/bin/sh'
   printf "export PRIVOKE_REPOSITORY_ROOT='%s'\n" "$escaped_root"
-  printf "exec '%s' '%s'\n" "$escaped_python" "$escaped_host"
+  if [ -n "$pretrained_context_dir" ]; then
+    printf "export PRIVOKE_PRETRAINED_CONTEXT_DIR='%s'\n" "$(escape_shell_single_quotes "$pretrained_context_dir")"
+  fi
+  if [ -n "$refresh_models" ]; then
+    printf "export V3_PACKAGE_REFRESH_MODELS='%s'\n" "$refresh_models"
+  fi
+  if [ -n "$refresh_seconds" ]; then
+    printf "export V3_PACKAGE_REFRESH_SECONDS='%s'\n" "$refresh_seconds"
+  fi
+  if [ -n "$supervisor_binary" ]; then
+    printf "exec '%s' native-host\n" "$escaped_python"
+  else
+    printf "exec '%s' '%s'\n" "$escaped_python" "$escaped_host"
+  fi
 } > "$launcher_path"
 chmod 700 "$launcher_path"
 

@@ -1,0 +1,47 @@
+[package]
+name = "privoke-semantic"
+description = "Semantic inference of the client runtime: V3 pretrained BERT encoder and heads, and the legacy Tiny transformer (stage 14)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dev-dependencies]
+base64 = { workspace = true }
+# The deterministic publication test keys of the published-version loader tests (V3-R4b).
+privoke-contracts = { path = "../privoke-contracts", features = ["test-keys"] }
+tempfile = { workspace = true }
+
+[features]
+# The external classifier client (stage 16): the HTTP stack (reqwest, rustls). On by default so that the crate's own tests
+# and any front end that calls an external endpoint get it; the isolated inference worker (`privoke-runtime`) and the
+# training crate depend on this crate with `default-features = false`, so the worker links no HTTP stack.
+default = ["external-classifier"]
+external-classifier = ["dep:reqwest"]
+
+[dependencies]
+# The vocabulary map type of the WordPiece builder (the version `tokenizers` uses), to build it from the hashed vocabulary bytes.
+ahash = "0.8"
+privoke-contracts = { path = "../privoke-contracts" }
+privoke-rules = { path = "../privoke-rules" }
+# Same crate version as the Python `tokenizers` wheel the reference runtime pins (0.22.2); `onig` is the regex engine of
+# the default features, without the progress bar and the C++ unigram trainer.
+tokenizers = { version = "=0.22.2", default-features = false, features = ["onig"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+# The external classifier client (stage 16): rustls only (no native-tls, no OpenSSL), the blocking API to match `classify`,
+# and no default features (so no gzip, cookies or system TLS). `rustls-tls` bundles the webpki roots.
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+
+[[test]]
+name = "open_http"
+required-features = ["external-classifier"]
+
+[[test]]
+name = "open_request"
+required-features = ["external-classifier"]
+
+[lints]
+workspace = true

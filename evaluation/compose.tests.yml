@@ -1,4 +1,4 @@
-# Use with: docker compose -f docker-compose.yml -f evaluation/compose.tests.yml
+# Use with: docker compose -f docker-compose.prod.yml -f evaluation/compose.tests.yml
 services:
   client-runtime:
     container_name: privoke-research-eval-20261003-runtime

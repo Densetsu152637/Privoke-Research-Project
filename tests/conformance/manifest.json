@@ -1,0 +1,110 @@
+{
+ "binary_policy": "Binary assets (V3 safetensors, vocab, evidence, config) are stored as SHA-256 and sizes; manifests are small canonical JSON and are stored in full.",
+ "capture": {
+  "go_service_image": "privoke-updsec-model-dev:20261116",
+  "go_service_image_id": "sha256:da173811c136e6bee7bfc093ea030c09bcdb64b145d8647202567f6fabfe3907",
+  "grpcio": "1.82.1",
+  "protobuf": "7.35.1",
+  "python": "3.11.9",
+  "script": "evaluation/capture_conformance.py"
+ },
+ "corpus": "rust-rewrite-conformance",
+ "deferred_gaps": [
+  {
+   "covered_instead": "Host framing, rejection and already-running/port-conflict responses, driven through the real host module.",
+   "gap": "Browser-launched native-messaging transcripts and the started=true launch path",
+   "reason": "The supervisor-spawning path starts a long-lived detached process and a browser-brokered native-messaging connection; neither runs on the host without the browser.",
+   "surface": "native_messaging"
+  },
+  {
+   "covered_instead": "Control-service RPCs, CORS preflight, origin allowlist and framing errors through the real bridge.",
+   "gap": "PrivokeRuntimeService responses through the bridge",
+   "reason": "The runtime service needs the torch inference stack; only its unreachable-upstream behaviour is captured. The bridge is byte-transparent to the response payload.",
+   "surface": "grpc_web"
+  },
+  {
+   "covered_instead": "Fixed sequential sequence with receipts, audit lines and rejection messages.",
+   "gap": "Concurrent, kill-and-recover and fuzzer-request behaviour",
+   "reason": "Those are process and timing behaviours recorded as rows in UPDSEC-20261116, not byte-deterministic corpus entries.",
+   "surface": "update_sequence"
+  },
+  {
+   "covered_instead": "The four tracked legacy artifacts and the three pinned V3 releases.",
+   "gap": "Scratch-presence and pretrained-context catalog models",
+   "reason": "Their artifacts are not tracked in git (models/experiments is local), so the corpus cannot be rebuilt from the repository.",
+   "surface": "model_streaming"
+  }
+ ],
+ "determinism": "Two consecutive runs produce identical files (git diff --exit-code tests/conformance).",
+ "files": {
+  "canonical_json.json": {
+   "bytes": 34850,
+   "sha256": "ac71c7b051692cd429e7f7d6399560266c53b594ad0e928ac01ab8525f0b363c",
+   "surface": "canonical"
+  },
+  "checksums.json": {
+   "bytes": 22477,
+   "sha256": "ddbac98ab8b41e44129e44c8c17e2185840e43ede3549903525e2fd089b74dd0",
+   "surface": "contracts"
+  },
+  "contract_configs.json": {
+   "bytes": 10356,
+   "sha256": "055e07449f1a39670696463b54860bc5ed0ca944d5a50c381b65724275aa431f",
+   "surface": "contracts"
+  },
+  "fingerprints.json": {
+   "bytes": 2682,
+   "sha256": "233fcadad3307f8fca9c3dbcc3d408e2ce2ddee22ea69c33434e1458c1bc6bad",
+   "surface": "contracts"
+  },
+  "float_repr.json": {
+   "bytes": 48849,
+   "sha256": "6fb87f9a31a0a5e0dd3b40948245e5373862cfd761334761c32522f027ac3abd",
+   "surface": "canonical"
+  },
+  "grpc_web.json": {
+   "bytes": 14591,
+   "sha256": "a22c84e436bee9c5dd95489f8dbb8afbd2ffd3e4a4b85efe2bb07d7d922f4596",
+   "surface": "grpc_web"
+  },
+  "model_streaming.json": {
+   "bytes": 271126,
+   "sha256": "cc8aed2424ef81a4d0821c005e2b39a72fdce4acf86d2f4969c228c9ef5cd201",
+   "surface": "model_streaming"
+  },
+  "native_messaging.json": {
+   "bytes": 6316,
+   "sha256": "a78acc0baa1bd36fe329c49cd1534ba40a125478d2dac694fe8c1df51be78b41",
+   "surface": "native_messaging"
+  },
+  "telemetry.json": {
+   "bytes": 66696,
+   "sha256": "a3b010b15e23b6dfb1502c8067ee0a9cd8a66318b0bc26c96e4b03471802a3dd",
+   "surface": "telemetry"
+  },
+  "update_sequence.json": {
+   "bytes": 44573,
+   "sha256": "f5ff401d61320944cb8fe8d158c156f14c607230136147f37aa50a733044f60b",
+   "surface": "update_sequence"
+  }
+ },
+ "large_artifact_policy": "Mutable model artifacts are referenced by repository path and hashed with CRLF folded to LF.",
+ "reference": {
+  "commit": "fb1b3175d858b00305f339a7f456bec34311f9c7",
+  "paths_identical_to_reference": [
+   "shared/proto",
+   "shared/python/privoke_model",
+   "shared/python/privoke_service",
+   "services/param-update-service/app",
+   "services/telemetry-service/app",
+   "services/model-streaming-service/cmd",
+   "extension/runtime-supervisor/src",
+   "models/privoke-baseline.json",
+   "models/privoke-balanced.json",
+   "models/privoke-efficient.json",
+   "models/privoke-quality.json"
+  ],
+  "tag": "rust-reference-20261117"
+ },
+ "schema": 1
+}

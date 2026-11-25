@@ -1,0 +1,52 @@
+[package]
+name = "privoke-runtime"
+description = "The Rust analysis runtime (stage 17): PrivokeRuntimeService analysis RPCs as a W1 worker behind the W2 pool, with spaCy in process"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_runtime"
+path = "src/lib.rs"
+
+[[bin]]
+name = "privoke-runtime-worker"
+path = "src/main.rs"
+
+[features]
+default = []
+# Embeds CPython 3.11 for spaCy on the interpreter thread (stage 11b). Needs PYO3_PYTHON; off by default so that
+# `cargo test --workspace` needs no Python. The shipped worker is built with it.
+in-process = ["privoke-spacy/in-process"]
+# Lets the worker start with the Python-free fake spaCy engine (`--spacy fake`), for the process-level tests.
+fake-spacy = ["privoke-spacy/fake-worker"]
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-rules = { path = "../../crates/privoke-rules" }
+privoke-ner-layer = { path = "../../crates/privoke-ner-layer" }
+privoke-spacy = { path = "../../crates/privoke-spacy" }
+# The semantic layer. The crate also holds the external classifier client (reqwest, rustls); this worker links it but never
+# builds or calls it (see `semantic.rs`).
+privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
+privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
+# The gradient and presence computations of stage 19 (additive: `PresenceModel::threshold`).
+privoke-training = { path = "../../crates/privoke-training" }
+prost = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
+thiserror = { workspace = true }
+# `float_roundtrip`: artifact weights must parse to the same doubles as Python's `json.loads`.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[dev-dependencies]
+privoke-runtime = { path = ".", features = ["fake-spacy"] }
+# The deterministic publication test keys of the published-cache tests (V3-R4b); the worker build never enables them.
+privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

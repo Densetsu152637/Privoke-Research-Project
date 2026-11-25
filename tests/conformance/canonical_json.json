@@ -1,0 +1,1652 @@
+{
+ "cases": [
+  {
+   "expected": "{}",
+   "id": "c000-ascii",
+   "input_json": "{}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{}",
+   "id": "c000-utf8",
+   "input_json": "{}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{}",
+   "id": "c000-utf8_go",
+   "input_json": "{}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{}\n",
+   "id": "c000-utf8_lf",
+   "input_json": "{}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "[]",
+   "id": "c001-ascii",
+   "input_json": "[]",
+   "variant": "ascii"
+  },
+  {
+   "expected": "[]",
+   "id": "c001-utf8",
+   "input_json": "[]",
+   "variant": "utf8"
+  },
+  {
+   "expected": "[]",
+   "id": "c001-utf8_go",
+   "input_json": "[]",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "[]\n",
+   "id": "c001-utf8_lf",
+   "input_json": "[]",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "null",
+   "id": "c002-ascii",
+   "input_json": "null",
+   "variant": "ascii"
+  },
+  {
+   "expected": "null",
+   "id": "c002-utf8",
+   "input_json": "null",
+   "variant": "utf8"
+  },
+  {
+   "expected": "null",
+   "id": "c002-utf8_go",
+   "input_json": "null",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "null\n",
+   "id": "c002-utf8_lf",
+   "input_json": "null",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "true",
+   "id": "c003-ascii",
+   "input_json": "true",
+   "variant": "ascii"
+  },
+  {
+   "expected": "true",
+   "id": "c003-utf8",
+   "input_json": "true",
+   "variant": "utf8"
+  },
+  {
+   "expected": "true",
+   "id": "c003-utf8_go",
+   "input_json": "true",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "true\n",
+   "id": "c003-utf8_lf",
+   "input_json": "true",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "false",
+   "id": "c004-ascii",
+   "input_json": "false",
+   "variant": "ascii"
+  },
+  {
+   "expected": "false",
+   "id": "c004-utf8",
+   "input_json": "false",
+   "variant": "utf8"
+  },
+  {
+   "expected": "false",
+   "id": "c004-utf8_go",
+   "input_json": "false",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "false\n",
+   "id": "c004-utf8_lf",
+   "input_json": "false",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0",
+   "id": "c005-ascii",
+   "input_json": "0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0",
+   "id": "c005-utf8",
+   "input_json": "0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0",
+   "id": "c005-utf8_go",
+   "input_json": "0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0\n",
+   "id": "c005-utf8_lf",
+   "input_json": "0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0",
+   "id": "c006-ascii",
+   "input_json": "-0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0",
+   "id": "c006-utf8",
+   "input_json": "-0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0",
+   "id": "c006-utf8_go",
+   "input_json": "-0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0\n",
+   "id": "c006-utf8_lf",
+   "input_json": "-0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1",
+   "id": "c007-ascii",
+   "input_json": "1",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1",
+   "id": "c007-utf8",
+   "input_json": "1",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1",
+   "id": "c007-utf8_go",
+   "input_json": "1",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1\n",
+   "id": "c007-utf8_lf",
+   "input_json": "1",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "-1",
+   "id": "c008-ascii",
+   "input_json": "-1",
+   "variant": "ascii"
+  },
+  {
+   "expected": "-1",
+   "id": "c008-utf8",
+   "input_json": "-1",
+   "variant": "utf8"
+  },
+  {
+   "expected": "-1",
+   "id": "c008-utf8_go",
+   "input_json": "-1",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "-1\n",
+   "id": "c008-utf8_lf",
+   "input_json": "-1",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "12345678901234567890",
+   "id": "c009-ascii",
+   "input_json": "12345678901234567890",
+   "variant": "ascii"
+  },
+  {
+   "expected": "12345678901234567890",
+   "id": "c009-utf8",
+   "input_json": "12345678901234567890",
+   "variant": "utf8"
+  },
+  {
+   "expected": "12345678901234567890",
+   "id": "c009-utf8_go",
+   "input_json": "12345678901234567890",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "12345678901234567890\n",
+   "id": "c009-utf8_lf",
+   "input_json": "12345678901234567890",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "-9223372036854775809",
+   "id": "c010-ascii",
+   "input_json": "-9223372036854775809",
+   "variant": "ascii"
+  },
+  {
+   "expected": "-9223372036854775809",
+   "id": "c010-utf8",
+   "input_json": "-9223372036854775809",
+   "variant": "utf8"
+  },
+  {
+   "expected": "-9223372036854775809",
+   "id": "c010-utf8_go",
+   "input_json": "-9223372036854775809",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "-9223372036854775809\n",
+   "id": "c010-utf8_lf",
+   "input_json": "-9223372036854775809",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "100000000000000000000000000000",
+   "id": "c011-ascii",
+   "input_json": "100000000000000000000000000000",
+   "variant": "ascii"
+  },
+  {
+   "expected": "100000000000000000000000000000",
+   "id": "c011-utf8",
+   "input_json": "100000000000000000000000000000",
+   "variant": "utf8"
+  },
+  {
+   "expected": "100000000000000000000000000000",
+   "id": "c011-utf8_go",
+   "input_json": "100000000000000000000000000000",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "100000000000000000000000000000\n",
+   "id": "c011-utf8_lf",
+   "input_json": "100000000000000000000000000000",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.0",
+   "id": "c012-ascii",
+   "input_json": "0.0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.0",
+   "id": "c012-utf8",
+   "input_json": "0.0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.0",
+   "id": "c012-utf8_go",
+   "input_json": "0.0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.0\n",
+   "id": "c012-utf8_lf",
+   "input_json": "0.0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "-0.0",
+   "id": "c013-ascii",
+   "input_json": "-0.0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "-0.0",
+   "id": "c013-utf8",
+   "input_json": "-0.0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "-0.0",
+   "id": "c013-utf8_go",
+   "input_json": "-0.0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "-0.0\n",
+   "id": "c013-utf8_lf",
+   "input_json": "-0.0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1.0",
+   "id": "c014-ascii",
+   "input_json": "1.0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1.0",
+   "id": "c014-utf8",
+   "input_json": "1.0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1.0",
+   "id": "c014-utf8_go",
+   "input_json": "1.0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1.0\n",
+   "id": "c014-utf8_lf",
+   "input_json": "1.0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.5",
+   "id": "c015-ascii",
+   "input_json": "0.5",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.5",
+   "id": "c015-utf8",
+   "input_json": "0.5",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.5",
+   "id": "c015-utf8_go",
+   "input_json": "0.5",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.5\n",
+   "id": "c015-utf8_lf",
+   "input_json": "0.5",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.1",
+   "id": "c016-ascii",
+   "input_json": "0.1",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.1",
+   "id": "c016-utf8",
+   "input_json": "0.1",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.1",
+   "id": "c016-utf8_go",
+   "input_json": "0.1",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.1\n",
+   "id": "c016-utf8_lf",
+   "input_json": "0.1",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "100000.0",
+   "id": "c017-ascii",
+   "input_json": "1e5",
+   "variant": "ascii"
+  },
+  {
+   "expected": "100000.0",
+   "id": "c017-utf8",
+   "input_json": "1e5",
+   "variant": "utf8"
+  },
+  {
+   "expected": "100000.0",
+   "id": "c017-utf8_go",
+   "input_json": "1e5",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "100000.0\n",
+   "id": "c017-utf8_lf",
+   "input_json": "1e5",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "100000.0",
+   "id": "c018-ascii",
+   "input_json": "1E5",
+   "variant": "ascii"
+  },
+  {
+   "expected": "100000.0",
+   "id": "c018-utf8",
+   "input_json": "1E5",
+   "variant": "utf8"
+  },
+  {
+   "expected": "100000.0",
+   "id": "c018-utf8_go",
+   "input_json": "1E5",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "100000.0\n",
+   "id": "c018-utf8_lf",
+   "input_json": "1E5",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1e-05",
+   "id": "c019-ascii",
+   "input_json": "1e-5",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1e-05",
+   "id": "c019-utf8",
+   "input_json": "1e-5",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1e-05",
+   "id": "c019-utf8_go",
+   "input_json": "1e-5",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1e-05\n",
+   "id": "c019-utf8_lf",
+   "input_json": "1e-5",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1.5e-07",
+   "id": "c020-ascii",
+   "input_json": "1.5e-7",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1.5e-07",
+   "id": "c020-utf8",
+   "input_json": "1.5e-7",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1.5e-07",
+   "id": "c020-utf8_go",
+   "input_json": "1.5e-7",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1.5e-07\n",
+   "id": "c020-utf8_lf",
+   "input_json": "1.5e-7",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1e+16",
+   "id": "c021-ascii",
+   "input_json": "1e16",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1e+16",
+   "id": "c021-utf8",
+   "input_json": "1e16",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1e+16",
+   "id": "c021-utf8_go",
+   "input_json": "1e16",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1e+16\n",
+   "id": "c021-utf8_lf",
+   "input_json": "1e16",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1000000000000000.0",
+   "id": "c022-ascii",
+   "input_json": "1e15",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1000000000000000.0",
+   "id": "c022-utf8",
+   "input_json": "1e15",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1000000000000000.0",
+   "id": "c022-utf8_go",
+   "input_json": "1e15",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1000000000000000.0\n",
+   "id": "c022-utf8_lf",
+   "input_json": "1e15",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1.2345678901234568e+17",
+   "id": "c023-ascii",
+   "input_json": "123456789012345678.0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1.2345678901234568e+17",
+   "id": "c023-utf8",
+   "input_json": "123456789012345678.0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1.2345678901234568e+17",
+   "id": "c023-utf8_go",
+   "input_json": "123456789012345678.0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1.2345678901234568e+17\n",
+   "id": "c023-utf8_lf",
+   "input_json": "123456789012345678.0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1e+22",
+   "id": "c024-ascii",
+   "input_json": "1e22",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1e+22",
+   "id": "c024-utf8",
+   "input_json": "1e22",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1e+22",
+   "id": "c024-utf8_go",
+   "input_json": "1e22",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1e+22\n",
+   "id": "c024-utf8_lf",
+   "input_json": "1e22",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1e+23",
+   "id": "c025-ascii",
+   "input_json": "1e23",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1e+23",
+   "id": "c025-utf8",
+   "input_json": "1e23",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1e+23",
+   "id": "c025-utf8_go",
+   "input_json": "1e23",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1e+23\n",
+   "id": "c025-utf8_lf",
+   "input_json": "1e23",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "5e-324",
+   "id": "c026-ascii",
+   "input_json": "5e-324",
+   "variant": "ascii"
+  },
+  {
+   "expected": "5e-324",
+   "id": "c026-utf8",
+   "input_json": "5e-324",
+   "variant": "utf8"
+  },
+  {
+   "expected": "5e-324",
+   "id": "c026-utf8_go",
+   "input_json": "5e-324",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "5e-324\n",
+   "id": "c026-utf8_lf",
+   "input_json": "5e-324",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "2.2250738585072014e-308",
+   "id": "c027-ascii",
+   "input_json": "2.2250738585072014e-308",
+   "variant": "ascii"
+  },
+  {
+   "expected": "2.2250738585072014e-308",
+   "id": "c027-utf8",
+   "input_json": "2.2250738585072014e-308",
+   "variant": "utf8"
+  },
+  {
+   "expected": "2.2250738585072014e-308",
+   "id": "c027-utf8_go",
+   "input_json": "2.2250738585072014e-308",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "2.2250738585072014e-308\n",
+   "id": "c027-utf8_lf",
+   "input_json": "2.2250738585072014e-308",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1.7976931348623157e+308",
+   "id": "c028-ascii",
+   "input_json": "1.7976931348623157e308",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1.7976931348623157e+308",
+   "id": "c028-utf8",
+   "input_json": "1.7976931348623157e308",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1.7976931348623157e+308",
+   "id": "c028-utf8_go",
+   "input_json": "1.7976931348623157e308",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1.7976931348623157e+308\n",
+   "id": "c028-utf8_lf",
+   "input_json": "1.7976931348623157e308",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1e-08",
+   "id": "c029-ascii",
+   "input_json": "1e-8",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1e-08",
+   "id": "c029-utf8",
+   "input_json": "1e-8",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1e-08",
+   "id": "c029-utf8_go",
+   "input_json": "1e-8",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1e-08\n",
+   "id": "c029-utf8_lf",
+   "input_json": "1e-8",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.003",
+   "id": "c030-ascii",
+   "input_json": "0.003",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.003",
+   "id": "c030-utf8",
+   "input_json": "0.003",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.003",
+   "id": "c030-utf8_go",
+   "input_json": "0.003",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.003\n",
+   "id": "c030-utf8_lf",
+   "input_json": "0.003",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.9",
+   "id": "c031-ascii",
+   "input_json": "0.9",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.9",
+   "id": "c031-utf8",
+   "input_json": "0.9",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.9",
+   "id": "c031-utf8_go",
+   "input_json": "0.9",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.9\n",
+   "id": "c031-utf8_lf",
+   "input_json": "0.9",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.999",
+   "id": "c032-ascii",
+   "input_json": "0.999",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.999",
+   "id": "c032-utf8",
+   "input_json": "0.999",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.999",
+   "id": "c032-utf8_go",
+   "input_json": "0.999",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.999\n",
+   "id": "c032-utf8_lf",
+   "input_json": "0.999",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.05",
+   "id": "c033-ascii",
+   "input_json": "0.05",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.05",
+   "id": "c033-utf8",
+   "input_json": "0.05",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.05",
+   "id": "c033-utf8_go",
+   "input_json": "0.05",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.05\n",
+   "id": "c033-utf8_lf",
+   "input_json": "0.05",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.0001",
+   "id": "c034-ascii",
+   "input_json": "0.0001",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.0001",
+   "id": "c034-utf8",
+   "input_json": "0.0001",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.0001",
+   "id": "c034-utf8_go",
+   "input_json": "0.0001",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.0001\n",
+   "id": "c034-utf8_lf",
+   "input_json": "0.0001",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "1e-05",
+   "id": "c035-ascii",
+   "input_json": "0.00001",
+   "variant": "ascii"
+  },
+  {
+   "expected": "1e-05",
+   "id": "c035-utf8",
+   "input_json": "0.00001",
+   "variant": "utf8"
+  },
+  {
+   "expected": "1e-05",
+   "id": "c035-utf8_go",
+   "input_json": "0.00001",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "1e-05\n",
+   "id": "c035-utf8_lf",
+   "input_json": "0.00001",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "100.0",
+   "id": "c036-ascii",
+   "input_json": "1.0e+2",
+   "variant": "ascii"
+  },
+  {
+   "expected": "100.0",
+   "id": "c036-utf8",
+   "input_json": "1.0e+2",
+   "variant": "utf8"
+  },
+  {
+   "expected": "100.0",
+   "id": "c036-utf8_go",
+   "input_json": "1.0e+2",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "100.0\n",
+   "id": "c036-utf8_lf",
+   "input_json": "1.0e+2",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "-1500.0",
+   "id": "c037-ascii",
+   "input_json": "-1.5E+3",
+   "variant": "ascii"
+  },
+  {
+   "expected": "-1500.0",
+   "id": "c037-utf8",
+   "input_json": "-1.5E+3",
+   "variant": "utf8"
+  },
+  {
+   "expected": "-1500.0",
+   "id": "c037-utf8_go",
+   "input_json": "-1.5E+3",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "-1500.0\n",
+   "id": "c037-utf8_lf",
+   "input_json": "-1.5E+3",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "4.35",
+   "id": "c038-ascii",
+   "input_json": "4.35",
+   "variant": "ascii"
+  },
+  {
+   "expected": "4.35",
+   "id": "c038-utf8",
+   "input_json": "4.35",
+   "variant": "utf8"
+  },
+  {
+   "expected": "4.35",
+   "id": "c038-utf8_go",
+   "input_json": "4.35",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "4.35\n",
+   "id": "c038-utf8_lf",
+   "input_json": "4.35",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "2.675",
+   "id": "c039-ascii",
+   "input_json": "2.675",
+   "variant": "ascii"
+  },
+  {
+   "expected": "2.675",
+   "id": "c039-utf8",
+   "input_json": "2.675",
+   "variant": "utf8"
+  },
+  {
+   "expected": "2.675",
+   "id": "c039-utf8_go",
+   "input_json": "2.675",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "2.675\n",
+   "id": "c039-utf8_lf",
+   "input_json": "2.675",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "0.30000000000000004",
+   "id": "c040-ascii",
+   "input_json": "0.30000000000000004",
+   "variant": "ascii"
+  },
+  {
+   "expected": "0.30000000000000004",
+   "id": "c040-utf8",
+   "input_json": "0.30000000000000004",
+   "variant": "utf8"
+  },
+  {
+   "expected": "0.30000000000000004",
+   "id": "c040-utf8_go",
+   "input_json": "0.30000000000000004",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "0.30000000000000004\n",
+   "id": "c040-utf8_lf",
+   "input_json": "0.30000000000000004",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "9007199254740993",
+   "id": "c041-ascii",
+   "input_json": "9007199254740993",
+   "variant": "ascii"
+  },
+  {
+   "expected": "9007199254740993",
+   "id": "c041-utf8",
+   "input_json": "9007199254740993",
+   "variant": "utf8"
+  },
+  {
+   "expected": "9007199254740993",
+   "id": "c041-utf8_go",
+   "input_json": "9007199254740993",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "9007199254740993\n",
+   "id": "c041-utf8_lf",
+   "input_json": "9007199254740993",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "9007199254740992.0",
+   "id": "c042-ascii",
+   "input_json": "9007199254740993.0",
+   "variant": "ascii"
+  },
+  {
+   "expected": "9007199254740992.0",
+   "id": "c042-utf8",
+   "input_json": "9007199254740993.0",
+   "variant": "utf8"
+  },
+  {
+   "expected": "9007199254740992.0",
+   "id": "c042-utf8_go",
+   "input_json": "9007199254740993.0",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "9007199254740992.0\n",
+   "id": "c042-utf8_lf",
+   "input_json": "9007199254740993.0",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\"",
+   "id": "c043-ascii",
+   "input_json": "\"\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\"",
+   "id": "c043-utf8",
+   "input_json": "\"\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\"",
+   "id": "c043-utf8_go",
+   "input_json": "\"\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\"\n",
+   "id": "c043-utf8_lf",
+   "input_json": "\"\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"a\"",
+   "id": "c044-ascii",
+   "input_json": "\"a\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"a\"",
+   "id": "c044-utf8",
+   "input_json": "\"a\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"a\"",
+   "id": "c044-utf8_go",
+   "input_json": "\"a\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"a\"\n",
+   "id": "c044-utf8_lf",
+   "input_json": "\"a\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\\"\\\\/\\b\\f\\n\\r\\t\"",
+   "id": "c045-ascii",
+   "input_json": "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\\\"\\\\/\\b\\f\\n\\r\\t\"",
+   "id": "c045-utf8",
+   "input_json": "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\\\"\\\\/\\b\\f\\n\\r\\t\"",
+   "id": "c045-utf8_go",
+   "input_json": "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\\\"\\\\/\\b\\f\\n\\r\\t\"\n",
+   "id": "c045-utf8_lf",
+   "input_json": "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\u0000\\u001f\\u007f\\u0080\"",
+   "id": "c046-ascii",
+   "input_json": "\"\\u0000\\u001f\\u007f\\u0080\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\\u0000\\u001f\u007f\u0080\"",
+   "id": "c046-utf8",
+   "input_json": "\"\\u0000\\u001f\\u007f\\u0080\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\\u0000\\u001f\u007f\u0080\"",
+   "id": "c046-utf8_go",
+   "input_json": "\"\\u0000\\u001f\\u007f\\u0080\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\\u0000\\u001f\u007f\u0080\"\n",
+   "id": "c046-utf8_lf",
+   "input_json": "\"\\u0000\\u001f\\u007f\\u0080\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\u00e9\\u4e2d\\ud83d\\ude00\"",
+   "id": "c047-ascii",
+   "input_json": "\"\\u00e9\\u4e2d\\ud83d\\ude00\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "id": "c047-utf8",
+   "input_json": "\"\\u00e9\\u4e2d\\ud83d\\ude00\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "id": "c047-utf8_go",
+   "input_json": "\"\\u00e9\\u4e2d\\ud83d\\ude00\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\u00e9\u4e2d\ud83d\ude00\"\n",
+   "id": "c047-utf8_lf",
+   "input_json": "\"\\u00e9\\u4e2d\\ud83d\\ude00\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\u2028\\u2029\"",
+   "id": "c048-ascii",
+   "input_json": "\"\\u2028\\u2029\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\u2028\u2029\"",
+   "id": "c048-utf8",
+   "input_json": "\"\\u2028\\u2029\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\\u2028\\u2029\"",
+   "id": "c048-utf8_go",
+   "input_json": "\"\\u2028\\u2029\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\u2028\u2029\"\n",
+   "id": "c048-utf8_lf",
+   "input_json": "\"\\u2028\\u2029\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"line\\u2028sep and para\\u2029sep\"",
+   "id": "c049-ascii",
+   "input_json": "\"line\\u2028sep and para\\u2029sep\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"line\u2028sep and para\u2029sep\"",
+   "id": "c049-utf8",
+   "input_json": "\"line\\u2028sep and para\\u2029sep\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"line\\u2028sep and para\\u2029sep\"",
+   "id": "c049-utf8_go",
+   "input_json": "\"line\\u2028sep and para\\u2029sep\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"line\u2028sep and para\u2029sep\"\n",
+   "id": "c049-utf8_lf",
+   "input_json": "\"line\\u2028sep and para\\u2029sep\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\u00e9\\u4e2d\\ud83d\\ude00\"",
+   "id": "c050-ascii",
+   "input_json": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "id": "c050-utf8",
+   "input_json": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "id": "c050-utf8_go",
+   "input_json": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\u00e9\u4e2d\ud83d\ude00\"\n",
+   "id": "c050-utf8_lf",
+   "input_json": "\"\u00e9\u4e2d\ud83d\ude00\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\ud83d\\ude00\"",
+   "id": "c051-ascii",
+   "input_json": "\"\\ud83d\\ude00\"",
+   "variant": "ascii"
+  },
+  {
+   "expected": "\"\ud83d\ude00\"",
+   "id": "c051-utf8",
+   "input_json": "\"\\ud83d\\ude00\"",
+   "variant": "utf8"
+  },
+  {
+   "expected": "\"\ud83d\ude00\"",
+   "id": "c051-utf8_go",
+   "input_json": "\"\\ud83d\\ude00\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "\"\ud83d\ude00\"\n",
+   "id": "c051-utf8_lf",
+   "input_json": "\"\\ud83d\\ude00\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"a\":2,\"b\":1}",
+   "id": "c052-ascii",
+   "input_json": "{\"b\":1,\"a\":2}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"a\":2,\"b\":1}",
+   "id": "c052-utf8",
+   "input_json": "{\"b\":1,\"a\":2}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"a\":2,\"b\":1}",
+   "id": "c052-utf8_go",
+   "input_json": "{\"b\":1,\"a\":2}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"a\":2,\"b\":1}\n",
+   "id": "c052-utf8_lf",
+   "input_json": "{\"b\":1,\"a\":2}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"A\":3,\"z\":2,\"\\u00e9\":1,\"\\uffff\":5,\"\\ud83d\\ude00\":4}",
+   "id": "c053-ascii",
+   "input_json": "{\"\\u00e9\":1,\"z\":2,\"A\":3,\"\\ud83d\\ude00\":4,\"\\uffff\":5}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"A\":3,\"z\":2,\"\u00e9\":1,\"\uffff\":5,\"\ud83d\ude00\":4}",
+   "id": "c053-utf8",
+   "input_json": "{\"\\u00e9\":1,\"z\":2,\"A\":3,\"\\ud83d\\ude00\":4,\"\\uffff\":5}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"A\":3,\"z\":2,\"\u00e9\":1,\"\uffff\":5,\"\ud83d\ude00\":4}",
+   "id": "c053-utf8_go",
+   "input_json": "{\"\\u00e9\":1,\"z\":2,\"A\":3,\"\\ud83d\\ude00\":4,\"\\uffff\":5}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"A\":3,\"z\":2,\"\u00e9\":1,\"\uffff\":5,\"\ud83d\ude00\":4}\n",
+   "id": "c053-utf8_lf",
+   "input_json": "{\"\\u00e9\":1,\"z\":2,\"A\":3,\"\\ud83d\\ude00\":4,\"\\uffff\":5}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"a\":{\"c\":[3,2,1],\"d\":1},\"b\":null}",
+   "id": "c054-ascii",
+   "input_json": "{\"a\":{\"d\":1,\"c\":[3,2,1]},\"b\":null}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"a\":{\"c\":[3,2,1],\"d\":1},\"b\":null}",
+   "id": "c054-utf8",
+   "input_json": "{\"a\":{\"d\":1,\"c\":[3,2,1]},\"b\":null}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"a\":{\"c\":[3,2,1],\"d\":1},\"b\":null}",
+   "id": "c054-utf8_go",
+   "input_json": "{\"a\":{\"d\":1,\"c\":[3,2,1]},\"b\":null}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"a\":{\"c\":[3,2,1],\"d\":1},\"b\":null}\n",
+   "id": "c054-utf8_lf",
+   "input_json": "{\"a\":{\"d\":1,\"c\":[3,2,1]},\"b\":null}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"k\":2}",
+   "id": "c055-ascii",
+   "input_json": "{\"k\":1,\"k\":2}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"k\":2}",
+   "id": "c055-utf8",
+   "input_json": "{\"k\":1,\"k\":2}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"k\":2}",
+   "id": "c055-utf8_go",
+   "input_json": "{\"k\":1,\"k\":2}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"k\":2}\n",
+   "id": "c055-utf8_lf",
+   "input_json": "{\"k\":1,\"k\":2}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"a\":[],\"b\":{}}",
+   "id": "c056-ascii",
+   "input_json": "{\"a\":[],\"b\":{}}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"a\":[],\"b\":{}}",
+   "id": "c056-utf8",
+   "input_json": "{\"a\":[],\"b\":{}}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"a\":[],\"b\":{}}",
+   "id": "c056-utf8_go",
+   "input_json": "{\"a\":[],\"b\":{}}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"a\":[],\"b\":{}}\n",
+   "id": "c056-utf8_lf",
+   "input_json": "{\"a\":[],\"b\":{}}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "id": "c057-ascii",
+   "input_json": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "variant": "ascii"
+  },
+  {
+   "expected": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "id": "c057-utf8",
+   "input_json": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "variant": "utf8"
+  },
+  {
+   "expected": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "id": "c057-utf8_go",
+   "input_json": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "[1,2.0,\"3\",null,true,{\"x\":[]}]\n",
+   "id": "c057-utf8_lf",
+   "input_json": "[1,2.0,\"3\",null,true,{\"x\":[]}]",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "[1.0,2.5,-0.0,1e-08,3e+20,1e+21]",
+   "id": "c058-ascii",
+   "input_json": "[1.0,2.5,-0.0,1e-8,3e20,1e21]",
+   "variant": "ascii"
+  },
+  {
+   "expected": "[1.0,2.5,-0.0,1e-08,3e+20,1e+21]",
+   "id": "c058-utf8",
+   "input_json": "[1.0,2.5,-0.0,1e-8,3e20,1e21]",
+   "variant": "utf8"
+  },
+  {
+   "expected": "[1.0,2.5,-0.0,1e-08,3e+20,1e+21]",
+   "id": "c058-utf8_go",
+   "input_json": "[1.0,2.5,-0.0,1e-8,3e20,1e21]",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "[1.0,2.5,-0.0,1e-08,3e+20,1e+21]\n",
+   "id": "c058-utf8_lf",
+   "input_json": "[1.0,2.5,-0.0,1e-8,3e20,1e21]",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"adam\":{\"beta2\":0.999,\"epsilon\":1e-08,\"eta\":0.003},\"steps\":64}",
+   "id": "c059-ascii",
+   "input_json": "{\"adam\":{\"eta\":0.003,\"beta2\":0.999,\"epsilon\":1e-8},\"steps\":64}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"adam\":{\"beta2\":0.999,\"epsilon\":1e-08,\"eta\":0.003},\"steps\":64}",
+   "id": "c059-utf8",
+   "input_json": "{\"adam\":{\"eta\":0.003,\"beta2\":0.999,\"epsilon\":1e-8},\"steps\":64}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"adam\":{\"beta2\":0.999,\"epsilon\":1e-08,\"eta\":0.003},\"steps\":64}",
+   "id": "c059-utf8_go",
+   "input_json": "{\"adam\":{\"eta\":0.003,\"beta2\":0.999,\"epsilon\":1e-8},\"steps\":64}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"adam\":{\"beta2\":0.999,\"epsilon\":1e-08,\"eta\":0.003},\"steps\":64}\n",
+   "id": "c059-utf8_lf",
+   "input_json": "{\"adam\":{\"eta\":0.003,\"beta2\":0.999,\"epsilon\":1e-8},\"steps\":64}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "id": "c060-ascii",
+   "input_json": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "id": "c060-utf8",
+   "input_json": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "variant": "utf8"
+  },
+  {
+   "expected": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "id": "c060-utf8_go",
+   "input_json": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "variant": "utf8_go"
+  },
+  {
+   "expected": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}\n",
+   "id": "c060-utf8_lf",
+   "input_json": "{\"nested\":{\"deep\":{\"deeper\":{\"deepest\":[0.1,0.2,0.30000000000000004]}}}}",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\ud800\"",
+   "id": "c061-ascii",
+   "input_json": "\"\\ud800\"",
+   "rust_rejects_lone_surrogate": true,
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "UnicodeEncodeError",
+   "id": "c061-utf8",
+   "input_json": "\"\\ud800\"",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "UnicodeEncodeError",
+   "id": "c061-utf8_go",
+   "input_json": "\"\\ud800\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "UnicodeEncodeError",
+   "id": "c061-utf8_lf",
+   "input_json": "\"\\ud800\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "\"\\udc00x\"",
+   "id": "c062-ascii",
+   "input_json": "\"\\udc00x\"",
+   "rust_rejects_lone_surrogate": true,
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "UnicodeEncodeError",
+   "id": "c062-utf8",
+   "input_json": "\"\\udc00x\"",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "UnicodeEncodeError",
+   "id": "c062-utf8_go",
+   "input_json": "\"\\udc00x\"",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "UnicodeEncodeError",
+   "id": "c062-utf8_lf",
+   "input_json": "\"\\udc00x\"",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c063-ascii",
+   "input_json": "1e400",
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c063-utf8",
+   "input_json": "1e400",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "non_finite_rejected_by_rust",
+   "id": "c063-utf8_go",
+   "input_json": "1e400",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c063-utf8_lf",
+   "input_json": "1e400",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c064-ascii",
+   "input_json": "-1e400",
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c064-utf8",
+   "input_json": "-1e400",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "non_finite_rejected_by_rust",
+   "id": "c064-utf8_go",
+   "input_json": "-1e400",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c064-utf8_lf",
+   "input_json": "-1e400",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c065-ascii",
+   "input_json": "NaN",
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c065-utf8",
+   "input_json": "NaN",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "non_finite_rejected_by_rust",
+   "id": "c065-utf8_go",
+   "input_json": "NaN",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c065-utf8_lf",
+   "input_json": "NaN",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c066-ascii",
+   "input_json": "Infinity",
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c066-utf8",
+   "input_json": "Infinity",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "non_finite_rejected_by_rust",
+   "id": "c066-utf8_go",
+   "input_json": "Infinity",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c066-utf8_lf",
+   "input_json": "Infinity",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c067-ascii",
+   "input_json": "-Infinity",
+   "variant": "ascii"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c067-utf8",
+   "input_json": "-Infinity",
+   "variant": "utf8"
+  },
+  {
+   "expected_error": "non_finite_rejected_by_rust",
+   "id": "c067-utf8_go",
+   "input_json": "-Infinity",
+   "variant": "utf8_go"
+  },
+  {
+   "expected_error": "ValueError",
+   "id": "c067-utf8_lf",
+   "input_json": "-Infinity",
+   "variant": "utf8_lf"
+  },
+  {
+   "duplicates": "last_wins",
+   "expected": "{\"k\":2}",
+   "id": "dup-last-wins",
+   "input_json": "{\"k\":1,\"k\":2}",
+   "variant": "ascii"
+  }
+ ],
+ "schema": 1,
+ "variants": {
+  "ascii": "privoke_model.full_adam.canonical; param-update receipts; contextual_training admission header",
+  "utf8": "privoke_model.fingerprint.parameter_fingerprint (without sort_keys, applied to a list)",
+  "utf8_go": "privoke_model.artifact.artifact_checksum (U+2028 and U+2029 escaped as Go's encoder does)",
+  "utf8_lf": "privoke_model.v3_contract.canonical and privoke_model.sensitive_retention.canonical_bytes"
+ }
+}

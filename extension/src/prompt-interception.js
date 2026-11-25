@@ -47,10 +47,14 @@ export function promptTarget(rawUrl, method = "POST", baseUrl = undefined) {
   return null;
 }
 
-export function extractPrompt(body) {
+export function extractPrompt(body, targetApp = undefined) {
   const parsed = parseBody(body);
   if (parsed == null) return "";
   if (typeof parsed === "string") return looksLikePrompt(parsed) ? parsed.trim() : "";
+  if (targetApp === "chatgpt" && (Object.hasOwn(parsed, "role") || Object.hasOwn(parsed, "author"))) {
+    const text = chatgptFieldText(parsed);
+    return looksLikePrompt(text) ? text.trim() : "";
+  }
 
   const messageText = latestUserText(parsed.messages);
   if (messageText) return messageText;
@@ -59,10 +63,18 @@ export function extractPrompt(body) {
 
   for (const key of ["prompt", "input", "query", "message", "content"]) {
     if (Object.hasOwn(parsed, key)) {
-      const text = textFromValue(parsed[key]);
+      const text = targetApp === "chatgpt"
+        ? chatgptFieldText(parsed[key])
+        : textFromValue(parsed[key]);
       if (looksLikePrompt(text)) return text.trim();
     }
   }
+
+  // ChatGPT sends conversation metadata as well as user messages. Its known
+  // structured prompt fields above are sufficient; arbitrary model/action/ID
+  // strings are not prompt evidence. Other providers (notably Gemini) need
+  // the nested fallback for their encoded request envelopes.
+  if (targetApp === "chatgpt") return "";
 
   const candidates = [];
   collectCandidates(parsed, "", candidates);
@@ -95,6 +107,17 @@ function parseBody(body) {
     }
     return trimmed;
   }
+}
+
+function chatgptFieldText(value) {
+  if (Array.isArray(value)) return value.map(chatgptFieldText).filter(Boolean).join("\n");
+  if (value && typeof value === "object" && (
+    Object.hasOwn(value, "role") || Object.hasOwn(value, "author")
+  )) {
+    const role = String(value.role ?? value.author?.role ?? "").toLowerCase();
+    if (role !== "user" && role !== "human") return "";
+  }
+  return textFromValue(value);
 }
 
 function parseFormFields(fields) {

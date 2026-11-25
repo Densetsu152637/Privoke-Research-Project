@@ -8,13 +8,10 @@ export function webExtensionApi(root = globalThis) {
 
 export function addRuntimeMessageListener(handler, root = globalThis) {
   const api = webExtensionApi(root);
-  if (root.browser) {
-    api.runtime.onMessage.addListener((message, sender) => handler(message, sender));
-    return;
-  }
-
+  // A browser namespace can alias Chromium APIs without supporting Promise
+  // listener responses. The callback contract also works in Firefox.
   api.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    Promise.resolve(handler(message, sender)).then(
+    Promise.resolve().then(() => handler(message, sender)).then(
       sendResponse,
       (error) => sendResponse({ ok: false, error: errorMessage(error) }),
     );
@@ -41,6 +38,13 @@ export function sendNativeMessage(hostName, message, root = globalThis) {
     api.runtime,
     (callback) => api.runtime.sendNativeMessage(hostName, message, callback),
   );
+}
+
+// A long-lived port to a native-messaging host. The browser starts the host when the port opens and ends it when
+// the port closes. Both Chromium and Firefox return the port synchronously; a host that cannot be started shows up
+// as a disconnect with an error, not as an exception.
+export function connectNative(hostName, root = globalThis) {
+  return webExtensionApi(root).runtime.connectNative(hostName);
 }
 
 export function localStorageArea(root = globalThis) {

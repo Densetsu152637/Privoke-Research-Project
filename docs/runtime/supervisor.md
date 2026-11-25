@@ -14,6 +14,8 @@ The supervisor stays running on port `50056` while it starts and stops the exten
 - `Status` to report the detector process state and PID;
 - `ModelStreamingHealth` to check the configured parameter-streaming endpoint on demand when the extension enables its LLM layer.
 
+On Windows, stopping the detector terminates the process tree rooted at its owned Python launcher. Virtual-environment Python can spawn a second interpreter; stopping only the launcher would leave that interpreter occupying port `50057` and prevent the next start. A failed termination is reported as an error. The supervisor still refuses to adopt or terminate an unrelated process merely because it occupies that port.
+
 The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment. Consequently, GPU inference for extension traffic requires PyTorch from `../client-runtime/requirements-gpu.txt` to be installed in the interpreter selected for the supervisor (normally `../client-runtime/.venv`). `PRIVOKE_MODEL_DEVICE=auto` then selects CUDA or Apple MPS and falls back to CPU. The Compose GPU override applies to the separate server runtime, not this child. The portable WebExtension can start the supervisor through the fixed-purpose native messaging launcher in `src/native_messaging_host.py`.
 
 The supervisor always owns the gRPC-Web bridge on `127.0.0.1:8080`. There is no external proxy mode: bridge startup and shutdown follow the supervisor lifecycle. The bridge, control service, and detector are forced to loopback rather than merely defaulting to it.
@@ -28,7 +30,7 @@ WebExtension -> HTTP gRPC-Web :8080 -> supervisor-owned bridge
 
 ## Local setup
 
-First prepare `../client-runtime` as described in its README. Then, from this directory, install the lightweight control-plane dependencies and generate this process's protobuf bindings:
+First prepare `../client-runtime` as described in [Client runtime](client-runtime.md#local-setup). Then, from this directory, install the lightweight control-plane dependencies and generate this process's protobuf bindings:
 
 ```bash
 cd extension/runtime-supervisor
@@ -55,13 +57,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-native-host.ps1 -Brow
 
 Use `-Browser OperaGX` for an explicit Opera GX registration. Other values are `Chrome`, `Edge`, `Chromium`, `Firefox`, and `All`.
 
+The Windows installer checks that the runtime Python interpreter can execute before changing the installation. After moving the checkout to another drive or directory, recreate its Python virtual environment and reinstall the runtime dependencies, then rerun this installer from the new checkout. The installed launcher stores absolute paths; an old path can cause the browser to report "Error when communicating with the native messaging host" even when the host is registered.
+
 Linux or macOS:
 
 ```bash
 sh ./scripts/install-native-host.sh auto
 ```
 
+**Pretrained contextual encoder.** The browser starts the native host with a clean environment, so the directory of the encoder's verified assets (`model.onnx`, `tokenizer.json`) is stored in the launcher when the installer runs: the POSIX installer exports `PRIVOKE_PRETRAINED_CONTEXT_DIR` from the value in effect (an absolute path to an existing directory, otherwise the installer stops before writing anything), and `install-native-host.ps1` takes `-PretrainedContextDir` (default: the same variable) and writes it as a fourth line of `privoke-native-host.config`, which the launcher sets for the host (three lines still work). The Rust controller passes it to the Rust worker as `--pretrained-context-dir` when `PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust`; the Python runtime reads the same variable. Unset, the launcher carries none. `extension/runtime-supervisor/test/test_install_native_host.py` runs the POSIX installer in a scratch home and checks the Windows installer and launcher as text.
+
 The Windows installer places a compiled native-messaging stdio launcher and host files under `%LOCALAPPDATA%\PriVoke\NativeHost`. The POSIX installer uses the selected browser's per-user native-manifest directory. Chromium-family browsers use `allowed_origins`; Firefox uses `allowed_extensions`. Stable extension identities are read from `../extension-identities.json`, so no manually copied development ID is required. The host accepts only `ensure_supervisor`; it cannot run caller-supplied commands.
+
+**V3 model refresh (Rust controller).** The same clean-environment rule applies to `V3_PACKAGE_REFRESH_MODELS` and `V3_PACKAGE_REFRESH_SECONDS`: when `PRIVOKE_SUPERVISOR_BINARY` selects the Rust controller, `install-native-host.sh` stores them in the launcher (`V3_PACKAGE_REFRESH_MODELS` defaults to `privoke-v3-balanced`; an empty value starts no loop; the seconds are stored only when set) and `install-native-host.ps1 -RefreshModels` writes the models as the fifth line of `privoke-native-host.config`, which `native-host-launcher.cs` sets for the host (three, four or five lines are accepted). The loop admits a newer version only with a publication statement under a key compiled into the client (`docs/runtime/v3-publication.md`).
 
 The extension probes `Status` first. Only when that fails does it ask the native host to start `src/main.py`. The native launcher sets `PRIVOKE_RUNTIME_START_ENABLED=false`, waits for the bridge on `127.0.0.1:8080`, and returns. The extension then invokes `SetRuntimeEnabled(true)` to start the detector on `50057`. It performs this restoration when the background worker loads and on browser startup/extension installation when the persisted master setting is on.
 

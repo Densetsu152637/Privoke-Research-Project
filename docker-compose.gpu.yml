@@ -1,8 +1,0 @@
-services:
-  client-runtime:
-    build:
-      args:
-        PRIVOKE_INSTALL_GPU: "true"
-    gpus: all
-    environment:
-      PRIVOKE_MODEL_DEVICE: cuda

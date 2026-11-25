@@ -1,0 +1,46 @@
+[package]
+name = "privoke-v3-fuzzer"
+description = "The experimental V3 fuzzer service: one frozen-schedule fit per request, a runtime and a checkpoint service over mutual TLS, a durable cycles table and a work directory of every wire message"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_v3_fuzzer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "v3-fuzzer-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+privoke-curriculum = { path = "../../crates/privoke-curriculum" }
+# `v3_fit` carries the stage 19 ports of `validate_execution` and `publication_passes`; they are reused, not copied.
+privoke-training = { path = "../../crates/privoke-training" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+prost = { workspace = true }
+# SQLite is compiled in: the `cycles` table is the Python service's database.
+rusqlite = { version = "0.37", features = ["bundled"] }
+# `float_roundtrip`: evidence floats must parse to the same doubles as Python's `json.loads`.
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[dev-dependencies]
+# The recorded fits replay against the real checkpoint store (stage V3-R1).
+privoke-param-update = { path = "../param-update" }
+# The real-weight routine test (`tests/routine_real.rs`, local only) runs the real runtime in process. Cargo allows the cycle: the
+# runtime depends on this crate, and only this crate's integration tests depend on the runtime.
+privoke-v3-runtime = { path = "../v3-runtime" }
+privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
+privoke-pki = { path = "../../tools/privoke-pki" }
+tempfile = { workspace = true }
+base64 = { workspace = true }
+time = { workspace = true }
+
+[lints]
+workspace = true

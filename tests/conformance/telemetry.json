@@ -1,0 +1,2876 @@
+{
+ "counts": [
+  [
+   500000,
+   "action",
+   "ALLOW",
+   7
+  ],
+  [
+   500000,
+   "action",
+   "BLOCK",
+   10
+  ],
+  [
+   500000,
+   "action",
+   "WARN",
+   11
+  ],
+  [
+   500000,
+   "model_version",
+   "OTHER",
+   10
+  ],
+  [
+   500000,
+   "model_version",
+   "v0.3.0",
+   18
+  ],
+  [
+   500000,
+   "primary_category",
+   "CHILD",
+   1
+  ],
+  [
+   500000,
+   "primary_category",
+   "CRIMINAL",
+   3
+  ],
+  [
+   500000,
+   "primary_category",
+   "FINANCIAL",
+   2
+  ],
+  [
+   500000,
+   "primary_category",
+   "HEALTH",
+   1
+  ],
+  [
+   500000,
+   "primary_category",
+   "IDENTITY",
+   3
+  ],
+  [
+   500000,
+   "primary_category",
+   "LOCATION",
+   3
+  ],
+  [
+   500000,
+   "primary_category",
+   "NONE",
+   6
+  ],
+  [
+   500000,
+   "primary_category",
+   "POLITICS",
+   2
+  ],
+  [
+   500000,
+   "primary_category",
+   "RELIGION",
+   1
+  ],
+  [
+   500000,
+   "primary_category",
+   "SEXUAL",
+   4
+  ],
+  [
+   500000,
+   "primary_category",
+   "THIRD_PARTY",
+   2
+  ],
+  [
+   500000,
+   "risk_bucket",
+   "0.0-0.2",
+   5
+  ],
+  [
+   500000,
+   "risk_bucket",
+   "0.2-0.5",
+   6
+  ],
+  [
+   500000,
+   "risk_bucket",
+   "0.5-0.8",
+   9
+  ],
+  [
+   500000,
+   "risk_bucket",
+   "0.8-1.0",
+   8
+  ],
+  [
+   500000,
+   "time_bucket",
+   "00-04_UTC",
+   5
+  ],
+  [
+   500000,
+   "time_bucket",
+   "04-08_UTC",
+   5
+  ],
+  [
+   500000,
+   "time_bucket",
+   "08-12_UTC",
+   4
+  ],
+  [
+   500000,
+   "time_bucket",
+   "12-16_UTC",
+   2
+  ],
+  [
+   500000,
+   "time_bucket",
+   "16-20_UTC",
+   7
+  ],
+  [
+   500000,
+   "time_bucket",
+   "20-24_UTC",
+   5
+  ],
+  [
+   750000,
+   "action",
+   "ALLOW",
+   7
+  ],
+  [
+   750000,
+   "action",
+   "BLOCK",
+   9
+  ],
+  [
+   750000,
+   "action",
+   "WARN",
+   10
+  ],
+  [
+   750000,
+   "model_version",
+   "OTHER",
+   11
+  ],
+  [
+   750000,
+   "model_version",
+   "v0.3.0",
+   15
+  ],
+  [
+   750000,
+   "primary_category",
+   "CHILD",
+   4
+  ],
+  [
+   750000,
+   "primary_category",
+   "CRIMINAL",
+   5
+  ],
+  [
+   750000,
+   "primary_category",
+   "FINANCIAL",
+   1
+  ],
+  [
+   750000,
+   "primary_category",
+   "HEALTH",
+   2
+  ],
+  [
+   750000,
+   "primary_category",
+   "IDENTITY",
+   1
+  ],
+  [
+   750000,
+   "primary_category",
+   "LOCATION",
+   1
+  ],
+  [
+   750000,
+   "primary_category",
+   "NONE",
+   3
+  ],
+  [
+   750000,
+   "primary_category",
+   "POLITICS",
+   2
+  ],
+  [
+   750000,
+   "primary_category",
+   "RELIGION",
+   2
+  ],
+  [
+   750000,
+   "primary_category",
+   "SEXUAL",
+   5
+  ],
+  [
+   750000,
+   "risk_bucket",
+   "0.0-0.2",
+   9
+  ],
+  [
+   750000,
+   "risk_bucket",
+   "0.2-0.5",
+   5
+  ],
+  [
+   750000,
+   "risk_bucket",
+   "0.5-0.8",
+   9
+  ],
+  [
+   750000,
+   "risk_bucket",
+   "0.8-1.0",
+   3
+  ],
+  [
+   750000,
+   "time_bucket",
+   "00-04_UTC",
+   7
+  ],
+  [
+   750000,
+   "time_bucket",
+   "04-08_UTC",
+   2
+  ],
+  [
+   750000,
+   "time_bucket",
+   "08-12_UTC",
+   8
+  ],
+  [
+   750000,
+   "time_bucket",
+   "12-16_UTC",
+   4
+  ],
+  [
+   750000,
+   "time_bucket",
+   "16-20_UTC",
+   3
+  ],
+  [
+   750000,
+   "time_bucket",
+   "20-24_UTC",
+   2
+  ],
+  [
+   1000000,
+   "action",
+   "ALLOW",
+   10
+  ],
+  [
+   1000000,
+   "action",
+   "BLOCK",
+   15
+  ],
+  [
+   1000000,
+   "action",
+   "WARN",
+   13
+  ],
+  [
+   1000000,
+   "model_version",
+   "OTHER",
+   19
+  ],
+  [
+   1000000,
+   "model_version",
+   "v0.3.0",
+   19
+  ],
+  [
+   1000000,
+   "primary_category",
+   "CHILD",
+   2
+  ],
+  [
+   1000000,
+   "primary_category",
+   "CRIMINAL",
+   2
+  ],
+  [
+   1000000,
+   "primary_category",
+   "FINANCIAL",
+   2
+  ],
+  [
+   1000000,
+   "primary_category",
+   "HEALTH",
+   2
+  ],
+  [
+   1000000,
+   "primary_category",
+   "IDENTITY",
+   2
+  ],
+  [
+   1000000,
+   "primary_category",
+   "LOCATION",
+   4
+  ],
+  [
+   1000000,
+   "primary_category",
+   "NONE",
+   2
+  ],
+  [
+   1000000,
+   "primary_category",
+   "POLITICS",
+   6
+  ],
+  [
+   1000000,
+   "primary_category",
+   "RELIGION",
+   8
+  ],
+  [
+   1000000,
+   "primary_category",
+   "SEXUAL",
+   5
+  ],
+  [
+   1000000,
+   "primary_category",
+   "THIRD_PARTY",
+   3
+  ],
+  [
+   1000000,
+   "risk_bucket",
+   "0.0-0.2",
+   11
+  ],
+  [
+   1000000,
+   "risk_bucket",
+   "0.2-0.5",
+   9
+  ],
+  [
+   1000000,
+   "risk_bucket",
+   "0.5-0.8",
+   8
+  ],
+  [
+   1000000,
+   "risk_bucket",
+   "0.8-1.0",
+   10
+  ],
+  [
+   1000000,
+   "time_bucket",
+   "00-04_UTC",
+   5
+  ],
+  [
+   1000000,
+   "time_bucket",
+   "04-08_UTC",
+   7
+  ],
+  [
+   1000000,
+   "time_bucket",
+   "08-12_UTC",
+   8
+  ],
+  [
+   1000000,
+   "time_bucket",
+   "12-16_UTC",
+   8
+  ],
+  [
+   1000000,
+   "time_bucket",
+   "16-20_UTC",
+   5
+  ],
+  [
+   1000000,
+   "time_bucket",
+   "20-24_UTC",
+   5
+  ],
+  [
+   1250000,
+   "action",
+   "ALLOW",
+   10
+  ],
+  [
+   1250000,
+   "action",
+   "BLOCK",
+   5
+  ],
+  [
+   1250000,
+   "action",
+   "WARN",
+   11
+  ],
+  [
+   1250000,
+   "model_version",
+   "OTHER",
+   18
+  ],
+  [
+   1250000,
+   "model_version",
+   "v0.3.0",
+   8
+  ],
+  [
+   1250000,
+   "primary_category",
+   "CHILD",
+   1
+  ],
+  [
+   1250000,
+   "primary_category",
+   "CRIMINAL",
+   2
+  ],
+  [
+   1250000,
+   "primary_category",
+   "FINANCIAL",
+   2
+  ],
+  [
+   1250000,
+   "primary_category",
+   "HEALTH",
+   3
+  ],
+  [
+   1250000,
+   "primary_category",
+   "IDENTITY",
+   3
+  ],
+  [
+   1250000,
+   "primary_category",
+   "LOCATION",
+   1
+  ],
+  [
+   1250000,
+   "primary_category",
+   "NONE",
+   1
+  ],
+  [
+   1250000,
+   "primary_category",
+   "POLITICS",
+   3
+  ],
+  [
+   1250000,
+   "primary_category",
+   "RELIGION",
+   3
+  ],
+  [
+   1250000,
+   "primary_category",
+   "SEXUAL",
+   4
+  ],
+  [
+   1250000,
+   "primary_category",
+   "THIRD_PARTY",
+   3
+  ],
+  [
+   1250000,
+   "risk_bucket",
+   "0.0-0.2",
+   11
+  ],
+  [
+   1250000,
+   "risk_bucket",
+   "0.2-0.5",
+   6
+  ],
+  [
+   1250000,
+   "risk_bucket",
+   "0.5-0.8",
+   5
+  ],
+  [
+   1250000,
+   "risk_bucket",
+   "0.8-1.0",
+   4
+  ],
+  [
+   1250000,
+   "time_bucket",
+   "00-04_UTC",
+   4
+  ],
+  [
+   1250000,
+   "time_bucket",
+   "04-08_UTC",
+   5
+  ],
+  [
+   1250000,
+   "time_bucket",
+   "08-12_UTC",
+   3
+  ],
+  [
+   1250000,
+   "time_bucket",
+   "12-16_UTC",
+   7
+  ],
+  [
+   1250000,
+   "time_bucket",
+   "16-20_UTC",
+   2
+  ],
+  [
+   1250000,
+   "time_bucket",
+   "20-24_UTC",
+   5
+  ],
+  [
+   1333333,
+   "action",
+   "ALLOW",
+   8
+  ],
+  [
+   1333333,
+   "action",
+   "BLOCK",
+   9
+  ],
+  [
+   1333333,
+   "action",
+   "WARN",
+   14
+  ],
+  [
+   1333333,
+   "model_version",
+   "OTHER",
+   18
+  ],
+  [
+   1333333,
+   "model_version",
+   "v0.3.0",
+   13
+  ],
+  [
+   1333333,
+   "primary_category",
+   "CHILD",
+   3
+  ],
+  [
+   1333333,
+   "primary_category",
+   "CRIMINAL",
+   4
+  ],
+  [
+   1333333,
+   "primary_category",
+   "FINANCIAL",
+   3
+  ],
+  [
+   1333333,
+   "primary_category",
+   "HEALTH",
+   3
+  ],
+  [
+   1333333,
+   "primary_category",
+   "IDENTITY",
+   5
+  ],
+  [
+   1333333,
+   "primary_category",
+   "LOCATION",
+   4
+  ],
+  [
+   1333333,
+   "primary_category",
+   "NONE",
+   2
+  ],
+  [
+   1333333,
+   "primary_category",
+   "POLITICS",
+   3
+  ],
+  [
+   1333333,
+   "primary_category",
+   "RELIGION",
+   2
+  ],
+  [
+   1333333,
+   "primary_category",
+   "SEXUAL",
+   1
+  ],
+  [
+   1333333,
+   "primary_category",
+   "THIRD_PARTY",
+   1
+  ],
+  [
+   1333333,
+   "risk_bucket",
+   "0.0-0.2",
+   8
+  ],
+  [
+   1333333,
+   "risk_bucket",
+   "0.2-0.5",
+   9
+  ],
+  [
+   1333333,
+   "risk_bucket",
+   "0.5-0.8",
+   8
+  ],
+  [
+   1333333,
+   "risk_bucket",
+   "0.8-1.0",
+   6
+  ],
+  [
+   1333333,
+   "time_bucket",
+   "00-04_UTC",
+   5
+  ],
+  [
+   1333333,
+   "time_bucket",
+   "04-08_UTC",
+   3
+  ],
+  [
+   1333333,
+   "time_bucket",
+   "08-12_UTC",
+   6
+  ],
+  [
+   1333333,
+   "time_bucket",
+   "12-16_UTC",
+   7
+  ],
+  [
+   1333333,
+   "time_bucket",
+   "16-20_UTC",
+   5
+  ],
+  [
+   1333333,
+   "time_bucket",
+   "20-24_UTC",
+   5
+  ],
+  [
+   2000000,
+   "action",
+   "ALLOW",
+   14
+  ],
+  [
+   2000000,
+   "action",
+   "BLOCK",
+   12
+  ],
+  [
+   2000000,
+   "action",
+   "WARN",
+   7
+  ],
+  [
+   2000000,
+   "model_version",
+   "OTHER",
+   20
+  ],
+  [
+   2000000,
+   "model_version",
+   "v0.3.0",
+   13
+  ],
+  [
+   2000000,
+   "primary_category",
+   "CHILD",
+   3
+  ],
+  [
+   2000000,
+   "primary_category",
+   "CRIMINAL",
+   2
+  ],
+  [
+   2000000,
+   "primary_category",
+   "FINANCIAL",
+   1
+  ],
+  [
+   2000000,
+   "primary_category",
+   "HEALTH",
+   2
+  ],
+  [
+   2000000,
+   "primary_category",
+   "IDENTITY",
+   6
+  ],
+  [
+   2000000,
+   "primary_category",
+   "LOCATION",
+   1
+  ],
+  [
+   2000000,
+   "primary_category",
+   "NONE",
+   4
+  ],
+  [
+   2000000,
+   "primary_category",
+   "POLITICS",
+   7
+  ],
+  [
+   2000000,
+   "primary_category",
+   "RELIGION",
+   3
+  ],
+  [
+   2000000,
+   "primary_category",
+   "SEXUAL",
+   2
+  ],
+  [
+   2000000,
+   "primary_category",
+   "THIRD_PARTY",
+   2
+  ],
+  [
+   2000000,
+   "risk_bucket",
+   "0.0-0.2",
+   13
+  ],
+  [
+   2000000,
+   "risk_bucket",
+   "0.2-0.5",
+   7
+  ],
+  [
+   2000000,
+   "risk_bucket",
+   "0.5-0.8",
+   8
+  ],
+  [
+   2000000,
+   "risk_bucket",
+   "0.8-1.0",
+   5
+  ],
+  [
+   2000000,
+   "time_bucket",
+   "00-04_UTC",
+   6
+  ],
+  [
+   2000000,
+   "time_bucket",
+   "04-08_UTC",
+   8
+  ],
+  [
+   2000000,
+   "time_bucket",
+   "08-12_UTC",
+   7
+  ],
+  [
+   2000000,
+   "time_bucket",
+   "12-16_UTC",
+   4
+  ],
+  [
+   2000000,
+   "time_bucket",
+   "16-20_UTC",
+   4
+  ],
+  [
+   2000000,
+   "time_bucket",
+   "20-24_UTC",
+   4
+  ]
+ ],
+ "empty_summary": {
+  "all_zero": true,
+  "dimensions": 5,
+  "sample_count": 0
+ },
+ "estimator_tolerance_ulps": 4,
+ "health": {
+  "service": "telemetry-service",
+  "status": "SERVING"
+ },
+ "records": [
+  {
+   "label": "valid-000",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQZIRUFMVEi6AQcwLjItMC41wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-001",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-002",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-003",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-004",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBCFJFTElHSU9OugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-005",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-006",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCENSSU1JTkFMugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-007",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQUxMT1eyAQhDUklNSU5BTLoBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-008",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQhDUklNSU5BTLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-009",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-010",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQROT05FugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-011",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-012",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhMT0NBVElPTroBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-013",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-014",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBCUZJTkFOQ0lBTLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAABA",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-015",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQhMT0NBVElPTroBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-016",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-017",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-018",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQhQT0xJVElDU7oBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-019",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-020",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCElERU5USVRZugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-021",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBC1RISVJEX1BBUlRZugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-022",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQlGSU5BTkNJQUy6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-023",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQkxPQ0uyAQROT05FugEHMC4yLTAuNcIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-024",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC44LTEuMMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-025",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-026",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-027",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQZTRVhVQUy6AQcwLjItMC41wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-028",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAABA",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-029",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADgPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-030",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCUZJTkFOQ0lBTLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-031",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-032",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhSRUxJR0lPTroBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-033",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-034",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBBE5PTkW6AQcwLjAtMC4ywgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-035",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBCENSSU1JTkFMugEHMC44LTEuMMIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-036",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQhQT0xJVElDU7oBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-037",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhMT0NBVElPTroBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-038",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-039",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-040",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-041",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-042",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-043",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQhDUklNSU5BTLoBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-044",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-045",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhDUklNSU5BTLoBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-046",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC4yLTAuNcIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-047",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-048",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBBUNISUxEugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-049",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-050",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-051",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-052",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhSRUxJR0lPTroBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-053",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-054",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-055",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQZTRVhVQUy6AQcwLjItMC41wgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-056",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQhQT0xJVElDU7oBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-057",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQZIRUFMVEi6AQcwLjgtMS4wwgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAAAAQA==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-058",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBC1RISVJEX1BBUlRZugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-059",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQROT05FugEHMC44LTEuMMIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-060",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC44LTEuMMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-061",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCFJFTElHSU9OugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-062",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-063",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhDUklNSU5BTLoBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-064",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQkxPQ0uyAQtUSElSRF9QQVJUWboBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-065",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-066",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQVDSElMRLoBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-067",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCENSSU1JTkFMugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-068",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-069",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQhDUklNSU5BTLoBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-070",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQROT05FugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-071",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-072",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-073",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-074",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQlGSU5BTkNJQUy6AQcwLjUtMC44wgEFT1RIRVLKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-075",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQtUSElSRF9QQVJUWboBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-076",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-077",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-078",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBC1RISVJEX1BBUlRZugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-079",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-080",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC44LTEuMMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-081",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBBE5PTkW6AQcwLjgtMS4wwgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-082",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-083",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhSRUxJR0lPTroBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-084",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQZTRVhVQUy6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-085",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQlGSU5BTkNJQUy6AQcwLjItMC41wgEFT1RIRVLKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-086",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-087",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQZIRUFMVEi6AQcwLjItMC41wgEFT1RIRVLKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-088",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-089",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBBE5PTkW6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAAAAQA==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-090",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-091",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBCUZJTkFOQ0lBTLoBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-092",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCENSSU1JTkFMugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-093",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBCUZJTkFOQ0lBTLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-094",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-095",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-096",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhDUklNSU5BTLoBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-097",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-098",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQUxMT1eyAQhDUklNSU5BTLoBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-099",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQZTRVhVQUy6AQcwLjAtMC4ywgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-100",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhSRUxJR0lPTroBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-101",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC4yLTAuNcIBBnYwLjMuMMoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-102",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQtUSElSRF9QQVJUWboBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-103",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-104",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCENSSU1JTkFMugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-105",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-106",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQtUSElSRF9QQVJUWboBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-107",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADgPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-108",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQlGSU5BTkNJQUy6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADgPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-109",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQZTRVhVQUy6AQcwLjgtMS4wwgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-110",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhDUklNSU5BTLoBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-111",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-112",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQlGSU5BTkNJQUy6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-113",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-114",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-115",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBCElERU5USVRZugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-116",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQROT05FugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAAAQA==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-117",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhMT0NBVElPTroBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-118",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-119",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQZIRUFMVEi6AQcwLjgtMS4wwgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-120",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-121",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQhDUklNSU5BTLoBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-122",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-123",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-124",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEV0FSTrIBBE5PTkW6AQcwLjAtMC4ywgEFT1RIRVLKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-125",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQZIRUFMVEi6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAAAAQA==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-126",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQZTRVhVQUy6AQcwLjItMC41wgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-127",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQZTRVhVQUy6AQcwLjgtMS4wwgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-128",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBCExPQ0FUSU9OugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-129",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-130",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQZTRVhVQUy6AQcwLjItMC41wgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAABA",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-131",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQROT05FugEHMC4yLTAuNcIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-132",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-133",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-134",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQlGSU5BTkNJQUy6AQcwLjItMC41wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-135",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQVDSElMRLoBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-136",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQkxPQ0uyAQROT05FugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADoPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-137",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBBUNISUxEugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-138",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-139",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCElERU5USVRZugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-140",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-141",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQtUSElSRF9QQVJUWboBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-142",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-143",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-144",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-145",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-146",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQtUSElSRF9QQVJUWboBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-147",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQUxMT1eyAQhQT0xJVElDU7oBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-148",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQhDUklNSU5BTLoBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-149",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuNS0wLjjCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAOA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-150",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-151",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQZTRVhVQUy6AQcwLjAtMC4ywgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-152",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-153",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQROT05FugEHMC44LTEuMMIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-154",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBBE5PTkW6AQcwLjgtMS4wwgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADgPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-155",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBBUNISUxEugEHMC41LTAuOMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-156",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBBlNFWFVBTLoBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-157",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQhQT0xJVElDU7oBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-158",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEEV0FSTrIBBkhFQUxUSLoBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-159",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-160",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQtUSElSRF9QQVJUWboBBzAuOC0xLjDCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-161",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQhJREVOVElUWboBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAABA",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-162",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQkxPQ0uyAQhSRUxJR0lPTroBBzAuMC0wLjLCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAA9D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-163",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQROT05FugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAAAAQA==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-164",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEEV0FSTrIBCFJFTElHSU9OugEHMC41LTAuOMIBBU9USEVSygEJZ3JyX3JyX3Yx0QFS19r7VFX1Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-165",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQUxMT1eyAQhSRUxJR0lPTroBBzAuMi0wLjXCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAPA/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-166",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC4wLTAuMsIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-167",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAABA",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-168",
+   "request_b64": "ogEJMTItMTZfVVRDqgEFQUxMT1eyAQZTRVhVQUy6AQcwLjUtMC44wgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAAD0Pw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-169",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQlGSU5BTkNJQUy6AQcwLjAtMC4ywgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAPQ/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-170",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCFBPTElUSUNTugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBUtfa+1RV9T8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-171",
+   "request_b64": "ogEJMDQtMDhfVVRDqgEFQUxMT1eyAQhQT0xJVElDU7oBBzAuNS0wLjjCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-172",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQkxPQ0uyAQhDUklNSU5BTLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-173",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQVDSElMRLoBBzAuMC0wLjLCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAQAAAAAAAABA",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-174",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEEV0FSTrIBC1RISVJEX1BBUlRZugEHMC4yLTAuNcIBBU9USEVSygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-175",
+   "request_b64": "ogEJMDAtMDRfVVRDqgEFQkxPQ0uyAQhJREVOVElUWboBBzAuMi0wLjXCAQVPVEhFUsoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-176",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQkxPQ0uyAQZTRVhVQUy6AQcwLjUtMC44wgEFT1RIRVLKAQlncnJfcnJfdjHRAQAAAAAAAOg/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-177",
+   "request_b64": "ogEJMjAtMjRfVVRDqgEFQUxMT1eyAQZIRUFMVEi6AQcwLjAtMC4ywgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-178",
+   "request_b64": "ogEJMTItMTZfVVRDqgEEV0FSTrIBCENSSU1JTkFMugEHMC44LTEuMMIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA6D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "valid-179",
+   "request_b64": "ogEJMTYtMjBfVVRDqgEFQUxMT1eyAQVDSElMRLoBBzAuOC0xLjDCAQZ2MC4zLjDKAQlncnJfcnJfdjHRAVLX2vtUVfU/",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "details": "Unsupported or missing local privacy mechanism.",
+   "label": "bad-mechanism",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBBW90aGVy0QEAAAAAAADwPw==",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "Unsupported or missing local privacy mechanism.",
+   "label": "empty-mechanism",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMNEBAAAAAAAA8D8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "privacy_epsilon must be finite and between 0.5 and 2.",
+   "label": "epsilon-below-minimum",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBPE7RkVz+3z8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "privacy_epsilon must be finite and between 0.5 and 2.",
+   "label": "epsilon-above-maximum",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBTflrDQAAAEA=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "privacy_epsilon must be finite and between 0.5 and 2.",
+   "label": "epsilon-nan",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA+H8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "privacy_epsilon must be finite and between 0.5 and 2.",
+   "label": "epsilon-infinity",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8H8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "privacy_epsilon must have at most six decimal places.",
+   "label": "epsilon-seven-decimals",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBm/LXGgAA8D8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "label": "epsilon-at-minimum",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA4D8=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "label": "epsilon-at-maximum",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAAAEA=",
+   "response": {
+    "accepted": true,
+    "message": "Protected report added to aggregates."
+   },
+   "status": "OK"
+  },
+  {
+   "details": "action has an unsupported value.",
+   "label": "bad-action",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEEREVOWbIBBE5PTkW6AQcwLjAtMC4ywgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "primary_category has an unsupported value.",
+   "label": "empty-category",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1e6AQcwLjAtMC4ywgEGdjAuMy4wygEJZ3JyX3JyX3Yx0QEAAAAAAADwPw==",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "time_bucket has an unsupported value.",
+   "label": "bad-time-bucket",
+   "request_b64": "ogEJMjQtMjhfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "risk_bucket has an unsupported value.",
+   "label": "bad-risk-bucket",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4yLTAuM8IBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "model_version has an unsupported value.",
+   "label": "bad-model-version",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFQUxMT1eyAQROT05FugEHMC4wLTAuMsIBBnY5LjkuOcoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "status": "INVALID_ARGUMENT"
+  },
+  {
+   "details": "action has an unsupported value.",
+   "label": "lower-case-action",
+   "request_b64": "ogEJMDgtMTJfVVRDqgEFYWxsb3eyAQROT05FugEHMC4wLTAuMsIBBnYwLjMuMMoBCWdycl9ycl92MdEBAAAAAAAA8D8=",
+   "status": "INVALID_ARGUMENT"
+  }
+ ],
+ "schema": 1,
+ "strata": [
+  [
+   500000,
+   28
+  ],
+  [
+   750000,
+   26
+  ],
+  [
+   1000000,
+   38
+  ],
+  [
+   1250000,
+   26
+  ],
+  [
+   1333333,
+   31
+  ],
+  [
+   2000000,
+   33
+  ]
+ ],
+ "summary": {
+  "dimensions": [
+   {
+    "dimension": "action",
+    "values": [
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 56,
+      "value": "ALLOW"
+     },
+     {
+      "estimated_count_bits": "4051c60b3281720a",
+      "estimated_count_repr": "71.09443342820319",
+      "observed_noisy_count": 60,
+      "value": "BLOCK"
+     },
+     {
+      "estimated_count_bits": "4066608208020e3b",
+      "estimated_count_repr": "179.0158729591511",
+      "observed_noisy_count": 66,
+      "value": "WARN"
+     }
+    ]
+   },
+   {
+    "dimension": "risk_bucket",
+    "values": [
+     {
+      "estimated_count_bits": "4065e34eafd36541",
+      "estimated_count_repr": "175.10335532463253",
+      "observed_noisy_count": 57,
+      "value": "0.0-0.2"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 42,
+      "value": "0.2-0.5"
+     },
+     {
+      "estimated_count_bits": "40613beae5e382f6",
+      "estimated_count_repr": "137.87242407260754",
+      "observed_noisy_count": 47,
+      "value": "0.5-0.8"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 36,
+      "value": "0.8-1.0"
+     }
+    ]
+   },
+   {
+    "dimension": "primary_category",
+    "values": [
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 14,
+      "value": "CHILD"
+     },
+     {
+      "estimated_count_bits": "406651ef84b005b9",
+      "estimated_count_repr": "178.56048807505957",
+      "observed_noisy_count": 18,
+      "value": "CRIMINAL"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 11,
+      "value": "FINANCIAL"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 13,
+      "value": "HEALTH"
+     },
+     {
+      "estimated_count_bits": "4052373f144f01e2",
+      "estimated_count_repr": "72.86322505679667",
+      "observed_noisy_count": 20,
+      "value": "IDENTITY"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 14,
+      "value": "LOCATION"
+     },
+     {
+      "estimated_count_bits": "4066c00000000000",
+      "estimated_count_repr": "182.0",
+      "observed_noisy_count": 18,
+      "value": "NONE"
+     },
+     {
+      "estimated_count_bits": "4066c00000000000",
+      "estimated_count_repr": "182.0",
+      "observed_noisy_count": 23,
+      "value": "POLITICS"
+     },
+     {
+      "estimated_count_bits": "404ad5cf93742468",
+      "estimated_count_repr": "53.67039721652037",
+      "observed_noisy_count": 19,
+      "value": "RELIGION"
+     },
+     {
+      "estimated_count_bits": "4066c00000000000",
+      "estimated_count_repr": "182.0",
+      "observed_noisy_count": 21,
+      "value": "SEXUAL"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 11,
+      "value": "THIRD_PARTY"
+     }
+    ]
+   },
+   {
+    "dimension": "model_version",
+    "values": [
+     {
+      "estimated_count_bits": "404e825e90facbac",
+      "estimated_count_repr": "61.018510935267244",
+      "observed_noisy_count": 96,
+      "value": "OTHER"
+     },
+     {
+      "estimated_count_bits": "405e3ed0b7829a2d",
+      "estimated_count_repr": "120.9814890647328",
+      "observed_noisy_count": 86,
+      "value": "v0.3.0"
+     }
+    ]
+   },
+   {
+    "dimension": "time_bucket",
+    "values": [
+     {
+      "estimated_count_bits": "405b624c994e5a32",
+      "estimated_count_repr": "109.53592522288889",
+      "observed_noisy_count": 32,
+      "value": "00-04_UTC"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 30,
+      "value": "04-08_UTC"
+     },
+     {
+      "estimated_count_bits": "4066c00000000000",
+      "estimated_count_repr": "182.0",
+      "observed_noisy_count": 36,
+      "value": "08-12_UTC"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 32,
+      "value": "12-16_UTC"
+     },
+     {
+      "estimated_count_bits": "40057fae06eec798",
+      "estimated_count_repr": "2.687343649064996",
+      "observed_noisy_count": 26,
+      "value": "16-20_UTC"
+     },
+     {
+      "estimated_count_bits": "0000000000000000",
+      "estimated_count_repr": "0.0",
+      "observed_noisy_count": 26,
+      "value": "20-24_UTC"
+     }
+    ]
+   }
+  ],
+  "sample_count": 182,
+  "serialized_sha256": "5052ac9e776b49dd690d55ff27cbc4f07f3c1ef4ea0394b873259b8556791402"
+ }
+}

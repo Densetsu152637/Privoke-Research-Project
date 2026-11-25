@@ -9,7 +9,7 @@ def contextual_rules() -> List[RuleDefinition]:
     return [
         RuleDefinition(
             "family_disclosure",
-            r"\b(spouse|husband|wife|partner|boyfriend|girlfriend|children|kids|son|daughter|mother|father|siblings?|family)\b",
+            r"\b(?:my|our|his|her|their)\s+(?:[\w-]+[\s-]+){0,2}?(?:spouse|husband|wife|partner|boyfriend|girlfriend|children|kids|son|daughter|mother|father|siblings?|family)\b",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.THIRD_PARTY]),
             "family_info",
         ),

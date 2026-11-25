@@ -45,3 +45,10 @@ extension/dist-firefox/
 !/AGENTS.md
 /models/experiments/
 /models/standard-releases/
+
+# Local goldens of retained study fits (prompt text; RUST-S21B)
+/rust/services/v3-fuzzer/tests/local/
+/rust/services/v3-runtime/tests/local/
+/rust/crates/privoke-semantic/tests/local/
+/rust/services/runtime/tests/local/
+/rust/services/fuzzer/tests/local/

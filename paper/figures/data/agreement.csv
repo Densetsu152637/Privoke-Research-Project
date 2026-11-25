@@ -1,0 +1,4 @@
+tier,joint_hist,joint_upd,action_hist,action_upd
+efficient,266,693,1029,1415
+balanced,160,717,1026,1409
+quality,226,879,1073,1421

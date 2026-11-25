@@ -1,0 +1,121 @@
+{
+  "schema": "privoke-provider-request-shapes-v1",
+  "provenance": "Synthetic request bodies written from the endpoint patterns in extension/src/prompt-interception.js and its checked-in tests. None was captured from a real provider session or account.",
+  "placeholder": "{{PROMPT}}",
+  "shapes": [
+    {
+      "id": "chatgpt-conversation",
+      "targetApp": "chatgpt",
+      "url": "https://chatgpt.com/backend-api/conversation",
+      "encoding": "json",
+      "body": {
+        "action": "next",
+        "model": "synthetic-model",
+        "messages": [
+          { "role": "user", "content": { "content_type": "text", "parts": ["{{PROMPT}}"] } }
+        ]
+      }
+    },
+    {
+      "id": "chatgpt-f-conversation-author",
+      "targetApp": "chatgpt",
+      "url": "https://chatgpt.com/backend-api/f/conversation",
+      "encoding": "json",
+      "body": {
+        "action": "next",
+        "messages": [
+          { "author": { "role": "user" }, "content": { "content_type": "text", "parts": ["{{PROMPT}}"] } }
+        ]
+      }
+    },
+    {
+      "id": "chatgpt-legacy-host-prompt",
+      "targetApp": "chatgpt",
+      "url": "https://chat.openai.com/backend-api/conversation",
+      "encoding": "json",
+      "body": { "prompt": "{{PROMPT}}" }
+    },
+    {
+      "id": "claude-completion",
+      "targetApp": "claude",
+      "url": "https://claude.ai/api/organizations/org-synthetic/chat_conversations/conv-synthetic/completion",
+      "encoding": "json",
+      "body": { "prompt": "{{PROMPT}}", "timezone": "UTC" }
+    },
+    {
+      "id": "gemini-stream-generate",
+      "targetApp": "gemini",
+      "url": "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate?bl=synthetic",
+      "encoding": "form",
+      "field": "f.req",
+      "body": [null, { "$json": [["{{PROMPT}}"]] }]
+    },
+    {
+      "id": "copilot-chat-message",
+      "targetApp": "copilot",
+      "url": "https://copilot.microsoft.com/c/api/chat",
+      "encoding": "json",
+      "body": { "message": { "content": "{{PROMPT}}" } }
+    },
+    {
+      "id": "copilot-send-event",
+      "targetApp": "copilot",
+      "url": "https://copilot.microsoft.com/c/api/conversations/synthetic/message",
+      "encoding": "json",
+      "body": { "event": "send", "content": [{ "type": "text", "text": "{{PROMPT}}" }] }
+    },
+    {
+      "id": "openai-chat-completions",
+      "targetApp": "openai_api",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "encoding": "json",
+      "body": {
+        "model": "synthetic-model",
+        "messages": [
+          { "role": "system", "content": "You are a synthetic fixture assistant." },
+          { "role": "user", "content": "{{PROMPT}}" }
+        ]
+      }
+    },
+    {
+      "id": "openai-responses-items",
+      "targetApp": "openai_api",
+      "url": "https://api.openai.com/v1/responses",
+      "encoding": "json",
+      "body": {
+        "model": "synthetic-model",
+        "input": [{ "role": "user", "content": [{ "type": "input_text", "text": "{{PROMPT}}" }] }]
+      }
+    },
+    {
+      "id": "openai-responses-string",
+      "targetApp": "openai_api",
+      "url": "https://api.openai.com/v1/responses",
+      "encoding": "json",
+      "body": { "model": "synthetic-model", "input": "{{PROMPT}}" }
+    }
+  ],
+  "negativeControls": [
+    {
+      "id": "chatgpt-metadata-only",
+      "url": "https://chatgpt.com/backend-api/conversation",
+      "encoding": "json",
+      "body": { "action": "next", "model": "synthetic-model" },
+      "expectAnalysis": false
+    },
+    {
+      "id": "unsupported-path-same-host",
+      "url": "https://chatgpt.com/backend-api/unsupported-endpoint",
+      "encoding": "json",
+      "body": { "prompt": "{{PROMPT}}" },
+      "expectAnalysis": false
+    },
+    {
+      "id": "unsupported-host",
+      "url": "https://example.com/api/chat",
+      "encoding": "json",
+      "body": { "prompt": "{{PROMPT}}" },
+      "expectAnalysis": false
+    }
+  ]
+}

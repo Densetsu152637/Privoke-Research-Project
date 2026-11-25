@@ -1,0 +1,1625 @@
+{
+ "anchor_partitions": [
+  {
+   "heldout": 16,
+   "heldout_sha256": "fe604f91c915c6c033d00ed02a9593063ff8894b2abf6cd16ffa6f8b9edbabaa",
+   "seed": 1,
+   "training": 32,
+   "training_sha256": "eaecbbc8d4b8e08ced232c8fab4194580cd0f754ee45a284dc6a7524915da4b5"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "1365eaad44d6385b39f28d43800ee4d093fd857bde9aea134812706f7ae35481",
+   "seed": 2,
+   "training": 32,
+   "training_sha256": "a6e55010e5a5036a353055ed46e794595d8a1ef7004e866ad69b8e5b387d287c"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "118c9c533a90843102915d01f219aa0f5474cc04942ea592f3908ce4507ae387",
+   "seed": 3,
+   "training": 32,
+   "training_sha256": "c1e7dcd81a3873a2f12b7f5c0cff493311517c293adeb28a29952c58e6e56c2e"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "58c0d5f228407297d59205d4206430e65166df9c4f3c3831d1d6957cb1c45f5e",
+   "seed": 4,
+   "training": 32,
+   "training_sha256": "be15814200a6ac3d2a69a12f1de632e98459e78ea00bbcb20f565034d65d1700"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "8a76f8865bb4a019faa34a7a3e29d6718f4c3fef197a32e2bfa67a0387057f12",
+   "seed": 5,
+   "training": 32,
+   "training_sha256": "a10e1e8ee55d32fbb9031282e8e33cae4d0e3dd5065fbb448f4aaa0205b7322f"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "9348e1a24e6f297c11200809f76b43827d14f4d97326c4554b735d82b29eb87c",
+   "seed": 6,
+   "training": 32,
+   "training_sha256": "2c42bb5c8ecc4919392b0ecf6e53aed81092c3c12b42ca4a93aefe8f722b5328"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "ecb00f615ac1cd627bc50ef3d8d2e0683395d5142d9e4d437ac99844ef34162b",
+   "seed": 7,
+   "training": 32,
+   "training_sha256": "8378030ee079f934eaa322fb469e40285e6bb6c5cfb98fafe5017a02c7056729"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "e58d9a004a6a8020cdc99b5422317560e69db8d4beee411570355657fc6c7ea9",
+   "seed": 8,
+   "training": 32,
+   "training_sha256": "2e43c140b9a73d9ffb8daf4331042854b5f7df639303f6b4c064db6026c3d801"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "a78a3b2841ecaf9f6b4934f726ec54f277475bb998b59d8d12d31eb5e0762eca",
+   "seed": 9,
+   "training": 32,
+   "training_sha256": "104eb9e8555272fd1e120c9cb0e56afe5737365338a9ffb0830986e07df184ec"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "82c4f2a3ec014e11375724121bc20a0f5986762190c0a677d4df73ca192d1830",
+   "seed": 10,
+   "training": 32,
+   "training_sha256": "02f74c0bea3a1a5caec852bb6a67b0a4354632770518439ff9a53a76dece8764"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "0ffdb899882245e425c4eb4e011b59ff97d617e7df53b720771335e8ba21036a",
+   "seed": 11,
+   "training": 32,
+   "training_sha256": "663fd41af99212d1c5983c801a724c027ed6ee06442332922d8dd146bc7dc7bd"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "5e26c264fe18e6f2e1eecbdc2b915e0a77c8f6cc931e031e6cd53035e14a8c23",
+   "seed": 12,
+   "training": 32,
+   "training_sha256": "e64b300152313c97599eb841c1704343558d336a2b0693395dbee66cae81dc00"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "1acf7fa76e0944106a4c44fd3076f7a0a52cce27ab15adb8554646247ff1e4c0",
+   "seed": 100,
+   "training": 32,
+   "training_sha256": "18d02bfd9d763eff022a398117bc373a811164d3654e5991041df18a68eeb109"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "8645c331ea22e1203fb7c901ec16cca2d52f5024720d525476e8c3bd1acda806",
+   "seed": 1000,
+   "training": 32,
+   "training_sha256": "3b38305b9cea630687a87d579f1b36a8da34c145ecb42a43bda4a4157623ffe0"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "9c7287ab5f335b0fdcfdb25ee10d0d920db0de40bc8fb607ac6c953e528c9c38",
+   "seed": 20261017,
+   "training": 32,
+   "training_sha256": "68038430ff3b4e041e4057c8a61dc70a89a99c404bd972bca7a9d1ca95aa43bf"
+  }
+ ],
+ "audience_partitions": [
+  {
+   "audit_sha256": "5d6121716fe452ca8874a12a5c512013ad0ee62b2da93ec79807b35f485404f8",
+   "count": 32,
+   "expanded_audit_sha256": "55ee86078b06973501967961545053c26bf28bb67513c2d370e2891e040243b5",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 1,
+   "training": 32,
+   "training_sha256": "d006caa55db28f6405d3fb5cb8e7f1e9eacb37f0d59fc7199712af22e0b1d782"
+  },
+  {
+   "audit_sha256": "0f57542eaa1edd90109e129cfaeefb11e795dd5904e0749b5022df23d4181898",
+   "count": 64,
+   "expanded_audit_sha256": "a916924e33269ebc4dc4668aafda4306b0749590978318ab9d41c862708f9147",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 1,
+   "training": 64,
+   "training_sha256": "55c3cceee0719a277c448286677200d7cfc4a8940885689b084b4c5acf2c9e87"
+  },
+  {
+   "audit_sha256": "6dac757fbf4e041d1083da8a2e6b5c0862fb5d474df1dc63510c27a1785b21c2",
+   "count": 32,
+   "expanded_audit_sha256": "662eed6ece4ec63e2731ffd2f029fa82ed28c9cd053650c12fcecdf05d548ae7",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 2,
+   "training": 32,
+   "training_sha256": "5e5274b3a8377d0647b0f38df9820e0183aea8d0c51a2a9ce62208e1d0e253a4"
+  },
+  {
+   "audit_sha256": "b24d7b805b3ae8387763fc9d3196a029d584488f0ccf693b8549769cd1f80367",
+   "count": 64,
+   "expanded_audit_sha256": "94fe2d0060d5bf35f0993aaf787d3c727a5ddac591c330cbcb272c61ad199f0d",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 2,
+   "training": 64,
+   "training_sha256": "d9d3c1e733cbb7ae36ada948dcd3cc2fcaf1268098a6cb94198ee226e270caef"
+  },
+  {
+   "audit_sha256": "6994ad31ffd10b39ffaba44151398501f6770e697ada925f626421782d03b11c",
+   "count": 32,
+   "expanded_audit_sha256": "29249a224488456dbf48cbeb00659e348ff678e1fd8dbda506daaa7239d80a13",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 3,
+   "training": 32,
+   "training_sha256": "c41b01bc40e6ad2253943d23bd41ed15b5f19f3dbca7ef1aed458a496573bef4"
+  },
+  {
+   "audit_sha256": "0b0756a4020086cce9dd4190d6e2cb3af6ba4655f37bf7f723de2cbe956f977a",
+   "count": 64,
+   "expanded_audit_sha256": "96e4ce0d912fa6eb1dbef7d1363612ada8a6d7eb50d4849259ea92993f849e95",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 3,
+   "training": 64,
+   "training_sha256": "072590fb932540f35fad9dc57df4275915158d95035c84726b7f8025b9bf7209"
+  },
+  {
+   "audit_sha256": "ba9b3e51f0232d4f28be4b77ceffc45569467e561ce2522d3857b6ecdd5a3a2b",
+   "count": 32,
+   "expanded_audit_sha256": "e1e3d9432a359ccdbee99ffe2fa05dabebc04feaa0d806c414a1ff9ee032f946",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 42,
+   "training": 32,
+   "training_sha256": "3c0c2db830b7b4f74f3914be841cbc4929fc347f253412aaa4070972e6521a77"
+  },
+  {
+   "audit_sha256": "0889d3a8b076e031480a6ead83c323bc6cfaf5a62d624054069358d95ae9e130",
+   "count": 64,
+   "expanded_audit_sha256": "fde9c3a0a29e55978abf6402065a5200750ff0aa65b047598d15ff338b3cd135",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 42,
+   "training": 64,
+   "training_sha256": "3f7ba561b0754d22f2cca287f3a5eb9b97099a91a9e5407f7e7bdea1da7b1eb7"
+  },
+  {
+   "audit_sha256": "7861291f861fedbdca5991651ba6709f2483d3c3ed46b1a3a896db560740ffca",
+   "count": 32,
+   "expanded_audit_sha256": "f83d3266565527d092e9ed9f359fdd60e84b0629cf13294d0bd2a50e45f8eb12",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 43,
+   "training": 32,
+   "training_sha256": "8dcea73816824e6fe3cc17c90e5264c956404b422895c33a3b90dbad95a42bf7"
+  },
+  {
+   "audit_sha256": "99878c945f979169b9ccd3fe93459c2634a85c2fc79b4d15f332a9e346f7713e",
+   "count": 64,
+   "expanded_audit_sha256": "cf9a26a96ba1caa71b28d4df73771d1e4c0fbe081006c35d4699dd8c5c4750bb",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 43,
+   "training": 64,
+   "training_sha256": "9c70233ff68818226dcbb430073ab4a12e4b2337f512ffed172aa4a4991ad626"
+  },
+  {
+   "audit_sha256": "b380c285852644fb7af013fcfa25c3cf95af8e9676d63324b6cacd6de0893ab9",
+   "count": 32,
+   "expanded_audit_sha256": "ce5ae2fc0c57229d836711756dddc233f359728364d372f50de41eb29a695502",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 44,
+   "training": 32,
+   "training_sha256": "31ab4bf0c96ada4ab7bf9c318bea8be4adbdc9bf3605bf06cb444860dfa56ed7"
+  },
+  {
+   "audit_sha256": "0184541acbc3bab4a4156484d10f83ede9013455369d61217b1fb440d174c850",
+   "count": 64,
+   "expanded_audit_sha256": "680ebdf2876a92266b4564ce8dd357ecaff17a48a9f62102bf4ec87b2f111dce",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 44,
+   "training": 64,
+   "training_sha256": "e090904fec6304ff9dfb1fc852c66c0c60ef0f6dec1f8a5c8b4e19875ba9d122"
+  },
+  {
+   "audit_sha256": "b887b51405a20504f3dc669892966550475c7177ec6b1179ec193bd0c3ecb86d",
+   "count": 32,
+   "expanded_audit_sha256": "0b9b3d141027230b144708080d742f790dc72429fcc0a2164d8e24838aec2167",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 99,
+   "training": 32,
+   "training_sha256": "33ea177a305d15b8b90d823cdb22391bb596a8afb668035bb2ea8fdcc80a1c8e"
+  },
+  {
+   "audit_sha256": "81c999bbdbc2c6fe986ea3d753013a8b2c4fa26c1c278931e1d4075c3bbac156",
+   "count": 64,
+   "expanded_audit_sha256": "3ea23f185611dd56a8dcda5237abee89deffc9c0e8f757ec58275168b1880e44",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 99,
+   "training": 64,
+   "training_sha256": "1a2a84d718d3a97c16eaa34f2b542f0be144eee3722dba3a9339eea68f39ee4d"
+  },
+  {
+   "audit_sha256": "70f255f8108cfe37ea9c3b6f00098d1a4a2a0d632b6f97e01cd75c1fafaa63dc",
+   "count": 32,
+   "expanded_audit_sha256": "6047bae339878f8b9495139b2cd6f8065134c982400475f5baf2cba64b4642c8",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 2026,
+   "training": 32,
+   "training_sha256": "1b326e1237740476a060f67f3c035e8b8999b173e974eb3bdabe12b922081832"
+  },
+  {
+   "audit_sha256": "c343c2464f1f46f5de40967ff8b851f87178b849db4a06486e534c8eeafef00c",
+   "count": 64,
+   "expanded_audit_sha256": "4d419010b94d0fb8316503477b51f98d0b2414f19fd4dcf1239398524305a94f",
+   "heldout": 16,
+   "heldout_sha256": "86d04cf0390a6aa25508d6e0f8abf232d14fdfe9a18f6cab6657155dc559837e",
+   "seed": 2026,
+   "training": 64,
+   "training_sha256": "032951c67bf8b48223b0e1a32b23469fe78e1cb90ef1f017cef6fbfff625f0d5"
+  }
+ ],
+ "audience_release": {
+  "guard_sha256": "65c0ae87ced98a1febe66eebda09851e419611addb41cca18f83917d9b350df1",
+  "rehearsal_rows": 6240,
+  "sha256": "7f17f43473deb4235ed189508008576abd19cf5eba0e9912d4c4ba4c58d7c010",
+  "train_rows": 3120,
+  "train_sha256": "569aff385cba51326681a6d4c78df3e933340edb701fe22ce319ae51fbebce4d"
+ },
+ "augmentation": [
+  {
+   "seed": 1,
+   "sha256": "2fb1f8479a9ac3936e1ef2a4a8473dd37667e7ea5fae40ef005ecdd60a96a1da",
+   "transformations": 0
+  },
+  {
+   "seed": 1,
+   "sha256": "f431bb4ad925ead03412f5b028568133980ac8a00ead98c1883a53cce0e04da5",
+   "transformations": 1
+  },
+  {
+   "seed": 1,
+   "sha256": "c49eb214bd4c8c643c7e282c68431c5d38bd0f363e7aa8ebc3494d215ee87dea",
+   "transformations": 3
+  },
+  {
+   "seed": 42,
+   "sha256": "2fb1f8479a9ac3936e1ef2a4a8473dd37667e7ea5fae40ef005ecdd60a96a1da",
+   "transformations": 0
+  },
+  {
+   "seed": 42,
+   "sha256": "fb358a2648383c351331fb629c905cd24edf7e0491adb969be5f1433ef455dd6",
+   "transformations": 1
+  },
+  {
+   "seed": 42,
+   "sha256": "7eb96852680dd48dfd35445ac90c9727c56daa78d798fc31f359c9d31d11ae3a",
+   "transformations": 3
+  },
+  {
+   "seed": 7,
+   "sha256": "2fb1f8479a9ac3936e1ef2a4a8473dd37667e7ea5fae40ef005ecdd60a96a1da",
+   "transformations": 0
+  },
+  {
+   "seed": 7,
+   "sha256": "f44b4b74e541fda8d694ea5a3be62f9976ac6687417a8400a0f18a7b87d83a22",
+   "transformations": 1
+  },
+  {
+   "seed": 7,
+   "sha256": "6db66972dfde50c99a3d31c6bc8f73b2f9e2bc289a27aae8a5b025e9f8adfc74",
+   "transformations": 3
+  }
+ ],
+ "benign_partitions": [
+  {
+   "heldout": 16,
+   "heldout_sha256": "fe604f91c915c6c033d00ed02a9593063ff8894b2abf6cd16ffa6f8b9edbabaa",
+   "seed": 1,
+   "training": 32,
+   "training_sha256": "85a01c46f8cb8ff6a48b5ecc6bbd218a413750be305705cbefb524af4a5ce151"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "1365eaad44d6385b39f28d43800ee4d093fd857bde9aea134812706f7ae35481",
+   "seed": 2,
+   "training": 32,
+   "training_sha256": "afb022815ea0d16ba42d29f518209068d5f05d567683580a40f68123460f6635"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "118c9c533a90843102915d01f219aa0f5474cc04942ea592f3908ce4507ae387",
+   "seed": 3,
+   "training": 32,
+   "training_sha256": "61069c1cebe8a32b1a42e640069e9c4c663259fab8a6d83c9ff61bdd7d220a0e"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "58c0d5f228407297d59205d4206430e65166df9c4f3c3831d1d6957cb1c45f5e",
+   "seed": 4,
+   "training": 32,
+   "training_sha256": "c6911cfda0c6f0295968c75e132eca5f5724248cfe5068254cf7bd1a11210024"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "8a76f8865bb4a019faa34a7a3e29d6718f4c3fef197a32e2bfa67a0387057f12",
+   "seed": 5,
+   "training": 32,
+   "training_sha256": "9d3393efb90e4ca689bdbe1d5a5bb11fa39d0f350b3ca8e55038c4fecd6d1136"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "9348e1a24e6f297c11200809f76b43827d14f4d97326c4554b735d82b29eb87c",
+   "seed": 6,
+   "training": 32,
+   "training_sha256": "c11a647154013dc2d37a91a5b05c0684f228b0ca21c3a306d6102551bd13bab0"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "ecb00f615ac1cd627bc50ef3d8d2e0683395d5142d9e4d437ac99844ef34162b",
+   "seed": 7,
+   "training": 32,
+   "training_sha256": "033c308c05773f223cf8fd440ee69ec9221ed74351e15f72fa83dffdbb06b0a6"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "e58d9a004a6a8020cdc99b5422317560e69db8d4beee411570355657fc6c7ea9",
+   "seed": 8,
+   "training": 32,
+   "training_sha256": "8bbe35de22d97bf3c705195e23034e3f46fe601f6f8e7fbf89fd2fa6d044752b"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "a78a3b2841ecaf9f6b4934f726ec54f277475bb998b59d8d12d31eb5e0762eca",
+   "seed": 9,
+   "training": 32,
+   "training_sha256": "e43255a3514a57ca9fdc5a5ae18ac5070c9105cec18380a1b88d3b07b92701fc"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "82c4f2a3ec014e11375724121bc20a0f5986762190c0a677d4df73ca192d1830",
+   "seed": 10,
+   "training": 32,
+   "training_sha256": "43709b0287f262cccbab0d35e1ce538987feeca24afbd09f7d88741483fd1fcd"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "0ffdb899882245e425c4eb4e011b59ff97d617e7df53b720771335e8ba21036a",
+   "seed": 11,
+   "training": 32,
+   "training_sha256": "37c8c20c980a1b6dd1a5cbaa2e204fff2904c236853a1a439be9a4623d8b0f20"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "5e26c264fe18e6f2e1eecbdc2b915e0a77c8f6cc931e031e6cd53035e14a8c23",
+   "seed": 12,
+   "training": 32,
+   "training_sha256": "9e077ca50db06af02cc36c85cddd93a0786e09a422f14fb1059aa729dc6a9682"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "1acf7fa76e0944106a4c44fd3076f7a0a52cce27ab15adb8554646247ff1e4c0",
+   "seed": 100,
+   "training": 32,
+   "training_sha256": "f7b57872cce869353c93d5ac7f66617bc9160cdf72dcdceab60c0bdc96d73a43"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "8645c331ea22e1203fb7c901ec16cca2d52f5024720d525476e8c3bd1acda806",
+   "seed": 1000,
+   "training": 32,
+   "training_sha256": "637cd4deda4d91950725d6a9348ab1d65051793ee5b90e491bb2d5df1a19f4fb"
+  },
+  {
+   "heldout": 16,
+   "heldout_sha256": "9c7287ab5f335b0fdcfdb25ee10d0d920db0de40bc8fb607ac6c953e528c9c38",
+   "seed": 20261017,
+   "training": 32,
+   "training_sha256": "f0234e99cf2448847f9e84bf41d00be06f2eebff9f1aef7a8903ee3686fae5ba"
+  }
+ ],
+ "benign_release_sha256": "c817db3579b93f88ac2028d1f226884e3882ec9405b3bd2a868bdd5fa0a38ec9",
+ "curriculum": {
+  "calls": [
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "a4722ced3e19b6e8dd398cbd77c8b8b2594536e3e0b92fad681fd49c0e048e31",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "2403344b7843212d8797dd49fb503835ef2a1b1d403e16ec3b5def75c7098243"
+    },
+    "count": 32,
+    "examples_sha256": "5472e8c00e2d3aa402fdb7093020bffd1e2c5a92c8c0d571241bf9f8c194edbb",
+    "fingerprint": "f3402f00bdf83d298ad83106902416818696a8dc2f15f458946aadc264e00b57",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {},
+    "replay_sha256": "09e385b4f1dd70e49b90dd0addd998eacaadff405ddb1ddb2788169c532d05df",
+    "request_id": "round1-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "c7c387b1ba0134b13b8a5dde0c1e2897f9b695858db623b78e4ffa16c8de700a",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "1d319a481216ea09de77dcedf87d10e1eaaa9b7d270b3ac97125a9983cd0c94f"
+    },
+    "count": 64,
+    "examples_sha256": "5ee92bceba80a1a27612477119e44b6c72ae73bb4d358040904b36c2c9e7778d",
+    "fingerprint": "b79e5e63ea60c08e5b80c612f129fdba065eb85f1e61c1e4fddddf411c2cc7b5",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {},
+    "replay_sha256": "cb00029b71393481a7be514545977ab29029187bfa39c63b1ba4db095f895a48",
+    "request_id": "round1-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "4ba3cd0a3fe8b652104e1eeeb943063db6f08302796ad301669035acb344e83f",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "e4c02c1844b796044fe830e732a105586c4daddf9c19a696d9ce2412cd8c3509"
+    },
+    "count": 32,
+    "examples_sha256": "4e1c78cca2d34715670e3a07d8c2e1e06f0562a6cbea5309d868fcc32fcbe08c",
+    "fingerprint": "9af4c6dbe8edd98c08a482ad54c67146607de46f932b3d9ac9ca3e014df7158f",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {},
+    "replay_sha256": "34c24aafe353b0e5c49a11e1520f7649587db256b4e684d830caebbd35f9f4ca",
+    "request_id": "round2-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "88c56c1ef1e1ae5ecfe02586e101fbe87cebeaf0b9b7fdf8936ed57a9552e156",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "09fd5d2268e8aac95149e749d744fe0e1c648e39ec2905691e63c775936bcdfe"
+    },
+    "count": 64,
+    "examples_sha256": "ec48a6425aeb2473d71bd027507900af0aa5bc36408d8ced1342a3aedcadb724",
+    "fingerprint": "b25f370a1dd20dd892bd631c93a55db60333d4624761e81686f6909471fbd0a9",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {},
+    "replay_sha256": "5f7773500dbc6370274ecb18c8d829c123a50db42b1034fe727501cfc0ae0934",
+    "request_id": "round2-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "b31a8e65bdc5f6396dc7f7a316671331efa0f354d8a1fbf302b0916e8df93fdb",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"replay:False\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 28, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 28, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}, \"teacher:True\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "teacher",
+     "curriculum_train_ids_sha256": "878be11628ae1073a96359b310aaecb8dba80cc8ed96bf7087e1339af75207f1"
+    },
+    "count": 32,
+    "examples_sha256": "d4807bee9e86b780f9975b389d3a9f496762626726d6ff4b22d2c2480f0b08e9",
+    "fingerprint": "ea1cfaf3eb5d3a8bbfc322b02ad3a577f9a8aa96eb509d0ecc9580a33969be96",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_stage": "teacher"
+    },
+    "replay_sha256": "dbcf0fbe3cd87cf77eaff3dd7c4e4201d69ab27f11c6deb0a62b75a466ee2121",
+    "request_id": "round3-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "e6984371a3a0006f9bf7be0a08f2d48c33eaa0123c95350557449e71f9629ef7",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"replay:False\": {\"pool_size\": 32, \"start\": 28, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}, \"replay:True\": {\"pool_size\": 32, \"start\": 28, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}, \"teacher:False\": {\"pool_size\": 32, \"start\": 36, \"start_epoch\": 1, \"stop\": 60, \"stop_epoch\": 1}, \"teacher:True\": {\"pool_size\": 32, \"start\": 36, \"start_epoch\": 1, \"stop\": 60, \"stop_epoch\": 1}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "teacher",
+     "curriculum_train_ids_sha256": "46737937e3cd64f37d2a56b78d61e0d454cfa4f1a72ee76d45248e7a431cc79c"
+    },
+    "count": 64,
+    "examples_sha256": "aac3cf369a5edba283722eac0003a63a06164a92e463171ce996ec5842518827",
+    "fingerprint": "8512e9cdabf65b4ea6ca7d07024b4b828b83a14dedb28a7ff2772fff4ea613dc",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_stage": "teacher"
+    },
+    "replay_sha256": "c52815e64b45d2e448fe1d1c69c463487a2abd6064398d4e97b2d63b0a362d0c",
+    "request_id": "round3-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "4ea4e29d090b35f22bc6130171240e7af2ee45cedc406bf3c9df08c4bd5658be",
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "7",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "2d7a2203748a531152f316715b5c78712a0cbd87090260c9b2690d63db89b673"
+    },
+    "count": 32,
+    "examples_sha256": "6e550c0f88b5c4ed17408fe759c5ecb9aae9c805da9242d8931c4ab6116fc39f",
+    "fingerprint": "634d7da1363428fa9c34f7357d468985bdc76ec4cfdac634b71fa990bb7a9eef",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_seed": "7"
+    },
+    "replay_sha256": "ae22d7ffabbfc655382ca2b12dc27de4a7651dc149cf7011570a050b76f60c46",
+    "request_id": "seeded1-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "63904226ffb0e8d4274dfd80340b16511c2aaf3a9b850e5da752366beeab57ab",
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "7",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "8eb61f4377b7120f9141ad65520a6539120b97a3ff1217c68e5d58089f986c09"
+    },
+    "count": 64,
+    "examples_sha256": "48ea7feaebb31ccc956b6cf451db014c1e004d74cceec24cbe29a40f4a5758f2",
+    "fingerprint": "62fda8b25d17e93d7a9ae785eac594b2307d731b8567fda46490144b18b05a99",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_seed": "7"
+    },
+    "replay_sha256": "866a9753ba4d69b6e10e4a796ffc5d6b3a4bac69aa4eb40a58b605dd61ad8db8",
+    "request_id": "seeded1-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "e62a8de48e49ba47e20dc1f9c19a36b36078ddebc0a0b2133d49df3013686895",
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 12, \"start_epoch\": 0, \"stop\": 16, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "7",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "7c2d3a32b58b643f69fc5d1ea80d0f232548ff17e60ddee4795560f96fe823bc"
+    },
+    "count": 32,
+    "examples_sha256": "321db6a07b79f160aee38334ed8922659806723cedafdd90cdb7444aadfa939c",
+    "fingerprint": "bab4b30b2a7fe94e70e001276ffbd645cb859dea70f81754fea48e2244973af6",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_seed": "7"
+    },
+    "replay_sha256": "7023c2d591573c30d823394ad590b0689db9410b5418595207a228d4005de9a7",
+    "request_id": "seeded2-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "dabaa03feabf4adfbdc43031f29a025b85e3cc73b9cb918712329920e0764d21",
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 16, \"start_epoch\": 0, \"stop\": 24, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "7",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "e8e73bd82b38986e2a8a487b758c954e180e8d36ae54644239dc4fc1560bb1ec"
+    },
+    "count": 64,
+    "examples_sha256": "70fc8bcd75a6645589cab9c7bdb407afad1d84fffd5248128be553ac83bd3d2c",
+    "fingerprint": "28dc398fa0abd525bc52608d1c823f2dccd6e3a9cfd4ddc11bebe94b0e6925e2",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_seed": "7"
+    },
+    "replay_sha256": "70dad3c5ebffe1364ef6f2182825ddacf9f3fe943333adab96173f8ee111556a",
+    "request_id": "seeded2-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "8a3c56fd1e03f6b6913407db44f78f366a1361da17f89cf3ba658cfcd596f1a6",
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "99",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "b511f5151fcb0b508a32113c011ebbfa262f41cb8417c6a7e15cdaccc9ce4a72"
+    },
+    "count": 32,
+    "examples_sha256": "c8f660724c193afcd02583a6d061ee345ebd3605b6e3482f86aca7f153fba499",
+    "fingerprint": "1c636a8c49ffa37b139e21c61b62c08f4b533a5666136fbd5bce32a277e68136",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_seed": "99"
+    },
+    "replay_sha256": "751db5745c84af81aaff0ddcf3fd335d424ba388ffd421847c6a69dd7b4afd14",
+    "request_id": "seeded3-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "70bd79de3f5400da7e471a139db0b6f0a79bff970bb044b512b75a64ce64bb68",
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 4, \"start_epoch\": 0, \"stop\": 12, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "99",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "0969eb3252e0bd79d360f41d0456793d21f7f586f535f7d30d8a4cfa6304e536"
+    },
+    "count": 64,
+    "examples_sha256": "3c41e3dadbe4bbb2821cd3d5be2ad63619f34a2540534c64d8b6244242deaadf",
+    "fingerprint": "d18440ef7ef8f50fb855a70dbc5203b1c0a943230729ccfb7d35882abbc063af",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_sampler_policy": "seeded_family_v1",
+     "curriculum_sampler_seed": "99"
+    },
+    "replay_sha256": "7dc6854c7e1c3ee9428dacbb361811c2210aff287b50e0383805baf6a48caa04",
+    "request_id": "seeded3-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "2",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "f1dd5307abe471365db135e2671db516e3020c4e700d71e7510724931cdfc059",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 28, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 28, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 27, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 24, \"start_epoch\": 0, \"stop\": 28, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 36, \"start_epoch\": 1, \"stop\": 40, \"stop_epoch\": 1}, \"replay:True\": {\"pool_size\": 32, \"start\": 36, \"start_epoch\": 1, \"stop\": 40, \"stop_epoch\": 1}, \"teacher:False\": {\"pool_size\": 32, \"start\": 60, \"start_epoch\": 1, \"stop\": 64, \"stop_epoch\": 2}, \"teacher:True\": {\"pool_size\": 32, \"start\": 60, \"start_epoch\": 1, \"stop\": 64, \"stop_epoch\": 2}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "d1efa3d4ed1e13294f094753e720c851c9562a9ba993b468559395f045a0f099"
+    },
+    "count": 32,
+    "examples_sha256": "5df9b82521835dcb29bd9dc9a9804f8069a467839d8a2df53bf2c7aabf746be4",
+    "fingerprint": "6cf18bb07d82cfe7d54815418907abb97cd8413430485b57af61581f75a3f81a",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_hard_ids": "[\"train-0\", \"train-9\"]"
+    },
+    "replay_sha256": "202b388a07535bb34cb40dff404cf8509842011a17511013a0573aa399045068",
+    "request_id": "hard1-32"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "2",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "48",
+     "curriculum_replay_count": "16",
+     "curriculum_replay_ids_sha256": "31e5ac91c1aff97bdc852b187f549b8d26c660a236dd66420e30a8ff32327af2",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 28, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}, \"evolved:True\": {\"pool_size\": 32, \"start\": 28, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}, \"grammar:False\": {\"pool_size\": 32, \"start\": 27, \"start_epoch\": 0, \"stop\": 35, \"stop_epoch\": 1}, \"grammar:True\": {\"pool_size\": 32, \"start\": 28, \"start_epoch\": 0, \"stop\": 36, \"stop_epoch\": 1}, \"replay:False\": {\"pool_size\": 32, \"start\": 40, \"start_epoch\": 1, \"stop\": 48, \"stop_epoch\": 1}, \"replay:True\": {\"pool_size\": 32, \"start\": 40, \"start_epoch\": 1, \"stop\": 48, \"stop_epoch\": 1}, \"teacher:False\": {\"pool_size\": 32, \"start\": 64, \"start_epoch\": 2, \"stop\": 72, \"stop_epoch\": 2}, \"teacher:True\": {\"pool_size\": 32, \"start\": 64, \"start_epoch\": 2, \"stop\": 71, \"stop_epoch\": 2}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "15c4198d91a8921c12992f5dae25216081efb49c68f2fd8b7e8c02c5517e205d"
+    },
+    "count": 64,
+    "examples_sha256": "a167389a344d9dd0df6a91396857fa19ec422ce0815baade36568f5cba136c65",
+    "fingerprint": "7188002aa49811aa09e414eaa0e4d561e34ca0a151c343a0b51d16903404c655",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {
+     "curriculum_hard_ids": "[\"train-0\", \"train-9\"]"
+    },
+    "replay_sha256": "40709d7de42389fde9bcac7807c3113f839ea2f6aa21f5f7862d410f0419a2f9",
+    "request_id": "hard1-64"
+   },
+   {
+    "audit": {
+     "curriculum_gate_ids_sha256": "5d539a90502db8a0f96d99cd9e344c014cf35ffb051c2ad61e10c09eedd31028",
+     "curriculum_hard_count": "0",
+     "curriculum_id": "fixture",
+     "curriculum_manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7",
+     "curriculum_new_count": "24",
+     "curriculum_replay_count": "8",
+     "curriculum_replay_ids_sha256": "a4722ced3e19b6e8dd398cbd77c8b8b2594536e3e0b92fad681fd49c0e048e31",
+     "curriculum_sampler_policy": "deterministic_v1",
+     "curriculum_sampler_positions": "{\"evolved:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"evolved:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"grammar:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"replay:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:False\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}, \"teacher:True\": {\"pool_size\": 32, \"start\": 0, \"start_epoch\": 0, \"stop\": 4, \"stop_epoch\": 0}}",
+     "curriculum_sampler_seed": "0",
+     "curriculum_stage": "all",
+     "curriculum_train_ids_sha256": "2403344b7843212d8797dd49fb503835ef2a1b1d403e16ec3b5def75c7098243"
+    },
+    "count": 32,
+    "examples_sha256": "5472e8c00e2d3aa402fdb7093020bffd1e2c5a92c8c0d571241bf9f8c194edbb",
+    "fingerprint": "f3402f00bdf83d298ad83106902416818696a8dc2f15f458946aadc264e00b57",
+    "heldout_sha256": "09425dd6c78f5eed9bb0f2dacc72284c069bf52a0f51636d0ec917f78dc10d34",
+    "metadata": {},
+    "replay_sha256": "09e385b4f1dd70e49b90dd0addd998eacaadff405ddb1ddb2788169c532d05df",
+    "request_id": "round1-32",
+    "retry": true
+   }
+  ],
+  "manifest": "curriculum/manifest.json",
+  "manifest_sha256": "dd4fd77b26ec3aec794dcb06e67b5fe2fc806f3611e60df6f9832d3da951a4c7"
+ },
+ "generator_default": [
+  {
+   "count": 5,
+   "seed": 1,
+   "sha256": "639f77a7346d1863646d52306134158b7a01284279c7c84395ce6c888fe078dc"
+  },
+  {
+   "count": 32,
+   "seed": 1,
+   "sha256": "80872c867a6a622e8d71d5cd709a76b4b0ee829349dd2946aab94b289ab299bd"
+  },
+  {
+   "count": 100,
+   "seed": 1,
+   "sha256": "933424436e3824db9ac3723ba282a7f025304bb405dc32aa9f158cb5b2db46df"
+  },
+  {
+   "partition": {
+    "heldout": 16,
+    "heldout_sha256": "050fc6bd27dae2b8c653747e3a11a33989840981096a552aba7725b55dc126bf",
+    "training": 32,
+    "training_sha256": "4ba9c149d21fa0036b7206d51bb97eb011ffa818def6070a3ec3e48889933cd1"
+   },
+   "seed": 1
+  },
+  {
+   "count": 5,
+   "seed": 7,
+   "sha256": "6d7b83918ca15397b59717af9ee350337ef7e19d8d5c08aa82e4127cade940a8"
+  },
+  {
+   "count": 32,
+   "seed": 7,
+   "sha256": "99d283e165a5292c44b3c8fd168d85133e32b5c4696943356cc76b0b614f6844"
+  },
+  {
+   "count": 100,
+   "seed": 7,
+   "sha256": "b00f4c86d258793663b6242c620b0cc567b02679322450727afae648fda35cd8"
+  },
+  {
+   "partition": {
+    "heldout": 16,
+    "heldout_sha256": "e5464dfa8fd01dcc37cfffb866a209313b430a3d87df3080fef1088f2044471e",
+    "training": 32,
+    "training_sha256": "a98c25a48b1a884f825ffdabe79a021ed16ab1dceaec23eb9ca7da3f20d26494"
+   },
+   "seed": 7
+  },
+  {
+   "count": 5,
+   "seed": 42,
+   "sha256": "64f6075c8b15df8d54615f2c9cde1822902d9be3c9ae3a63de09fa872df97753"
+  },
+  {
+   "count": 32,
+   "seed": 42,
+   "sha256": "d731fc3aeaae6ffe0fc5554e8838963229712028c4d59ac7117282a2d279555b"
+  },
+  {
+   "count": 100,
+   "seed": 42,
+   "sha256": "7a919c82845c71e5c21dec0cc1cccd94cfb3cad9544caef273ba0f88bc9c1c02"
+  },
+  {
+   "partition": {
+    "heldout": 16,
+    "heldout_sha256": "f163a47f34e4e6f15892bf13fc12d4003573de653299fc6e58c4988d38c2e664",
+    "training": 32,
+    "training_sha256": "bce1977b864a9b8aed04d684bfdfdb057662d5785ccae70ec652e19c22c56318"
+   },
+   "seed": 42
+  },
+  {
+   "count": 5,
+   "seed": 1337,
+   "sha256": "f493f5238577cb5e1b1e9c4b7a04b81030827788a28095c02a6ea4deea2e9308"
+  },
+  {
+   "count": 32,
+   "seed": 1337,
+   "sha256": "e73814f1ce1ad4e4c8bc66e332089b2e10882ba93e33f6afeb4386a47e4498f0"
+  },
+  {
+   "count": 100,
+   "seed": 1337,
+   "sha256": "1c291f0bcf929d7d0fc0c66a354c05a9b1d2e2425a8b59c7b04713743d17c2ef"
+  },
+  {
+   "partition": {
+    "heldout": 16,
+    "heldout_sha256": "ea6fcc379b1bd67e65f5679a99500054a196cc5f26cd7d4eec74c97aefbe90d4",
+    "training": 32,
+    "training_sha256": "4a6f1045bf59e0fa1909a15c60ffec2528916d6024147f3167c8e77c410a5521"
+   },
+   "seed": 1337
+  },
+  {
+   "count": 5,
+   "seed": 20261017,
+   "sha256": "8721bc1c14f73627148d9d3365b0e5c5174693c070945d707979bf987809a767"
+  },
+  {
+   "count": 32,
+   "seed": 20261017,
+   "sha256": "11c86a8418cc30c16a7f6b90a51e103f4a52d5623ea6aea499b05e58823fb30c"
+  },
+  {
+   "count": 100,
+   "seed": 20261017,
+   "sha256": "d047f1644bd32fec6903a69a1b25790c8a926f29e076da4f49bab3271aebea57"
+  },
+  {
+   "partition": {
+    "heldout": 16,
+    "heldout_sha256": "44a3d565cfdb2e003f120ea0a5131fa1af65e97344d2c59486f0bd8440a628a4",
+    "training": 32,
+    "training_sha256": "b73b511f816ec1321a37567c3bb981f18202d43cc1af5003397468f3c04faedf"
+   },
+   "seed": 20261017
+  }
+ ],
+ "legacy_snapshot_commitment": "04db8a469aa5c430f9333829da015f01b4377eb5268c58c1451c63b0a51dcced",
+ "presence": {
+  "dataset": "presence-synthetic.jsonl",
+  "partitions": [
+   {
+    "count": 8,
+    "held": [
+     "p100",
+     "p51",
+     "p7",
+     "p114"
+    ],
+    "heldout": 4,
+    "seed": 1,
+    "selected": [
+     "p34",
+     "p9",
+     "p87",
+     "p18",
+     "p36",
+     "p62",
+     "p99",
+     "p94"
+    ]
+   },
+   {
+    "count": 30,
+    "held": [
+     "p100",
+     "p51",
+     "p7",
+     "p114",
+     "p17",
+     "p81",
+     "p4",
+     "p105",
+     "p67",
+     "p12"
+    ],
+    "heldout": 10,
+    "seed": 1,
+    "selected": [
+     "p98",
+     "p63",
+     "p48",
+     "p117",
+     "p0",
+     "p30",
+     "p29",
+     "p88",
+     "p36",
+     "p65",
+     "p37",
+     "p25",
+     "p54",
+     "p57",
+     "p60",
+     "p41",
+     "p70",
+     "p32",
+     "p69",
+     "p20",
+     "p90",
+     "p71",
+     "p89",
+     "p52",
+     "p56",
+     "p84",
+     "p59",
+     "p9",
+     "p61",
+     "p118"
+    ]
+   },
+   {
+    "count": 8,
+    "held": [
+     "p1",
+     "p15",
+     "p5",
+     "p42"
+    ],
+    "heldout": 4,
+    "seed": 2,
+    "selected": [
+     "p106",
+     "p12",
+     "p23",
+     "p114",
+     "p17",
+     "p119",
+     "p49",
+     "p70"
+    ]
+   },
+   {
+    "count": 30,
+    "held": [
+     "p1",
+     "p15",
+     "p5",
+     "p42",
+     "p107",
+     "p39",
+     "p10",
+     "p27",
+     "p92",
+     "p60"
+    ],
+    "heldout": 10,
+    "seed": 2,
+    "selected": [
+     "p94",
+     "p63",
+     "p88",
+     "p25",
+     "p2",
+     "p119",
+     "p62",
+     "p9",
+     "p112",
+     "p66",
+     "p19",
+     "p67",
+     "p98",
+     "p18",
+     "p21",
+     "p74",
+     "p31",
+     "p70",
+     "p44",
+     "p97",
+     "p76",
+     "p34",
+     "p102",
+     "p118",
+     "p90",
+     "p115",
+     "p56",
+     "p37",
+     "p12",
+     "p87"
+    ]
+   },
+   {
+    "count": 8,
+    "held": [
+     "p5",
+     "p18",
+     "p85",
+     "p108"
+    ],
+    "heldout": 4,
+    "seed": 3,
+    "selected": [
+     "p23",
+     "p105",
+     "p93",
+     "p92",
+     "p119",
+     "p96",
+     "p20",
+     "p91"
+    ]
+   },
+   {
+    "count": 30,
+    "held": [
+     "p5",
+     "p18",
+     "p85",
+     "p108",
+     "p34",
+     "p45",
+     "p40",
+     "p81",
+     "p59",
+     "p6"
+    ],
+    "heldout": 10,
+    "seed": 3,
+    "selected": [
+     "p98",
+     "p30",
+     "p47",
+     "p48",
+     "p114",
+     "p53",
+     "p16",
+     "p52",
+     "p68",
+     "p65",
+     "p91",
+     "p38",
+     "p60",
+     "p62",
+     "p17",
+     "p75",
+     "p112",
+     "p103",
+     "p26",
+     "p76",
+     "p9",
+     "p82",
+     "p22",
+     "p77",
+     "p10",
+     "p24",
+     "p20",
+     "p29",
+     "p39",
+     "p97"
+    ]
+   },
+   {
+    "count": 8,
+    "held": [
+     "p74",
+     "p90",
+     "p95",
+     "p15"
+    ],
+    "heldout": 4,
+    "seed": 42,
+    "selected": [
+     "p73",
+     "p30",
+     "p109",
+     "p105",
+     "p51",
+     "p5",
+     "p26",
+     "p52"
+    ]
+   },
+   {
+    "count": 30,
+    "held": [
+     "p74",
+     "p90",
+     "p95",
+     "p15",
+     "p35",
+     "p0",
+     "p76",
+     "p84",
+     "p46",
+     "p39"
+    ],
+    "heldout": 10,
+    "seed": 42,
+    "selected": [
+     "p20",
+     "p63",
+     "p103",
+     "p70",
+     "p53",
+     "p112",
+     "p61",
+     "p56",
+     "p113",
+     "p18",
+     "p69",
+     "p119",
+     "p97",
+     "p52",
+     "p67",
+     "p62",
+     "p65",
+     "p7",
+     "p36",
+     "p102",
+     "p41",
+     "p92",
+     "p106",
+     "p43",
+     "p25",
+     "p30",
+     "p114",
+     "p82",
+     "p98",
+     "p31"
+    ]
+   }
+  ]
+ },
+ "privacy_heads": {
+  "eval": {
+   "rows": 1560,
+   "sha256": "cbc52730b8ac7abb8f7274a08b00cf0ed9b7990645bfbd9d31e7f817daed8d39"
+  },
+  "train": {
+   "rows": 6240,
+   "sha256": "374de9e0929a098ecef160ebaec03df1de57df2269c00ffdd493eb946a3c98ec"
+  },
+  "validation": {
+   "rows": 1560,
+   "sha256": "7301d57c70ff1d1d57ca2a3bdaa383933f670c92297127835dca247d24120745"
+  }
+ },
+ "privacy_heads_components": {
+  "coarse_situation_groups": 388,
+  "components": 390,
+  "cross_split_component_or_situation_overlaps": 0,
+  "unique_component_skeletons": 390,
+  "unique_normalized_components": 390
+ },
+ "rehearsal_manifest_sha256": "9176666b97758fa41b104cb8f1c019eb5e8f80bcd35752a6360e5e0621fd5a45",
+ "role_quota": {
+  "dataset": "role-quota-synthetic.json",
+  "partitions": [
+   {
+    "audit_sha256": "aa94ecb51d78402a75a4c446eff4e6332b17c46023c5f69edc29ce964ccb11f5",
+    "heldout": 16,
+    "heldout_sha256": "05481cd456b52dfd227ef036dbf124a097bc73b9baa981197424f46b122fcc4e",
+    "seed": 1,
+    "training": 256,
+    "training_sha256": "17725911a1875949578b620f4e5143740a8fad8b9ca98af5eb7c94e1e2163784"
+   },
+   {
+    "audit_sha256": "a9175606a8d4c7f281f3a6ca9f39e04cc660430bce68cbce0a3b63f86beec709",
+    "heldout": 16,
+    "heldout_sha256": "0de660d2b1ed5cac126c81bf43e71db4dc2334f479e3c3854fb9c9d642d0a972",
+    "seed": 2,
+    "training": 256,
+    "training_sha256": "4de3798245aab4f2607e8dbd85486ed121a9876d1c7a3070203a71af91fe7807"
+   },
+   {
+    "audit_sha256": "b56b6fd56acc320fc393517f3a377e5b9809c56d0b460d521bb4f23c0eca58f3",
+    "heldout": 16,
+    "heldout_sha256": "d8ce98becdfee431d1619981b18a7893be72ce7f43a9975265244ff7efb3101f",
+    "seed": 3,
+    "training": 256,
+    "training_sha256": "b541344cdda4ef0c1cb73c38bdd9b6498bfc39e77ab403e15ecfc1391d0e36f3"
+   }
+  ]
+ },
+ "taxonomy_dataset_sha256": "3b777f328a8e08140ee964facbd559c694673336b4c5655320befdd84aef66e0",
+ "taxonomy_partitions": [
+  {
+   "audit_sha256": "86f6c2293d15b2a6935d784e2505a60027af10ec66d5b0a56bb879f023a581ad",
+   "heldout": 16,
+   "heldout_sha256": "fe604f91c915c6c033d00ed02a9593063ff8894b2abf6cd16ffa6f8b9edbabaa",
+   "seed": 1,
+   "training": 32,
+   "training_sha256": "f6881280a733cdd0359f9f7fca96f1b4ea5be8900ff516d2fbda6cabd2bc562c"
+  },
+  {
+   "audit_sha256": "b73721c88dd75cdfb902fd69b67b3b868a9bdf9c2050a8b5a5daf42bf1508e3b",
+   "heldout": 16,
+   "heldout_sha256": "1365eaad44d6385b39f28d43800ee4d093fd857bde9aea134812706f7ae35481",
+   "seed": 2,
+   "training": 32,
+   "training_sha256": "2736f5c5e2c8dad39901feaea83c00da5ef4b23bb2c91bb6585773e64c7291f4"
+  },
+  {
+   "audit_sha256": "c8f2b2b86b177934e6abb769be420192b0220d0829f7471866cf51550a302a7f",
+   "heldout": 16,
+   "heldout_sha256": "118c9c533a90843102915d01f219aa0f5474cc04942ea592f3908ce4507ae387",
+   "seed": 3,
+   "training": 32,
+   "training_sha256": "193931a0231303271b3b006ea2be315aa46d9944fac336baa149a36c5540860b"
+  },
+  {
+   "audit_sha256": "14aa925550ce8e644e73f7311124283ab9b00b613e184e1b4e2b92283a71ba9b",
+   "heldout": 16,
+   "heldout_sha256": "58c0d5f228407297d59205d4206430e65166df9c4f3c3831d1d6957cb1c45f5e",
+   "seed": 4,
+   "training": 32,
+   "training_sha256": "595bbfbc9029dc976265723659067ac444ca5ad37f774981eaa7d689ef984867"
+  },
+  {
+   "audit_sha256": "caea24e1b2fc6a7328531314f0f4d79a69af44521ac712eebb894c11c4efb069",
+   "heldout": 16,
+   "heldout_sha256": "8a76f8865bb4a019faa34a7a3e29d6718f4c3fef197a32e2bfa67a0387057f12",
+   "seed": 5,
+   "training": 32,
+   "training_sha256": "39b595a30da9f273e66babf117f60c3c9146c54217700691a24a1df785e6be2b"
+  },
+  {
+   "audit_sha256": "46ac38e578da3f270f33f4e4f0f09c82018e4d1f38c18793d56889443ab562eb",
+   "heldout": 16,
+   "heldout_sha256": "9348e1a24e6f297c11200809f76b43827d14f4d97326c4554b735d82b29eb87c",
+   "seed": 6,
+   "training": 32,
+   "training_sha256": "5bdc0550ea925376d9415cde5e22680462059dd2ca37e3a01cbba0d0924ae98d"
+  },
+  {
+   "audit_sha256": "76513186f8e925f02ab3d1d13404cda5381fd918dc97590fdd4c675f2ef34724",
+   "heldout": 16,
+   "heldout_sha256": "ecb00f615ac1cd627bc50ef3d8d2e0683395d5142d9e4d437ac99844ef34162b",
+   "seed": 7,
+   "training": 32,
+   "training_sha256": "8f25d91b1a386159fd906fb4b15d4434f02ffb06c59663400da7134b260dbe7d"
+  },
+  {
+   "audit_sha256": "0d69bc26e128bd023906ef42b5fc0006f02aba8a46dd560873db6fac70d1d374",
+   "heldout": 16,
+   "heldout_sha256": "e58d9a004a6a8020cdc99b5422317560e69db8d4beee411570355657fc6c7ea9",
+   "seed": 8,
+   "training": 32,
+   "training_sha256": "c886ab9d5ace1c7e7a9838e45673b30ce5359c3df30e55306003ac0749088138"
+  },
+  {
+   "audit_sha256": "80e07fdded0cf7be68682d453682df94168da3b3991ebb64b9e35b969cf072c5",
+   "heldout": 16,
+   "heldout_sha256": "a78a3b2841ecaf9f6b4934f726ec54f277475bb998b59d8d12d31eb5e0762eca",
+   "seed": 9,
+   "training": 32,
+   "training_sha256": "a943d630fdd62d115138f35ef08fabec4a9712b4b0e428bcca9c2b44c75468bf"
+  },
+  {
+   "audit_sha256": "014b887bb22cfa0910f719eb24cc354fc6da535f2534548c36dfaee7125d237e",
+   "heldout": 16,
+   "heldout_sha256": "82c4f2a3ec014e11375724121bc20a0f5986762190c0a677d4df73ca192d1830",
+   "seed": 10,
+   "training": 32,
+   "training_sha256": "68683d1afe6dc34e04a4488f685a779015704c6c9a9c0c796e2f86900f25cc3a"
+  },
+  {
+   "audit_sha256": "11502dc7eb94a3fbeaff8b034126ed064836c62a706f4f961da249661baec1d8",
+   "heldout": 16,
+   "heldout_sha256": "0ffdb899882245e425c4eb4e011b59ff97d617e7df53b720771335e8ba21036a",
+   "seed": 11,
+   "training": 32,
+   "training_sha256": "24a41af05aebbab3bcdcb5593fc9065bd8531bd093ae96fc56aa4a1384656b6f"
+  },
+  {
+   "audit_sha256": "4c19041601cff207550f262a7fc35def5ddf4f1dfc6578eaa6e3714e986ede32",
+   "heldout": 16,
+   "heldout_sha256": "5e26c264fe18e6f2e1eecbdc2b915e0a77c8f6cc931e031e6cd53035e14a8c23",
+   "seed": 12,
+   "training": 32,
+   "training_sha256": "b37c9bda4aa757641862c01e1a04069404254d8043963343a018d17ff5b05988"
+  },
+  {
+   "audit_sha256": "c01a5bad4215fe7571df0f1df9df3b64a20f6932ba908bcbe29e0030219f9249",
+   "heldout": 16,
+   "heldout_sha256": "1acf7fa76e0944106a4c44fd3076f7a0a52cce27ab15adb8554646247ff1e4c0",
+   "seed": 100,
+   "training": 32,
+   "training_sha256": "48ae115caa050d72dd15bf5930770b9f24aa5d056d5b086c4d5cbbf8b5d43d86"
+  },
+  {
+   "audit_sha256": "b877b332c6fb2ff6a178dde9b819b54002de4610e032fc85d4781dd26eba42db",
+   "heldout": 16,
+   "heldout_sha256": "8645c331ea22e1203fb7c901ec16cca2d52f5024720d525476e8c3bd1acda806",
+   "seed": 1000,
+   "training": 32,
+   "training_sha256": "f64acf88eba5091f70ef01c4cea05bbcce2b72f8907ea4f122ae7de32f02b448"
+  },
+  {
+   "audit_sha256": "70ec6161cd336210926afe3fd76f8ef569e9bdd390fd44b089d8a0090f38dc55",
+   "heldout": 16,
+   "heldout_sha256": "9c7287ab5f335b0fdcfdb25ee10d0d920db0de40bc8fb607ac6c953e528c9c38",
+   "seed": 20261017,
+   "training": 32,
+   "training_sha256": "d88b9e598f6ab5e26afc348bcb22aa237570bb0993bde1bf3afd88218128b325"
+  }
+ ],
+ "v3_schedules": [
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "pilot",
+   "sampler": "au3",
+   "seed": 7,
+   "sidecar_sha256": "6ef4d19fb478af2a4edced772a44ca8b8a23580ed3c1585044eb2888a04bdafa",
+   "source_commitment": "f37f5619ec5966bc0922e323770ed8849c293f3fa934863eedac8947e9634fcc",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "0fa6c710cf30914cae215bfdc7671bdee069862cee026f20fc544a9c6c71f09d"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "steps64",
+   "sampler": "au3",
+   "seed": 7,
+   "sidecar_sha256": "176c11909db385b7eee3da53242b3805501cce03234a51cf57785d9c29f80bbf",
+   "source_commitment": "85e7b0b50b176de602ce68d70ddd54766aeddde1d1ebe596da9256b65a4bf8cd",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "842ba58b257e72d7b518a5c0a5beb5ac2a39be34df2eaf6e7ad19b30132ef74a"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "pilot",
+   "sampler": "au3",
+   "seed": 42,
+   "sidecar_sha256": "cb106abd923dd07e948e10cb09ac39dd989a2b207d4ec64e0e396d2d7720eef9",
+   "source_commitment": "27b1e8f60767638e51ba26e25f45924bda98c5157770e276509735e1b21b1dbe",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "543f6892c83e973143c31086bc2f19c4f4f207202c3b15c7a4a9b7db1e6d260a"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "steps64",
+   "sampler": "au3",
+   "seed": 42,
+   "sidecar_sha256": "d9583b693f05949f6a2b62e9b90eb936e05edbdbc56e5051f3d394065ef97678",
+   "source_commitment": "dc3759c9f767bff74852d0354cbbbb678f5ed488e3140a4761d06b337fe8a982",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "884d5e18164bdc9f1333afe9bbfb6843e916b9a91a50f7bffc144fdbf84f5c27"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "pilot",
+   "sampler": "au3",
+   "seed": 99,
+   "sidecar_sha256": "9f8670971c18ec9a54811cc1368a14bcd04e100d75b09cebbb5445abfe258465",
+   "source_commitment": "e628a40ceadb407e29f8ecc560ec028341a94953527e0b5b5177573bcc0f570b",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "fb54396d1077da956eaaa8d601bf71f1fb38dbc23e98936cca271fd350578b89"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "steps64",
+   "sampler": "au3",
+   "seed": 99,
+   "sidecar_sha256": "be33445f9df01a63f44968e5c82b28074e301d5e6740865c9db2e65b3c3f37ec",
+   "source_commitment": "a5f005937cdf7575991208cb85455ba5b14b2756c37d52399c5e0dd383073505",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "ca630d0453fcbfdfbf4f7e27e9a7c93b5e161317ac4f07eb03975ae982c81d28"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "pilot",
+   "sampler": "au3",
+   "seed": 2026,
+   "sidecar_sha256": "f0e3d834eca55176a96149afee516269700aa2b873370097339b3c521aa493c0",
+   "source_commitment": "84449f9890605e48fd072b63850e6302ae80d4955f6f6cf7d8420322a56ce76a",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "cb241e16172253d028c9646a35e3f15cb9de4d69665399b913c2056ef50bccbc"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "steps64",
+   "sampler": "au3",
+   "seed": 2026,
+   "sidecar_sha256": "9c52a6f7ee7148e0a09a79af1b8a7cb48c495043c0de48aedc48a76696ab01c2",
+   "source_commitment": "3fe303629952548a1bbcf92fdaa73a689e8e6a3b69754202839844426e0de90a",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "df746cdba4b7988aa28438f24432597de45b60691d2ffca8cc0bbe208217292c"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "pilot",
+   "sampler": "au3",
+   "seed": 4242,
+   "sidecar_sha256": "dbd4210dd14c6695ccb9f83102e46a892f5c02b2f6356716de68200fc9714ce8",
+   "source_commitment": "d3ac4eecf99738acd79e45ed5ca5e92bc4159f0ccebaaa5cf6612aada444c55a",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "8a27a9f82ae92cd481d93b4c82840e16155189881a2ff3067530d8cef7e2e9f1"
+  },
+  {
+   "guard_wire_sha256": "19a9eb4c5e05c3643163c20570bcbda6a0c67e1270e64302b2e666929db21771",
+   "policy": "steps64",
+   "sampler": "au3",
+   "seed": 4242,
+   "sidecar_sha256": "0ecf6e6ef3fcdedbdd42417692ad4f6ad4055aac013a9fe94d6205988e5a93ac",
+   "source_commitment": "6c1b20e0cb94cddeb2c99c4fc2c350d8af8dd72632020367d88100bbe02b1947",
+   "source_hashes": {
+    "services/pretrained-v3/src/audience_schedule.py": "0eda31e3f23d00bf07de659db020c45534c40d3334bf27dfe893cfc90c088180",
+    "services/privoke-fuzzer/src/prompt_generation/audience_coverage.py": "3359013878b5af2c7c0dc9ded807895fac01acfe6375e486b690c858daa36d17",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "472ecfb642d5436ae00d5e83327a798fdfa419d5fde6c922ed31cf517774019b"
+  },
+  {
+   "guard_wire_sha256": "ac060b0460571e05365ba73d42ce6d18b99f55d7b91e110a39cade83e8098e40",
+   "policy": "pilot",
+   "sampler": "bc01",
+   "seed": 42,
+   "sidecar_sha256": "1cbe4f93f29badae2a7052d6d7894d75e5f0a171f56a2b540e1a10d50e98af4e",
+   "source_commitment": "88c3fe84a44270503e657e4f73ee4c37b6e8a1ba11b84754007cccfdee9e3312",
+   "source_hashes": {
+    "services/pretrained-v3/src/fuzzer_training.py": "b2fd6dfc3cc403e765ded0113642abe8d2c89c0413f3219c77ac0afc729f0944",
+    "services/privoke-fuzzer/src/prompt_generation/benign_coverage.py": "7f8f7fe11bbc8b948a400013f51c44328ae6ce89fab45b89e28927f0636920ef",
+    "services/privoke-fuzzer/src/prompt_generation/taxonomy_coverage.py": "5e7feafb1e9552d63b1ef52aaee222c24c1bb1636f9090598e8bf5a1d25d6837",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "e73e37b001c658f59c19570e2389e3631f840159a8c0781f1cafffbda30b5978"
+  },
+  {
+   "guard_wire_sha256": "ac060b0460571e05365ba73d42ce6d18b99f55d7b91e110a39cade83e8098e40",
+   "policy": "steps64",
+   "sampler": "bc01",
+   "seed": 42,
+   "sidecar_sha256": "73c68cfc8936edba48ba2a5125ca9114995657e9d6f7528ec09428820733cbc7",
+   "source_commitment": "bab0644465a3d3da01aaabd8eca5844a6f338163eac831caa48da785982b5549",
+   "source_hashes": {
+    "services/pretrained-v3/src/fuzzer_training.py": "b2fd6dfc3cc403e765ded0113642abe8d2c89c0413f3219c77ac0afc729f0944",
+    "services/privoke-fuzzer/src/prompt_generation/benign_coverage.py": "7f8f7fe11bbc8b948a400013f51c44328ae6ce89fab45b89e28927f0636920ef",
+    "services/privoke-fuzzer/src/prompt_generation/taxonomy_coverage.py": "5e7feafb1e9552d63b1ef52aaee222c24c1bb1636f9090598e8bf5a1d25d6837",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "a3db3044e07eb777563226ec64359dea49375d4a91cce3886347653debe819ac"
+  },
+  {
+   "guard_wire_sha256": "f145f82c01ea155fed1cc5947fe17ea8ca86758116fdc99ab856306fa0428052",
+   "policy": "pilot",
+   "sampler": "bc01",
+   "seed": 3090,
+   "sidecar_sha256": "cab49341ad09b4d28b8dcc4050f3e61f8f187ca76b6a6a27f390ba9d14dd77ab",
+   "source_commitment": "7874b3b5284e02763bc3823d119556c93cc7c5a491ae36b99e7984b8fbd46be0",
+   "source_hashes": {
+    "services/pretrained-v3/src/fuzzer_training.py": "b2fd6dfc3cc403e765ded0113642abe8d2c89c0413f3219c77ac0afc729f0944",
+    "services/privoke-fuzzer/src/prompt_generation/benign_coverage.py": "7f8f7fe11bbc8b948a400013f51c44328ae6ce89fab45b89e28927f0636920ef",
+    "services/privoke-fuzzer/src/prompt_generation/taxonomy_coverage.py": "5e7feafb1e9552d63b1ef52aaee222c24c1bb1636f9090598e8bf5a1d25d6837",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "40cd319a82192f1fc907f83a79b1f506981ed2121929f22560809056eaef5566"
+  },
+  {
+   "guard_wire_sha256": "f145f82c01ea155fed1cc5947fe17ea8ca86758116fdc99ab856306fa0428052",
+   "policy": "steps64",
+   "sampler": "bc01",
+   "seed": 3090,
+   "sidecar_sha256": "aaae12b0c5a9d4ea3d82d88289a878d668ef145c649c7503bb60ad45fe4ccfc7",
+   "source_commitment": "8c0e00b831095caf277d10302de767d4f3927f3b694b01376d6e52a727d2d9f8",
+   "source_hashes": {
+    "services/pretrained-v3/src/fuzzer_training.py": "b2fd6dfc3cc403e765ded0113642abe8d2c89c0413f3219c77ac0afc729f0944",
+    "services/privoke-fuzzer/src/prompt_generation/benign_coverage.py": "7f8f7fe11bbc8b948a400013f51c44328ae6ce89fab45b89e28927f0636920ef",
+    "services/privoke-fuzzer/src/prompt_generation/taxonomy_coverage.py": "5e7feafb1e9552d63b1ef52aaee222c24c1bb1636f9090598e8bf5a1d25d6837",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "07c5f64624b42ddffb95f79f24428dbaaf56c8308e7a85c71dd317c2fcfb823a"
+  },
+  {
+   "guard_wire_sha256": "f1e2ada9602b48a7105791cb86b2e68580996181bb96f0e004dbf9e345a3f851",
+   "policy": "pilot",
+   "sampler": "bc01",
+   "seed": 2026,
+   "sidecar_sha256": "1cf05aee6406ed0c22849fab6d46e81267e498ae32861c09d087995c0ff4a53e",
+   "source_commitment": "0f806c54764dee7398dad78d2123cc72ed92a00ab8123c750976738f2b2bb4bc",
+   "source_hashes": {
+    "services/pretrained-v3/src/fuzzer_training.py": "b2fd6dfc3cc403e765ded0113642abe8d2c89c0413f3219c77ac0afc729f0944",
+    "services/privoke-fuzzer/src/prompt_generation/benign_coverage.py": "7f8f7fe11bbc8b948a400013f51c44328ae6ce89fab45b89e28927f0636920ef",
+    "services/privoke-fuzzer/src/prompt_generation/taxonomy_coverage.py": "5e7feafb1e9552d63b1ef52aaee222c24c1bb1636f9090598e8bf5a1d25d6837",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "8869a528650bae1b377e00ea75350cf375e6afb3eb462882cba17c016d8de4da"
+  },
+  {
+   "guard_wire_sha256": "f1e2ada9602b48a7105791cb86b2e68580996181bb96f0e004dbf9e345a3f851",
+   "policy": "steps64",
+   "sampler": "bc01",
+   "seed": 2026,
+   "sidecar_sha256": "2fae93705c2c0c5f0bec7942c8a506c45f553edbe6ab68b5eca854342abb2e52",
+   "source_commitment": "c762a459539b02c1f83c1a11c462e2ca039858036cc83083c9c2d3f639fb10c4",
+   "source_hashes": {
+    "services/pretrained-v3/src/fuzzer_training.py": "b2fd6dfc3cc403e765ded0113642abe8d2c89c0413f3219c77ac0afc729f0944",
+    "services/privoke-fuzzer/src/prompt_generation/benign_coverage.py": "7f8f7fe11bbc8b948a400013f51c44328ae6ce89fab45b89e28927f0636920ef",
+    "services/privoke-fuzzer/src/prompt_generation/taxonomy_coverage.py": "5e7feafb1e9552d63b1ef52aaee222c24c1bb1636f9090598e8bf5a1d25d6837",
+    "services/privoke-fuzzer/src/training/transforms.py": "38436f8c8fd8ac1fcd52f87f006f5fe6a4427438eac1898467083e05b7ce91e5"
+   },
+   "train_wire_sha256": "eaa620183eaa4183361ebb3d63a2f9726f168de6cd8265ef8d1687e7fae601b5"
+  }
+ ]
+}

@@ -1,0 +1,174 @@
+{
+ "candidate_tree": {
+  "base": "e70e3a2e3910b9e4833188cec711d0edb6d99583",
+  "branch": "research/w3-candidate",
+  "commit": "058942e02866b621a2597df5341eb9c19b75561e",
+  "conflict": "extension/client-runtime/src/config.py: both branches appended a field block after ner_postfilter; both kept (robustness flags then ner_model)",
+  "git_tree": "50e0a8a63bd0302095f7da50b82d70f846534bf5",
+  "merged": [
+   "research/wt-r-robustfix b3d11a50 (contains frozen b1975bc2)",
+   "research/wt-d-nerrole 3bd22f21 (contains ba660071)"
+  ],
+  "runtime_tests_run_on_candidate": "test_robustness_fixes 35, test_ner_model_option 3, test_case_preserving_detectors 11, test_ner_postfilter 36, test_detector_contract 18, test_detector_quality 26, test_pipeline 3, test_ner_pipeline_cache 5: all OK"
+ },
+ "environments": {
+  ".venv-ner-models": {
+   "numpy": "1.26.4",
+   "presidio-analyzer": "2.2.363",
+   "python": "3.11.9",
+   "spacy": "3.7.5",
+   "torch": "2.11.0",
+   "transformers": "4.57.6"
+  },
+  ".venv-v1-v3-pipeline": {
+   "numpy": "1.26.4",
+   "presidio-analyzer": "2.2.363",
+   "python": "3.11.9",
+   "spacy": "3.7.5",
+   "torch": "2.11.0+cpu",
+   "transformers": "4.57.6"
+  }
+ },
+ "equivalence_check": {
+  "claim": "candidate tree with every new flag off (C0) equals N",
+  "command": "w3_scoring.py run --config N / --config C0 on dev personalized openai dev_spans, then w3_scoring.py equiv",
+  "result": {
+   "identical": true,
+   "sets": {
+    "dev": {
+     "identical": true,
+     "n_a": 502,
+     "n_b": 502,
+     "row_mismatches": 0,
+     "span_mismatches": 0
+    },
+    "dev_spans": {
+     "identical": true,
+     "n_a": 502,
+     "n_b": 502,
+     "row_mismatches": 0,
+     "span_mismatches": 0
+    },
+    "openai": {
+     "identical": true,
+     "n_a": 1000,
+     "n_b": 1000,
+     "row_mismatches": 0,
+     "span_mismatches": 0
+    },
+    "personalized": {
+     "identical": true,
+     "n_a": 2000,
+     "n_b": 2000,
+     "row_mismatches": 0,
+     "span_mismatches": 0
+    }
+   }
+  },
+  "sets_note": "dev (502 rows), dev_spans (502 rows, same rows with spans), personalized (2000), openai (1000): per-row regex/ner/union records and all spans are identical; span records also equal span_scoring.extract_predictions on tree N (dev_spans, 502/502); N dev union TP/FP 201/12 reproduces detector-precision-installed-20261024.json"
+ },
+ "evaluate_installed_detectors_note": "the freeze record lists 0261942a... (version at e70e3a2e). The scoring code uses the per-row version of research/wt-a-stats (35d74729...), which adds only per-row output; layer_row and union_row from it build the per-row records. Aggregates are unchanged.",
+ "export_digests_sha256_of_sorted_path_sha256_lines": {
+  "C": {
+   "digest": "8537ac636957cc0eb5ad63cc44c3a6836c2b3f8a269da850934b456f017d596f",
+   "export_of": "058942e02866b621a2597df5341eb9c19b75561e"
+  },
+  "N": {
+   "digest": "4e6505d7685256c86eb3241e8cc8da71cc8e5ac2adffadd83e7ef53c087c49a9",
+   "export_of": "e70e3a2e3910b9e4833188cec711d0edb6d99583"
+  },
+  "O": {
+   "digest": "39a48a242b4f661261156b64672dc6a1fc22a23813fd19229c7b4765c7118d79",
+   "export_of": "e6c177ff7504ff2109be739ae60b5b4708d9d7a0",
+   "paths": "extension/client-runtime, shared/python"
+  }
+ },
+ "f2_pool_dir": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/fresh_sets_20261024/f2_adjudication/pool/ (gitignored)",
+ "output_dir": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/w3_scoring_20261024/ (gitignored)",
+ "parent_freeze_commit": "57e3cb7b457388795b3151acefe914e6c7531a14",
+ "perturbation": {
+  "configs_scored_on_perturbed_items": [
+   "N",
+   "N+strip",
+   "N+digits",
+   "N+email",
+   "N+caseless",
+   "N+all"
+  ],
+  "item": "(F1 positive row, transform) pair whose text the transform changed",
+  "rng": "random.Random seeded from int.from_bytes(sha256('20261024:<transform>:<row id>')[:8],'big') (robustness_probe.row_rng)",
+  "seed": 20261024,
+  "transforms": [
+   "zero_width",
+   "digits_space",
+   "digits_dot",
+   "digits_dash",
+   "digits_words",
+   "email_bracket",
+   "email_paren",
+   "email_word",
+   "lowercase",
+   "uppercase"
+  ]
+ },
+ "preregistration_sha256": "f97b8b5da50f163febde19d8b9395a6f88d2a361f142b4ae54fd931c92f48e1d (LF-normalised blob; the freeze record's 1dd0ef30... is the on-disk CRLF hash of the same file)",
+ "record": "Wave 3 freeze addendum (written and committed before any fresh row is scored)",
+ "scripts_commit": "7e946e62 (on research/wt-w3-score; merges 2f23914d span/stats code from research/wt-s-spans e829ad86, 5c805db8 robustness probe from research/wt-c-robust 33b6e6b5)",
+ "scripts_sha256_lf_blob": {
+  "docs/research/label-family-mapping-20261024.json": "19cc6103d404484be3a3ef0a851edfa0ae1254859557ffc87921673b9b05e5f6",
+  "evaluation/detector_stats.py": "c9b79a43e766021f2e1d083eb9db64fcc86d4db78b35f3ef27ad9b607127f60e",
+  "evaluation/evaluate_installed_detectors.py": "35d74729c6c57701e05664a3d91d83cc5eef18632e86ada9a61199632cffd297",
+  "evaluation/robustness_probe.py": "7dabcaa05050995bb35df2a569e2431e61ad343e805e7acb3a764d41ac63607f",
+  "evaluation/span_scoring.py": "7ab4995edb7bdefc9a84cd212211f6a539df191e716541840ec3f9def9942851",
+  "evaluation/w3_analysis.py": "1c12b4b8a413f538e65e676e88ca831c0c15891e5ea7c692d32e2b835fc03063",
+  "evaluation/w3_run.sh": "a1caa8b86197aa50f4f606ae8813e6e4b6b1c6ca702509d04ef3fe68977099b5",
+  "evaluation/w3_scoring.py": "12b1c596ce24cb4c5bd47e6ab009b20c6d46def847490dde69834bb13558e59a"
+ },
+ "spacy_models": {
+  "contamination_statement": "none of the declared training sources is a PIIMB source (ai4privacy, Gretel, Nemotron-PII, Privy, MAPA); roberta-base pretraining text is web/book/news and is not individually audited",
+  "digest_definition": "sha256 over sorted 'relative path TAB file sha256' lines of the installed package directory, excluding __pycache__ and .pyc",
+  "en_core_web_lg": {
+   "licence": "MIT",
+   "package_digest": "9341c86bef1e1c8b367f742b948aa03e29a5f7bdf8ccf646bd4d3f5ed0637131",
+   "source": "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl (local vendor copy models/experiments/paper_completion_20261014/vendor/ per G's requirements note)",
+   "training_sources_per_meta": [
+    "OntoNotes 5",
+    "ClearNLP Constituent-to-Dependency Conversion",
+    "WordNet 3.0",
+    "Explosion Vectors (OSCAR 2109 + Wikipedia + OpenSubtitles + WMT News Crawl)"
+   ],
+   "venv": ".venv-v1-v3-pipeline",
+   "version": "3.7.1"
+  },
+  "en_core_web_sm": {
+   "licence": "MIT",
+   "package_digest": "94a4c6fc6ebbd938ca1f760f6529732a80daae3e21b69c5828122dd7c2fc7bd9",
+   "source": "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl",
+   "venv": ".venv-v1-v3-pipeline",
+   "version": "3.7.1"
+  },
+  "en_core_web_trf": {
+   "licence": "MIT",
+   "package_digest": "b768bfa9158decff6c294ab373a73d438f6ead4613364efe4f87ff4a75ecf986",
+   "source": "https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.7.3/en_core_web_trf-3.7.3-py3-none-any.whl",
+   "training_sources_per_meta": [
+    "OntoNotes 5",
+    "ClearNLP Constituent-to-Dependency Conversion",
+    "WordNet 3.0",
+    "roberta-base"
+   ],
+   "venv": ".venv-ner-models",
+   "version": "3.7.3"
+  }
+ },
+ "statistics": {
+  "alpha": 0.05,
+  "bootstrap": "10000 replicates, seed 20261024, whole group_id clusters, percentile 95% CI",
+  "margin_points": 1.0,
+  "one_sided_bound": "lower (upper) limit of the 95% two-sided percentile interval = one-sided 97.5% bound"
+ },
+ "unmapped_labels_after_extension": {
+  "F1": {},
+  "F3": {}
+ }
+}

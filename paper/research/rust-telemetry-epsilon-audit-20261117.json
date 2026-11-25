@@ -1,0 +1,934 @@
+{
+ "c34_comparison": {
+  "available": true,
+  "per_epsilon": [
+   {
+    "event_epsilon": 0.5,
+    "in_c34": true,
+    "joint_ratio_identical": true,
+    "signed_excess_identical": true,
+    "thresholds_identical": true
+   },
+   {
+    "event_epsilon": 0.75,
+    "in_c34": false
+   },
+   {
+    "event_epsilon": 1.0,
+    "in_c34": true,
+    "joint_ratio_identical": true,
+    "signed_excess_identical": true,
+    "thresholds_identical": true
+   },
+   {
+    "event_epsilon": 1.5,
+    "in_c34": false
+   },
+   {
+    "event_epsilon": 2.0,
+    "in_c34": true,
+    "joint_ratio_identical": true,
+    "signed_excess_identical": true,
+    "thresholds_identical": true
+   }
+  ],
+  "source": "paper/research/telemetry-evidence-20261014.json"
+ },
+ "event_epsilons": [
+  {
+   "actual_epsilon_enclosure": [
+    "0.5000000000000012940163991575536384922117768915165450148914557024251178561563709009654059544445065282",
+    "0.5000000000000012940163991575536384922117768915165450148914557024251178561563709009654059544445065296"
+   ],
+   "coordinates": [
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "3205779949730253"
+     },
+     "Q": {
+      "denominator": "18014398509481984",
+      "numerator": "5801419305010739"
+     },
+     "dimension": "action",
+     "domain_size": 3,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.5,
+     "grid_points_below_threshold": "3205779949730253",
+     "log_ratio_enclosure": [
+      "0.1000000000000003101508490956875986157099913239071646302744126173313509090234374509457430057680029124",
+      "0.1000000000000003101508490956875986157099913239071646302744126173313509090234374509457430057680029144"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "5801419305010739",
+      "numerator": "6411559899460506"
+     },
+     "nominal_ratio_binary64": "1.1051709180756477",
+     "other_bits": "3fd49c5c30de4633",
+     "per_dimension_epsilon_bits": "3fb999999999999a",
+     "python_kernel_other_bits": "3fd49c5c30de4633",
+     "python_kernel_truthful_bits": "3fd6c7479e437399",
+     "truthful_bits": "3fd6c7479e437399",
+     "truthful_hex": "0x1.6c7479e437399p-2",
+     "truthful_repr": "0.3559130712072203"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "2424867287698387"
+     },
+     "Q": {
+      "denominator": "27021597764222976",
+      "numerator": "6582331967042605"
+     },
+     "dimension": "risk_bucket",
+     "domain_size": 4,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.5,
+     "grid_points_below_threshold": "2424867287698387",
+     "log_ratio_enclosure": [
+      "0.1000000000000002347908095033614528162417331478288621870682765159763902332578824135508329333640713248",
+      "0.1000000000000002347908095033614528162417331478288621870682765159763902332578824135508329333640713269"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "6582331967042605",
+      "numerator": "7274601863095161"
+     },
+     "nominal_ratio_binary64": "1.1051709180756477",
+     "other_bits": "3fcf2e20c8eb4592",
+     "per_dimension_epsilon_bits": "3fb999999999999a",
+     "python_kernel_other_bits": "3fcf2e20c8eb4592",
+     "python_kernel_truthful_bits": "3fd13aced29f17a5",
+     "truthful_bits": "3fd13aced29f17a5",
+     "truthful_hex": "0x1.13aced29f17a5p-2",
+     "truthful_repr": "0.26921434944631023"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "896383742590551"
+     },
+     "Q": {
+      "denominator": "90071992547409920",
+      "numerator": "8110815512150441"
+     },
+     "dimension": "primary_category",
+     "domain_size": 11,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.5,
+     "grid_points_below_threshold": "896383742590551",
+     "log_ratio_enclosure": [
+      "0.1000000000000003388219666724444904971815810350031216838587794865163042224078122761400827782770578727",
+      "0.1000000000000003388219666724444904971815810350031216838587794865163042224078122761400827782770578747"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "8110815512150441",
+      "numerator": "8963837425905510"
+     },
+     "nominal_ratio_binary64": "1.1051709180756477",
+     "other_bits": "3fb70d651df3ce21",
+     "per_dimension_epsilon_bits": "3fb999999999999a",
+     "python_kernel_other_bits": "3fb70d651df3ce21",
+     "python_kernel_truthful_bits": "3fb97a0cd479f2b7",
+     "truthful_bits": "3fb97a0cd479f2b7",
+     "truthful_hex": "0x1.97a0cd479f2b7p-4",
+     "truthful_repr": "0.09951858699236991"
+    },
+    {
+     "P": {
+      "denominator": "1125899906842624",
+      "numerator": "591074018276855"
+     },
+     "Q": {
+      "denominator": "1125899906842624",
+      "numerator": "534825888565769"
+     },
+     "dimension": "model_version",
+     "domain_size": 2,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.5,
+     "grid_points_below_threshold": "4728592146214840",
+     "log_ratio_enclosure": [
+      "0.1000000000000001061394081078919734799200815513438388221001888467441902709379913748633027466812139086",
+      "0.1000000000000001061394081078919734799200815513438388221001888467441902709379913748633027466812139107"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "534825888565769",
+      "numerator": "591074018276855"
+     },
+     "nominal_ratio_binary64": "1.1051709180756477",
+     "other_bits": "3fde66bdb1aca090",
+     "per_dimension_epsilon_bits": "3fb999999999999a",
+     "python_kernel_other_bits": "3fde66bdb1aca090",
+     "python_kernel_truthful_bits": "3fe0cca12729afb8",
+     "truthful_bits": "3fe0cca12729afb8",
+     "truthful_hex": "0x1.0cca12729afb8p-1",
+     "truthful_repr": "0.52497918747894"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "1630502209230541"
+     },
+     "Q": {
+      "denominator": "45035996273704960",
+      "numerator": "7376697045510451"
+     },
+     "dimension": "time_bucket",
+     "domain_size": 6,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.5,
+     "grid_points_below_threshold": "1630502209230541",
+     "log_ratio_enclosure": [
+      "0.1000000000000003041133657781681230831583898334335576915897982358568822205292473854654444903541605046",
+      "0.1000000000000003041133657781681230831583898334335576915897982358568822205292473854654444903541605067"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "7376697045510451",
+      "numerator": "8152511046152705"
+     },
+     "nominal_ratio_binary64": "1.1051709180756477",
+     "other_bits": "3fc4f740e59c5429",
+     "per_dimension_epsilon_bits": "3fb999999999999a",
+     "python_kernel_other_bits": "3fc4f740e59c5429",
+     "python_kernel_truthful_bits": "3fc72bbb83f25b33",
+     "truthful_bits": "3fc72bbb83f25b33",
+     "truthful_hex": "0x1.72bbb83f25b33p-3",
+     "truthful_repr": "0.18102210943899308"
+    }
+   ],
+   "equals_python_kernel_in_every_coordinate": true,
+   "event_epsilon": 0.5,
+   "event_epsilon_bits": "3fe0000000000000",
+   "excess_strictly_positive": true,
+   "joint_ratio": {
+    "denominator": "244389715023065860705652660765315811417441776718226899348568709281230108194401",
+    "numerator": "402930521498871864842938264160702753701647703904247359646935674548783819081300"
+   },
+   "nominal_bound_holds": false,
+   "signed_excess_over_nominal_enclosure": [
+    "1.2940163991575536384922117768915165450148914557024251178561563709009654059544445065282E-15",
+    "1.2940163991575536384922117768915165450148914557024251178561563709009654059544445065296E-15"
+   ]
+  },
+  {
+   "actual_epsilon_enclosure": [
+    "0.7500000000000004881564895243277233347614462955485496405814360771831701474189068344585248076871057254",
+    "0.7500000000000004881564895243277233347614462955485496405814360771831701474189068344585248076871057265"
+   ],
+   "coordinates": [
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "3309747356080511"
+     },
+     "Q": {
+      "denominator": "18014398509481984",
+      "numerator": "5697451898660481"
+     },
+     "dimension": "action",
+     "domain_size": 3,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.75,
+     "grid_points_below_threshold": "3309747356080511",
+     "log_ratio_enclosure": [
+      "0.1500000000000004807459314714823946277604547396467707359039868810593435884403139866006156969260502677",
+      "0.1500000000000004807459314714823946277604547396467707359039868810593435884403139866006156969260502696"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "5697451898660481",
+      "numerator": "6619494712161022"
+     },
+     "nominal_ratio_binary64": "1.161834242728283",
+     "other_bits": "3fd43dcd648b6683",
+     "per_dimension_epsilon_bits": "3fc3333333333333",
+     "python_kernel_other_bits": "3fd43dcd648b6683",
+     "python_kernel_truthful_bits": "3fd7846536e932fd",
+     "truthful_bits": "3fd7846536e932fd",
+     "truthful_hex": "0x1.7846536e932fdp-2",
+     "truthful_repr": "0.36745577204128194"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "2514485660624131"
+     },
+     "Q": {
+      "denominator": "27021597764222976",
+      "numerator": "6492713594116861"
+     },
+     "dimension": "risk_bucket",
+     "domain_size": 4,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.75,
+     "grid_points_below_threshold": "2514485660624131",
+     "log_ratio_enclosure": [
+      "0.1500000000000000543605978234527130906430401166926518476813512210874448236711074617335502328516434289",
+      "0.1500000000000000543605978234527130906430401166926518476813512210874448236711074617335502328516434308"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "6492713594116861",
+      "numerator": "7543456981872393"
+     },
+     "nominal_ratio_binary64": "1.161834242728283",
+     "other_bits": "3fcec173948a7953",
+     "per_dimension_epsilon_bits": "3fc3333333333333",
+     "python_kernel_other_bits": "3fcec173948a7953",
+     "python_kernel_truthful_bits": "3fd1ddd2a1304a06",
+     "truthful_bits": "3fd1ddd2a1304a06",
+     "truthful_hex": "0x1.1ddd2a1304a06p-2",
+     "truthful_repr": "0.27916398755147076"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "937558496001893"
+     },
+     "Q": {
+      "denominator": "90071992547409920",
+      "numerator": "8069640758739099"
+     },
+     "dimension": "primary_category",
+     "domain_size": 11,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.75,
+     "grid_points_below_threshold": "937558496001893",
+     "log_ratio_enclosure": [
+      "0.1500000000000000925172330346871974994576062078706875232762856181646547608089010928571214157383591568",
+      "0.1500000000000000925172330346871974994576062078706875232762856181646547608089010928571214157383591587"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "8069640758739099",
+      "numerator": "9375584960018930"
+     },
+     "nominal_ratio_binary64": "1.161834242728283",
+     "other_bits": "3fb6ef6fb8b633b0",
+     "per_dimension_epsilon_bits": "3fc3333333333333",
+     "python_kernel_other_bits": "3fb6ef6fb8b633b0",
+     "python_kernel_truthful_bits": "3fbaa5a2c8e1fb27",
+     "truthful_bits": "3fbaa5a2c8e1fb27",
+     "truthful_hex": "0x1.aa5a2c8e1fb27p-4",
+     "truthful_repr": "0.10408990291942342"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "4840737702455787"
+     },
+     "Q": {
+      "denominator": "9007199254740992",
+      "numerator": "4166461552285205"
+     },
+     "dimension": "model_version",
+     "domain_size": 2,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.75,
+     "grid_points_below_threshold": "4840737702455787",
+     "log_ratio_enclosure": [
+      "0.1499999999999997627324510550311339202392124727637873061870679387954425010984933059830781264200957327",
+      "0.1499999999999997627324510550311339202392124727637873061870679387954425010984933059830781264200957347"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "4166461552285205",
+      "numerator": "4840737702455787"
+     },
+     "nominal_ratio_binary64": "1.161834242728283",
+     "other_bits": "3fdd9abfd996ac29",
+     "per_dimension_epsilon_bits": "3fc3333333333333",
+     "python_kernel_other_bits": "3fdd9abfd996ac29",
+     "python_kernel_truthful_bits": "3fe132a01334a9eb",
+     "truthful_bits": "3fe132a01334a9eb",
+     "truthful_hex": "0x1.132a01334a9ebp-1",
+     "truthful_repr": "0.5374298453437495"
+    },
+    {
+     "P": {
+      "denominator": "2251799813685248",
+      "numerator": "424584308543539"
+     },
+     "Q": {
+      "denominator": "11258999068426240",
+      "numerator": "1827215505141709"
+     },
+     "dimension": "time_bucket",
+     "domain_size": 6,
+     "equals_python_kernel": true,
+     "event_epsilon": 0.75,
+     "grid_points_below_threshold": "1698337234174156",
+     "log_ratio_enclosure": [
+      "0.1500000000000000978002761396742841966611327585746522275327444180762844734000909872841593357509571356",
+      "0.1500000000000000978002761396742841966611327585746522275327444180762844734000909872841593357509571376"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "1827215505141709",
+      "numerator": "2122921542717695"
+     },
+     "nominal_ratio_binary64": "1.161834242728283",
+     "other_bits": "3fc4c5e5a38eff5d",
+     "per_dimension_epsilon_bits": "3fc3333333333333",
+     "python_kernel_other_bits": "3fc4c5e5a38eff5d",
+     "python_kernel_truthful_bits": "3fc82283ce350330",
+     "truthful_bits": "3fc82283ce350330",
+     "truthful_hex": "0x1.82283ce350330p-3",
+     "truthful_repr": "0.18855331009583542"
+    }
+   ],
+   "equals_python_kernel_in_every_coordinate": true,
+   "event_epsilon": 0.75,
+   "event_epsilon_bits": "3fe8000000000000",
+   "excess_strictly_positive": true,
+   "joint_ratio": {
+    "denominator": "50501671321488280829173886983868687892621154529787848127586473136664518169019",
+    "numerator": "106912039026558578586859312217356119095078267825951312093973998658907726756060"
+   },
+   "nominal_bound_holds": false,
+   "signed_excess_over_nominal_enclosure": [
+    "4.881564895243277233347614462955485496405814360771831701474189068344585248076871057254E-16",
+    "4.881564895243277233347614462955485496405814360771831701474189068344585248076871057265E-16"
+   ]
+  },
+  {
+   "actual_epsilon_enclosure": [
+    "1.000000000000001502766636499970892535177237959837276636679161925628757577985885129963326363791536744",
+    "1.000000000000001502766636499970892535177237959837276636679161925628757577985885129963326363791536747"
+   ],
+   "coordinates": [
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "3415101692941395"
+     },
+     "Q": {
+      "denominator": "18014398509481984",
+      "numerator": "5592097561799597"
+     },
+     "dimension": "action",
+     "domain_size": 3,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.0,
+     "grid_points_below_threshold": "3415101692941395",
+     "log_ratio_enclosure": [
+      "0.2000000000000002112920391062483623036355558308944500004990854071971079459481734729714351444188344103",
+      "0.2000000000000002112920391062483623036355558308944500004990854071971079459481734729714351444188344122"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "5592097561799597",
+      "numerator": "6830203385882790"
+     },
+     "nominal_ratio_binary64": "1.2214027581601699",
+     "other_bits": "3fd3ddfbacb86bae",
+     "per_dimension_epsilon_bits": "3fc999999999999a",
+     "python_kernel_other_bits": "3fd3ddfbacb86bae",
+     "python_kernel_truthful_bits": "3fd84408a68f28a6",
+     "truthful_bits": "3fd84408a68f28a6",
+     "truthful_hex": "0x1.84408a68f28a6p-2",
+     "truthful_repr": "0.3791524530939888"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "2606104805274175"
+     },
+     "Q": {
+      "denominator": "27021597764222976",
+      "numerator": "6401094449466817"
+     },
+     "dimension": "risk_bucket",
+     "domain_size": 4,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.0,
+     "grid_points_below_threshold": "2606104805274175",
+     "log_ratio_enclosure": [
+      "0.2000000000000001089537300298000320904805339821497487784234144832249145920287887958510043196986067734",
+      "0.2000000000000001089537300298000320904805339821497487784234144832249145920287887958510043196986067752"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "6401094449466817",
+      "numerator": "7818314415822525"
+     },
+     "nominal_ratio_binary64": "1.2214027581601699",
+     "other_bits": "3fce5259411cbd02",
+     "per_dimension_epsilon_bits": "3fc999999999999a",
+     "python_kernel_other_bits": "3fce5259411cbd02",
+     "python_kernel_truthful_bits": "3fd2847a1e54e47e",
+     "truthful_bits": "3fd2847a1e54e47e",
+     "truthful_hex": "0x1.2847a1e54e47ep-2",
+     "truthful_repr": "0.2893357559401649"
+    },
+    {
+     "P": {
+      "denominator": "4503599627370496",
+      "numerator": "490197983716371"
+     },
+     "Q": {
+      "denominator": "9007199254740992",
+      "numerator": "802680328730825"
+     },
+     "dimension": "primary_category",
+     "domain_size": 11,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.0,
+     "grid_points_below_threshold": "980395967432742",
+     "log_ratio_enclosure": [
+      "0.2000000000000005410468218013611069772876722951009971896265067111986946894638120086206453999648264292",
+      "0.2000000000000005410468218013611069772876722951009971896265067111986946894638120086206453999648264311"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "802680328730825",
+      "numerator": "980395967432742"
+     },
+     "nominal_ratio_binary64": "1.2214027581601699",
+     "other_bits": "3fb6d0449ee5c648",
+     "per_dimension_epsilon_bits": "3fc999999999999a",
+     "python_kernel_other_bits": "3fb6d0449ee5c648",
+     "python_kernel_truthful_bits": "3fbbdd51cb06412c",
+     "truthful_bits": "3fbbdd51cb06412c",
+     "truthful_hex": "0x1.bdd51cb06412cp-4",
+     "truthful_repr": "0.10884581762934847"
+    },
+    {
+     "P": {
+      "denominator": "2251799813685248",
+      "numerator": "1238116092706053"
+     },
+     "Q": {
+      "denominator": "2251799813685248",
+      "numerator": "1013683720979195"
+     },
+     "dimension": "model_version",
+     "domain_size": 2,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.0,
+     "grid_points_below_threshold": "4952464370824212",
+     "log_ratio_enclosure": [
+      "0.2000000000000001721506240886594055287481471984640656276968210649503778190169868414090848043811420585",
+      "0.2000000000000001721506240886594055287481471984640656276968210649503778190169868414090848043811420604"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "1013683720979195",
+      "numerator": "1238116092706053"
+     },
+     "nominal_ratio_binary64": "1.2214027581601699",
+     "other_bits": "3fdccf8510d417da",
+     "per_dimension_epsilon_bits": "3fc999999999999a",
+     "python_kernel_other_bits": "3fdccf8510d417da",
+     "python_kernel_truthful_bits": "3fe1983d7795f414",
+     "truthful_bits": "3fe1983d7795f414",
+     "truthful_hex": "0x1.1983d7795f414p-1",
+     "truthful_repr": "0.549833997312478"
+    },
+    {
+     "P": {
+      "denominator": "4503599627370496",
+      "numerator": "884158962270133"
+     },
+     "Q": {
+      "denominator": "22517998136852480",
+      "numerator": "3619440665100363"
+     },
+     "dimension": "time_bucket",
+     "domain_size": 6,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.0,
+     "grid_points_below_threshold": "1768317924540266",
+     "log_ratio_enclosure": [
+      "0.2000000000000004693234214739019856350253286532280150404333342590576625315281240111111566953281270700",
+      "0.2000000000000004693234214739019856350253286532280150404333342590576625315281240111111566953281270719"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "3619440665100363",
+      "numerator": "4420794811350665"
+     },
+     "nominal_ratio_binary64": "1.2214027581601699",
+     "other_bits": "3fc492fab834cd46",
+     "per_dimension_epsilon_bits": "3fc999999999999a",
+     "python_kernel_other_bits": "3fc492fab834cd46",
+     "python_kernel_truthful_bits": "3fc9211a66f7fda6",
+     "truthful_bits": "3fc9211a66f7fda6",
+     "truthful_hex": "0x1.9211a66f7fda6p-3",
+     "truthful_repr": "0.1963227274681973"
+    }
+   ],
+   "equals_python_kernel_in_every_coordinate": true,
+   "event_epsilon": 1.0,
+   "event_epsilon_bits": "3ff0000000000000",
+   "excess_strictly_positive": true,
+   "joint_ratio": {
+    "denominator": "40159307998538617776634700709805709116959399709389451944150448333374424189",
+    "numerator": "109164317175917678299053053187287704894631195776221048778058264153188908420"
+   },
+   "nominal_bound_holds": false,
+   "signed_excess_over_nominal_enclosure": [
+    "1.502766636499970892535177237959837276636679161925628757577985885129963326363791536744E-15",
+    "1.502766636499970892535177237959837276636679161925628757577985885129963326363791536747E-15"
+   ]
+  },
+  {
+   "actual_epsilon_enclosure": [
+    "1.500000000000000442732911383940085305985462097372341379385250015840576074076417821994738145095618531",
+    "1.500000000000000442732911383940085305985462097372341379385250015840576074076417821994738145095618533"
+   ],
+   "coordinates": [
+    {
+     "P": {
+      "denominator": "4503599627370496",
+      "numerator": "1814770105848451"
+     },
+     "Q": {
+      "denominator": "9007199254740992",
+      "numerator": "2688829521522045"
+     },
+     "dimension": "action",
+     "domain_size": 3,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.5,
+     "grid_points_below_threshold": "3629540211696902",
+     "log_ratio_enclosure": [
+      "0.2999999999999998241154246213041762123893494330968319359820167607885886474539958719687226501471367487",
+      "0.2999999999999998241154246213041762123893494330968319359820167607885886474539958719687226501471367503"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "2688829521522045",
+      "numerator": "3629540211696902"
+     },
+     "nominal_ratio_binary64": "1.3498588075760032",
+     "other_bits": "3fd31af3d0fbdaf9",
+     "per_dimension_epsilon_bits": "3fd3333333333333",
+     "python_kernel_other_bits": "3fd31af3d0fbdaf9",
+     "python_kernel_truthful_bits": "3fd9ca185e084a0c",
+     "truthful_bits": "3fd9ca185e084a0c",
+     "truthful_hex": "0x1.9ca185e084a0cp-2",
+     "truthful_repr": "0.40295991118287655"
+    },
+    {
+     "P": {
+      "denominator": "2251799813685248",
+      "numerator": "698784017105807"
+     },
+     "Q": {
+      "denominator": "2251799813685248",
+      "numerator": "517671932193147"
+     },
+     "dimension": "risk_bucket",
+     "domain_size": 4,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.5,
+     "grid_points_below_threshold": "2795136068423228",
+     "log_ratio_enclosure": [
+      "0.3000000000000000818791708347515649410845071288475157583084252394216500433838758075413365868203588710",
+      "0.3000000000000000818791708347515649410845071288475157583084252394216500433838758075413365868203588727"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "517671932193147",
+      "numerator": "698784017105807"
+     },
+     "nominal_ratio_binary64": "1.3498588075760032",
+     "other_bits": "3fcd6d1e3a0e97af",
+     "per_dimension_epsilon_bits": "3fd3333333333333",
+     "python_kernel_other_bits": "3fcd6d1e3a0e97af",
+     "python_kernel_truthful_bits": "3fd3dc52a8ea1c77",
+     "truthful_bits": "3fd3dc52a8ea1c77",
+     "truthful_hex": "0x1.3dc52a8ea1c77p-2",
+     "truthful_repr": "0.3103224420123704"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "1071242158315521"
+     },
+     "Q": {
+      "denominator": "90071992547409920",
+      "numerator": "7935957096425471"
+     },
+     "dimension": "primary_category",
+     "domain_size": 11,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.5,
+     "grid_points_below_threshold": "1071242158315521",
+     "log_ratio_enclosure": [
+      "0.3000000000000003576132603719835711419936888986191326677086610486301492241735142514628685560598026675",
+      "0.3000000000000003576132603719835711419936888986191326677086610486301492241735142514628685560598026692"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "7935957096425471",
+      "numerator": "10712421583155210"
+     },
+     "nominal_ratio_binary64": "1.3498588075760032",
+     "other_bits": "3fb68e2b32f2b999",
+     "per_dimension_epsilon_bits": "3fd3333333333333",
+     "python_kernel_other_bits": "3fb68e2b32f2b999",
+     "python_kernel_truthful_bits": "3fbe72500284c005",
+     "truthful_bits": "3fbe72500284c005",
+     "truthful_hex": "0x1.e72500284c005p-4",
+     "truthful_repr": "0.11893177091110381"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "5174118209317515"
+     },
+     "Q": {
+      "denominator": "9007199254740992",
+      "numerator": "3833081045423477"
+     },
+     "dimension": "model_version",
+     "domain_size": 2,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.5,
+     "grid_points_below_threshold": "5174118209317515",
+     "log_ratio_enclosure": [
+      "0.3000000000000001830269128588199300977488566443714626699589499536400168685997461045985935245004798083",
+      "0.3000000000000001830269128588199300977488566443714626699589499536400168685997461045985935245004798100"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "3833081045423477",
+      "numerator": "5174118209317515"
+     },
+     "nominal_ratio_binary64": "1.3498588075760032",
+     "other_bits": "3fdb3c5574372aeb",
+     "per_dimension_epsilon_bits": "3fd3333333333333",
+     "python_kernel_other_bits": "3fdb3c5574372aeb",
+     "python_kernel_truthful_bits": "3fe261d545e46a8b",
+     "truthful_bits": "3fe261d545e46a8b",
+     "truthful_hex": "0x1.261d545e46a8bp-1",
+     "truthful_repr": "0.574442516811659"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "1914758676381579"
+     },
+     "Q": {
+      "denominator": "45035996273704960",
+      "numerator": "7092440578359413"
+     },
+     "dimension": "time_bucket",
+     "domain_size": 6,
+     "equals_python_kernel": true,
+     "event_epsilon": 1.5,
+     "grid_points_below_threshold": "1914758676381579",
+     "log_ratio_enclosure": [
+      "0.2999999999999999960981426970808429127690599924373983474271970133601712904652857864232168275678404324",
+      "0.2999999999999999960981426970808429127690599924373983474271970133601712904652857864232168275678404341"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "7092440578359413",
+      "numerator": "9573793381907895"
+     },
+     "nominal_ratio_binary64": "1.3498588075760032",
+     "other_bits": "3fc4286e0102cd2a",
+     "per_dimension_epsilon_bits": "3fd3333333333333",
+     "python_kernel_other_bits": "3fc4286e0102cd2a",
+     "python_kernel_truthful_bits": "3fcb35d9faf1fe2c",
+     "truthful_bits": "3fcb35d9faf1fe2c",
+     "truthful_hex": "0x1.b35d9faf1fe2cp-3",
+     "truthful_repr": "0.2125809169119618"
+    }
+   ],
+   "equals_python_kernel_in_every_coordinate": true,
+   "event_epsilon": 1.5,
+   "event_epsilon_bits": "3ff8000000000000",
+   "excess_strictly_positive": true,
+   "joint_ratio": {
+    "denominator": "6673418969845171428058115822764259180195197301750965988871156747159443739437",
+    "numerator": "29908188858941825822933776322554005515591421998531658980743967287406216972100"
+   },
+   "nominal_bound_holds": false,
+   "signed_excess_over_nominal_enclosure": [
+    "4.42732911383940085305985462097372341379385250015840576074076417821994738145095618531E-16",
+    "4.42732911383940085305985462097372341379385250015840576074076417821994738145095618533E-16"
+   ]
+  },
+  {
+   "actual_epsilon_enclosure": [
+    "2.000000000000001226451380494571463203217217824795197607318572204700833145789253736297835429517476702",
+    "2.000000000000001226451380494571463203217217824795197607318572204700833145789253736297835429517476704"
+   ],
+   "coordinates": [
+    {
+     "P": {
+      "denominator": "2251799813685248",
+      "numerator": "962044451563925"
+     },
+     "Q": {
+      "denominator": "4503599627370496",
+      "numerator": "1289755362121323"
+     },
+     "dimension": "action",
+     "domain_size": 3,
+     "equals_python_kernel": true,
+     "event_epsilon": 2.0,
+     "grid_points_below_threshold": "3848177806255700",
+     "log_ratio_enclosure": [
+      "0.4000000000000001077403541756576523956991389138276567605622396177799712617762811122098676935292682580",
+      "0.4000000000000001077403541756576523956991389138276567605622396177799712617762811122098676935292682596"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "1289755362121323",
+      "numerator": "1924088903127850"
+     },
+     "nominal_ratio_binary64": "1.4918246976412703",
+     "other_bits": "3fd2541a48d359ac",
+     "per_dimension_epsilon_bits": "3fd999999999999a",
+     "python_kernel_other_bits": "3fd2541a48d359ac",
+     "python_kernel_truthful_bits": "3fdb57cb6e594ca8",
+     "truthful_bits": "3fdb57cb6e594ca8",
+     "truthful_hex": "0x1.b57cb6e594ca8p-2",
+     "truthful_repr": "0.4272335603356603"
+    },
+    {
+     "P": {
+      "denominator": "4503599627370496",
+      "numerator": "1495735386985909"
+     },
+     "Q": {
+      "denominator": "4503599627370496",
+      "numerator": "1002621413461529"
+     },
+     "dimension": "risk_bucket",
+     "domain_size": 4,
+     "equals_python_kernel": true,
+     "event_epsilon": 2.0,
+     "grid_points_below_threshold": "2991470773971818",
+     "log_ratio_enclosure": [
+      "0.4000000000000002847761794656306925193755318961531003554464828892277014686714869273293142776206999425",
+      "0.4000000000000002847761794656306925193755318961531003554464828892277014686714869273293142776206999440"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "1002621413461529",
+      "numerator": "1495735386985909"
+     },
+     "nominal_ratio_binary64": "1.4918246976412703",
+     "other_bits": "3fcc7f07e98c70c9",
+     "per_dimension_epsilon_bits": "3fd999999999999a",
+     "python_kernel_other_bits": "3fcc7f07e98c70c9",
+     "python_kernel_truthful_bits": "3fd5417421ad56d3",
+     "truthful_bits": "3fd5417421ad56d3",
+     "truthful_hex": "0x1.5417421ad56d3p-2",
+     "truthful_repr": "0.3321199730756749"
+    },
+    {
+     "P": {
+      "denominator": "1125899906842624",
+      "numerator": "146160016558953"
+     },
+     "Q": {
+      "denominator": "11258999068426240",
+      "numerator": "979739890283671"
+     },
+     "dimension": "primary_category",
+     "domain_size": 11,
+     "equals_python_kernel": true,
+     "event_epsilon": 2.0,
+     "grid_points_below_threshold": "1169280132471624",
+     "log_ratio_enclosure": [
+      "0.4000000000000007906056963740887860404913186802168443004010262946564622821671919510058369993022051190",
+      "0.4000000000000007906056963740887860404913186802168443004010262946564622821671919510058369993022051206"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "979739890283671",
+      "numerator": "1461600165589530"
+     },
+     "nominal_ratio_binary64": "1.4918246976412703",
+     "other_bits": "3fb646d6340c83c7",
+     "per_dimension_epsilon_bits": "3fd999999999999a",
+     "python_kernel_other_bits": "3fb646d6340c83c7",
+     "python_kernel_truthful_bits": "3fc09dd0fbc16d1d",
+     "truthful_bits": "3fc09dd0fbc16d1d",
+     "truthful_hex": "0x1.09dd0fbc16d1dp-3",
+     "truthful_repr": "0.12981617253067493"
+    },
+    {
+     "P": {
+      "denominator": "4503599627370496",
+      "numerator": "2696249522993753"
+     },
+     "Q": {
+      "denominator": "4503599627370496",
+      "numerator": "1807350104376743"
+     },
+     "dimension": "model_version",
+     "domain_size": 2,
+     "equals_python_kernel": true,
+     "event_epsilon": 2.0,
+     "grid_points_below_threshold": "5392499045987506",
+     "log_ratio_enclosure": [
+      "0.4000000000000000090212992718675046776315809826987750522165331244342014476050885539497801415081968274",
+      "0.4000000000000000090212992718675046776315809826987750522165331244342014476050885539497801415081968289"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "1807350104376743",
+      "numerator": "2696249522993753"
+     },
+     "nominal_ratio_binary64": "1.4918246976412703",
+     "other_bits": "3fd9af19f3d3169c",
+     "per_dimension_epsilon_bits": "3fd999999999999a",
+     "python_kernel_other_bits": "3fd9af19f3d3169c",
+     "python_kernel_truthful_bits": "3fe32873061674b2",
+     "truthful_bits": "3fe32873061674b2",
+     "truthful_hex": "0x1.32873061674b2p-1",
+     "truthful_repr": "0.598687660112452"
+    },
+    {
+     "P": {
+      "denominator": "9007199254740992",
+      "numerator": "2069859081327457"
+     },
+     "Q": {
+      "denominator": "9007199254740992",
+      "numerator": "1387468034682707"
+     },
+     "dimension": "time_bucket",
+     "domain_size": 6,
+     "equals_python_kernel": true,
+     "event_epsilon": 2.0,
+     "grid_points_below_threshold": "2069859081327457",
+     "log_ratio_enclosure": [
+      "0.4000000000000000343078512073268275700196473518988211386922902786024966855692051918030363175571065531",
+      "0.4000000000000000343078512073268275700196473518988211386922902786024966855692051918030363175571065546"
+     ],
+     "maximum_likelihood_ratio": {
+      "denominator": "1387468034682707",
+      "numerator": "2069859081327457"
+     },
+     "nominal_ratio_binary64": "1.4918246976412703",
+     "other_bits": "3fc3b7944d60bd4c",
+     "per_dimension_epsilon_bits": "3fd999999999999a",
+     "python_kernel_other_bits": "3fc3b7944d60bd4c",
+     "python_kernel_truthful_bits": "3fcd6a1a7d1c4d84",
+     "truthful_bits": "3fcd6a1a7d1c4d84",
+     "truthful_hex": "0x1.d6a1a7d1c4d84p-3",
+     "truthful_repr": "0.22980052098192172"
+    }
+   ],
+   "equals_python_kernel_in_every_coordinate": true,
+   "event_epsilon": 2.0,
+   "event_epsilon_bits": "4000000000000000",
+   "excess_strictly_positive": true,
+   "joint_ratio": {
+    "denominator": "1059007726887899204629783424887785561087872930086297500955384324320892407619",
+    "numerator": "7825067503175725559110894640736528312523651691194871500954990146082534661500"
+   },
+   "nominal_bound_holds": false,
+   "signed_excess_over_nominal_enclosure": [
+    "1.226451380494571463203217217824795197607318572204700833145789253736297835429517476702E-15",
+    "1.226451380494571463203217217824795197607318572204700833145789253736297835429517476704E-15"
+   ]
+  }
+ ],
+ "kernel": {
+  "alternatives": "uniform by rejection sampling of bit_length(K - 1) bits (exact, verified per K)",
+  "decision": "truthful iff (J >> 0) * 2**-53 < p with J uniform in [0, 2**53); equals J < m, m = ceil(p * 2**53)",
+  "sampler_checked_at_grid_points": "m-3 .. m+3 for every cell (binary64 comparison equals the exact one)",
+  "thresholds": "p = exp(e/5) / ((exp(e/5) + K) - 1), other = 1 / ((exp(e/5) + K) - 1), binary64, host math.exp"
+ },
+ "provenance": {
+  "libm": "host C runtime math.exp (not fingerprinted beyond the platform string)",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "privacy_py_sha256_lf": "fa3aea9bf534a3041acecdedba78eae3ad8df55acf684c3ef35dbf6f433d53d4",
+  "python": "3.11.9",
+  "script_sha256_lf": "8d6b79ab4707414c8e63c8c80ba60ede94e7dfd29eff6625b67080f5143894e7"
+ },
+ "scope": "exact finite-epsilon audit of the Rust telemetry kernel's binary64 thresholds, conditional on ideal independent uniform input bytes; not an audit of the operating-system generator, of other epsilons, or of a deployed binary",
+ "status": "computed"
+}

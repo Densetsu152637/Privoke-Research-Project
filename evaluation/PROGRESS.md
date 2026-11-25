@@ -1,5 +1,7 @@
 # Current research integration record
 
+> Status: historical record. It is not maintained as current state; the current revision plan is [asiaccs-2027-revision.md](../docs/plans/asiaccs-2027-revision.md).
+
 ## Current checkpoint — 4 October 2026
 
 ### Primary contextual cascade — terminal exploratory result

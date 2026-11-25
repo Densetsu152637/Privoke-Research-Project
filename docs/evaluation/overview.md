@@ -48,9 +48,11 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 
 Complete the [host Python setup](../../evaluation/README.md), then start the server stack with loopback ports and leave it running in the background:
 
+The study overlays under `evaluation/compose.*.yml` pin the retired Python and Go services, so they layer over `docker-compose.legacy.yml`. `docker-compose.prod.yml` is now the Rust deployment and its own checks are the container smoke job and `update_security.py --target rust` (see [the service-stack CI](../../.github/workflows/service-stack-ci.yml)).
+
 ```bash
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --build --wait model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml ps
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml up -d --build --wait model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml ps
 ```
 
 Continue when the five services are healthy. Evaluation calls the published runtime port directly; fuzzer checks call `127.0.0.1:50053`. Generated clients live locally under `extension/client-runtime/generated`. Detector execution stays in the running service.

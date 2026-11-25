@@ -31,7 +31,7 @@ def main():
     artifact = json.loads((RESULTS / "original-v0.3.0-model.json").read_text(encoding="utf-8"))
     examples = [json.loads(line) for line in (RESULTS / "locked-public/development.jsonl")
                 .read_text(encoding="utf-8").splitlines() if line.strip()]
-    command = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml",
+    command = ["docker", "compose", "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml",
                "exec", "-T", "client-runtime", "python", "-c", PROGRAM]
     result = subprocess.run(command, input=json.dumps({"artifact": artifact, "examples": examples}),
                             capture_output=True, text=True, cwd=ROOT)

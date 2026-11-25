@@ -26,12 +26,15 @@ Services:
   - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
   - `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk`
   - `Health(HealthRequest) -> HealthResponse`
+  - `GetModelPackage(ModelParametersRequest) -> ModelPackageResponse`
+  - `StreamModelAsset(ModelAssetRequest) -> stream ModelAssetChunk`
 - `ParamUpdateService`
   - `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
   - `GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`
   - `Health(HealthRequest) -> HealthResponse`
 - `FuzzerService`
   - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+  - `RunUnderlyingTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `RunPresenceTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `Health(HealthRequest) -> HealthResponse`
 
@@ -40,6 +43,7 @@ Services:
 - `PrivokeRuntimeService`
   - `AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
   - `ComputeSemanticGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
+  - `ComputeUnderlyingModelGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
   - `DetectAnnotationPresence(DetectAnnotationPresenceRequest) -> DetectAnnotationPresenceResponse`
   - `ComputePresenceGradients(ComputePresenceGradientsRequest) -> ComputePresenceGradientsResponse`
   - `Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
@@ -58,11 +62,11 @@ Services:
 ## Producers and Consumers
 
 - `model-streaming-service` implements `ModelStreamingService`.
-- Both independently deployed `client-runtime` instances consume `ModelStreamingService` when configured with the `streamed` semantic backend.
-- Both instances implement `PrivokeRuntimeService`: Compose runs one at `client-runtime:50054`, while the workstation supervisor owns another at `127.0.0.1:50057`.
+- The workstation `client-runtime` consumes `ModelStreamingService` when configured with the `streamed` semantic backend.
+- The workstation supervisor owns the `PrivokeRuntimeService` at `127.0.0.1:50057`. The Rust Compose files run no `client-runtime`; `v3-runtime` (`50171`, `v3-training` profile) serves only semantic-only `AnalyzePrompt`.
 - `extension/runtime-supervisor` implements `PrivokeRuntimeControlService` only for its workstation child and exposes both services to the WebExtension through its loopback bridge. Server Compose has no lifecycle control plane.
-- `privoke-fuzzer` consumes only the Compose `PrivokeRuntimeService`, implements `FuzzerService`, and consumes `ParamUpdateService`. Only `client-runtime` consumes `ModelStreamingService` during training.
-- `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
+- `v3-fuzzer` implements `V3FuzzerService`, consumes `TrainingService` from `v3-runtime` and `CheckpointService` from `param-update-service`. The Python `privoke-fuzzer` is frozen and not deployed.
+- `param-update-service` implements `ParamUpdateService` (`SubmitParameterUpdate` answers `UNIMPLEMENTED`) and `CheckpointService`, and consumes `V3FuzzerService` for the routine scheduler.
 - A `client-runtime` instance produces privacy-minimal `TelemetryPacket` messages when telemetry is enabled; Compose enables this for its server instance.
 - `telemetry-service` implements `TelemetryService` and persists those packets.
 
@@ -74,7 +78,7 @@ Each service keeps generated protobuf code locally:
 - Python bindings under each Python service's `generated` directory
 - Workstation control-plane bindings under `extension/runtime-supervisor/generated`
 
-The Dockerfiles generate these bindings at image build time. `docker-compose.dev.yml` regenerates them at container startup before running the service.
+The Dockerfiles generate these bindings at image build time. `docker-compose.yml` regenerates them at container startup before running the service.
 
 Host evaluation and integration scripts use `python evaluation/setup-host.py`
 from the repository root to generate all three Python contracts into

@@ -1,191 +1,420 @@
+# Cloud deployment of the Rust stack on one Compute Engine VM (stages 8a and 8b of docs/plans/rust-server-rewrite.md).
+# deploy.sh copies this file to a release directory and runs it with that release's release.env. The images are the
+# commit-tagged ones in Artifact Registry, built by .github/workflows/deploy-gce.yml. There is no reverse proxy: model
+# streaming and telemetry terminate mutual TLS themselves and are the only public endpoints (443 and 8443).
+#
+# Required variables (all written by deploy.sh into release.env; never set a plaintext fallback):
+#   IMAGE_PREFIX, IMAGE_TAG           registry prefix and the tested commit SHA
+#   PRIVOKE_PKI_DIR                   per-release snapshot: trust anchors, server certificate, service identities
+#   PRIVOKE_PKI_LIVE_DIR              shared directory with crl.pem and registry.toml, refreshed by privoke-pki-sync.timer
+#   MODEL_RELEASE_DIR                 prepared standard V3 releases (read-only mount)
+#   MODEL_PUBLISH, TELEMETRY_PUBLISH  where the public listeners are published. Default 127.0.0.1:50443 and
+#                                     127.0.0.1:58443 (staging, never reachable from the network). deploy.sh switches them to
+#                                     0.0.0.0:443 and 0.0.0.0:8443 only after the loopback smoke test passes.
+# The training profile (`v3-training`: param-update, v3-fuzzer and v3-runtime) is selected with COMPOSE_PROFILES in release.env. The internal listeners
+# (50051, 50052, 50055, 50171, 50172) are never published. Every container exits before binding if a certificate, key, client CA,
+# CRL or registry is missing or invalid.
+
 name: privoke
 
-x-security: &security
+x-pki-server: &pki-server
+  type: bind
+  source: ${PRIVOKE_PKI_DIR:?Set PRIVOKE_PKI_DIR}/server
+  target: /run/privoke/server
+  read_only: true
+  bind: {create_host_path: false}
+
+x-pki-client-ca: &pki-client-ca
+  type: bind
+  source: ${PRIVOKE_PKI_DIR}/client-ca.pem
+  target: /run/privoke/client-ca.pem
+  read_only: true
+  bind: {create_host_path: false}
+
+x-pki-server-ca: &pki-server-ca
+  type: bind
+  source: ${PRIVOKE_PKI_DIR}/server-ca.pem
+  target: /run/privoke/server-ca.pem
+  read_only: true
+  bind: {create_host_path: false}
+
+# A directory, not two files, so that an atomic replacement of crl.pem or registry.toml reaches the running container.
+x-pki-live: &pki-live
+  type: bind
+  source: ${PRIVOKE_PKI_LIVE_DIR:?Set PRIVOKE_PKI_LIVE_DIR}
+  target: /run/privoke-live
+  read_only: true
+  bind: {create_host_path: false}
+
+x-tls-args: &tls-args
+  - --cert=/run/privoke/server/server.crt
+  - --key=/run/privoke/server/server.key
+  - --client-ca=/run/privoke/client-ca.pem
+  - --crl=/run/privoke-live/crl.pem
+  - --registry=/run/privoke-live/registry.toml
+
+x-service-security: &service-security
   init: true
   restart: unless-stopped
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
+  # The key files are root-owned and group-readable; one fixed group serves the Rust (65532) and Python (10001) users.
+  group_add: ["10010"]
   tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
   logging:
     driver: json-file
     options: {max-size: 10m, max-file: "3"}
 
+x-model-streaming-image: &model-streaming-image
+  image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/model-streaming-service:${IMAGE_TAG:?Set IMAGE_TAG}
+
+x-param-update-image: &param-update-image
+  image: ${IMAGE_PREFIX}/param-update-service:${IMAGE_TAG}
+
 services:
-  storage-permissions:
-    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/param-update-service:${IMAGE_TAG:?Set IMAGE_TAG}
+  # Seeds the shipped model artifacts into a new `model-data` volume. The Rust images have no shell, so this relies on
+  # Docker's copy-up of the image's /models into an empty named volume (ownership included: the non-root user of the
+  # model and update services). It does nothing to a volume that already has content, so learned weights are never
+  # overwritten. The container prints its usage text and exits 0.
+  model-seed:
+    <<: *model-streaming-image
     restart: "no"
-    user: "0:0"
-    read_only: true
     network_mode: none
+    read_only: true
     cap_drop: [ALL]
-    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
     security_opt: [no-new-privileges:true]
-    entrypoint: [/bin/sh, -ec]
-    command:
-      - |
-        if [ ! -f /state/models/.initialized ]; then
-          cp -a /models/. /state/models/
-          touch /state/models/.initialized
-        fi
-        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps /state/model-packages
-    environment:
-      MODEL_ID: privoke-balanced
-      MODEL_ARTIFACT_PATH: /state/models/privoke-balanced.json
-      PARAM_UPDATE_STORAGE_PATH: /state/parameter-updates/updates.jsonl
-      MODEL_TRAINING_MAX_TOKENS: 256
+    entrypoint: [/model-streaming-service]
+    command: [--help]
     volumes:
-      - model-data:/state/models
-      - model-package-cache:/state/model-packages
-      - param-update-data:/state/parameter-updates
-      - telemetry-data:/state/telemetry
-      - telemetry-client-state:/state/telemetry-client
-      - fuzzer-dumps:/state/fuzzer-dumps
+      - model-data:/models
 
   model-streaming-service:
-    <<: *security
-    image: ${IMAGE_PREFIX}/model-streaming-service:${IMAGE_TAG}
+    <<: [*service-security, *model-streaming-image]
+    container_name: model-streaming-service
     depends_on:
-      storage-permissions: {condition: service_completed_successfully}
+      model-seed: {condition: service_completed_successfully}
+    # Public listener 50443 (installations, mutual TLS), published through MODEL_PUBLISH. Internal listener 50051
+    # (registered services only) is not published.
+    ports: ["${MODEL_PUBLISH:-127.0.0.1:50443}:50443"]
     environment:
       MODEL_STREAMING_PORT: 50051
+      MODEL_STREAMING_PUBLIC_PORT: 50443
       MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
       MODEL_RELEASE_DIR: /model-releases
+      # Published V3 versions (stage V3-R3): the authority is param-update's catalog, read-only; the tree supplies the bytes. They need
+      # the standard release store, so a stack without staged releases (the container smoke job) sets both variables empty.
+      V3_STORE: ${MODEL_V3_STORE-/v3-store}
+      V3_PUBLISH_ROOT: ${MODEL_V3_PUBLISH_ROOT-/v3-published}
+      MODEL_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      MODEL_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
+      MODEL_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
+      MODEL_HEALTHCHECK_SERVER_NAME: model-streaming-service
+    command: *tls-args
     volumes:
       - model-data:/models:ro
+      # The store directory is writable for this user only so that SQLite can keep its WAL shared-memory file for a reader;
+      # the service never writes a table. The published tree is read-only.
+      - v3-store:/v3-store
+      - v3-published:/v3-published:ro
       - type: bind
         source: ${MODEL_RELEASE_DIR:?Set MODEL_RELEASE_DIR to prepared standard releases}
         target: /model-releases
         read_only: true
         bind: {create_host_path: false}
+      - *pki-server
+      - *pki-client-ca
+      - *pki-server-ca
+      - *pki-live
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.crt
+        target: /run/privoke/svc/probe.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.key
+        target: /run/privoke/svc/probe.key
+        read_only: true
+        bind: {create_host_path: false}
     healthcheck:
       test: [CMD, /model-streaming-service, healthcheck]
       interval: 5s
-      timeout: 2s
+      timeout: 3s
       retries: 30
+      start_period: 5s
 
   telemetry-service:
-    <<: *security
+    <<: *service-security
     image: ${IMAGE_PREFIX}/telemetry-service:${IMAGE_TAG}
-    depends_on:
-      storage-permissions: {condition: service_completed_successfully}
+    container_name: telemetry-service
+    # Public listener 58443 (the shared reporter credential), published through TELEMETRY_PUBLISH. Internal listener 50055
+    # (the aggregate summary, registered services only) is not published. Keep the source address intact: the per-source
+    # rate limit and daily cap read it, so no proxy may sit in front.
+    ports: ["${TELEMETRY_PUBLISH:-127.0.0.1:58443}:58443"]
     environment:
       TELEMETRY_PORT: 50055
+      TELEMETRY_PUBLIC_PORT: 58443
       TELEMETRY_DB_PATH: /data/telemetry-ldp-v1.sqlite3
-    volumes: [telemetry-data:/data]
+      TELEMETRY_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      TELEMETRY_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
+      TELEMETRY_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
+      TELEMETRY_HEALTHCHECK_SERVER_NAME: telemetry-service
+    command: *tls-args
+    volumes:
+      - telemetry-data:/data
+      - *pki-server
+      - *pki-client-ca
+      - *pki-server-ca
+      - *pki-live
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.crt
+        target: /run/privoke/svc/probe.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.key
+        target: /run/privoke/svc/probe.key
+        read_only: true
+        bind: {create_host_path: false}
     healthcheck:
-      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, telemetry-service, "127.0.0.1:50055", /workspace/services/telemetry-service/generated]
+      test: [CMD, /telemetry-service, healthcheck]
       interval: 5s
       timeout: 3s
       retries: 30
+      start_period: 5s
 
-  client-runtime:
-    <<: *security
-    image: ${IMAGE_PREFIX}/client-runtime:${IMAGE_TAG}
-    depends_on:
-      model-streaming-service: {condition: service_healthy}
-      telemetry-service: {condition: service_healthy}
-      storage-permissions: {condition: service_completed_successfully}
-    environment:
-      PRIVOKE_GRPC_HOST: "[::]"
-      PRIVOKE_GRPC_PORT: 50054
-      PRIVOKE_STACK_MODE: internal
-      PRIVOKE_LLM_CHOICE: streamed
-      PRIVOKE_MODEL_DEVICE: cpu
-      MODEL_STREAMING_TARGET: model-streaming-service:50051
-      MODEL_STREAMING_CONSUMER_ID: server-client-runtime
-      MODEL_ID: latest
-      MODEL_PACKAGE_CACHE_DIR: /data/model-packages
-      TELEMETRY_ENABLED: "true"
-      TELEMETRY_TARGET: telemetry-service:50055
-      TELEMETRY_LDP_EPSILON: ${TELEMETRY_LDP_EPSILON:-1}
-      TELEMETRY_LDP_DAILY_EPSILON: ${TELEMETRY_LDP_DAILY_EPSILON:-8}
-      TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
-      PYTHONPATH: /workspace/shared/python
-    volumes: [telemetry-client-state:/data/telemetry-client, model-package-cache:/data/model-packages]
-    healthcheck:
-      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, client-runtime, "127.0.0.1:50054", /workspace/extension/client-runtime/generated]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 30s
-
-  privoke-fuzzer:
-    profiles: [legacy-training]
-    <<: *security
-    image: ${IMAGE_PREFIX}/privoke-fuzzer:${IMAGE_TAG}
-    depends_on:
-      storage-permissions: {condition: service_completed_successfully}
-      client-runtime: {condition: service_healthy}
-    environment:
-      PRIVOKE_RUNTIME_TARGET: client-runtime:50054
-      PARAM_UPDATE_TARGET: param-update-service:50052
-      MODEL_ID: privoke-balanced
-      FUZZER_PORT: 50053
-      FUZZER_ID: server-fuzzer
-      FUZZ_MAX_CONCURRENT_CYCLES: 1
-      PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
-      PYTHONPATH: /workspace/shared/python
-    volumes: [fuzzer-dumps:/workspace/dumps/privoke-fuzzer]
-    healthcheck:
-      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, privoke-fuzzer, "127.0.0.1:50053", /workspace/services/privoke-fuzzer/generated]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-
+  # The V3 routine-training stack (stage V3-R7; docs/plans/v3-routine-training.md). param-update hosts the checkpoint store and the
+  # scheduler; the V3 fuzzer builds routine requests, the V3 runtime fits candidates (CPU), and param-update commits them through its
+  # gates (admission, drift, recomputed guard, retention) and signs the publication. The fuzzer and the runtime sit on the
+  # internal `training` network only (no route out, no published port); param-update also sits on the default network. model-streaming
+  # reads the store and the published tree from the volumes, never over the network.
   param-update-service:
-    profiles: [legacy-training]
-    command: [sh, -ec, "python app/bootstrap.py && exec python app/server.py"]
-    <<: *security
-    image: ${IMAGE_PREFIX}/param-update-service:${IMAGE_TAG}
-    depends_on:
-      storage-permissions: {condition: service_completed_successfully}
-      model-streaming-service: {condition: service_healthy}
-      privoke-fuzzer: {condition: service_healthy}
+    profiles: [v3-training]
+    <<: [*service-security, *param-update-image]
+    container_name: param-update-service
+    networks: [default, training]
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
-      MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
-      FUZZER_TRAIN_UNDERLYING: "true"
-      FUZZER_CYCLE_STATE_PATH: /data/training-cycles.sqlite3
-      FUZZER_TARGET: privoke-fuzzer:50053
-      FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-32}
-      FUZZER_REQUEST_TIMEOUT_SECONDS: 60
+      # The V3 checkpoint store, seeded with each tier's pinned standard release and the ORIGINAL it descends from.
+      V3_STORE: /v3-store
+      V3_PINNED: /v3-originals/efficient=/model-releases/privoke-v3-efficient:/v3-originals/balanced=/model-releases/privoke-v3-balanced:/v3-originals/quality=/model-releases/privoke-v3-quality
+      V3_SOURCE_ROOT: /v3-source
+      V3_DRIFT_BOUNDS: /config/v3-drift-bounds.toml
+      V3_POLICY_FILE: /config/v3-policy.json
+      V3_RETENTION_ROOT: /config/v3-retention
+      V3_RETENTION_BANK: /v3-retention-bank/approved-train-bank.json
+      V3_PUBLISH_ROOT: /v3-published
+      V3_PUBLICATION_KEY_FILE: /run/privoke/v3-publication.key
+      V3_PUBLICATION_KEY_ID: ${V3_PUBLICATION_KEY_ID:?Set V3_PUBLICATION_KEY_ID}
+      V3_TIERS: ${V3_TIERS:-efficient,balanced,quality}
+      # The scheduler: the tiers by two stages (HEADS, FULL_ENCODER) per round, through the V3 fuzzer. Count 0 switches it off.
+      FUZZER_TARGET: v3-fuzzer:50172
+      FUZZER_TLS_SERVER_NAME: v3-fuzzer
+      FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-256}
+      FUZZER_REQUEST_TIMEOUT_SECONDS: ${FUZZER_REQUEST_TIMEOUT_SECONDS:-3600}
+      # The fuzzer is healthy only after the runtime is, and the runtime only after this service answers, so the first request waits.
+      FUZZER_REQUEST_INITIAL_DELAY_SECONDS: ${FUZZER_REQUEST_INITIAL_DELAY_SECONDS:-60}
       FUZZER_REQUEST_MAX_ATTEMPTS: 5
-      FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}
+      FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-10800}
       FUZZER_REQUEST_SEED: ${FUZZER_REQUEST_SEED:-1337}
-      MODEL_ID: privoke-balanced
-    volumes: [param-update-data:/data, model-data:/models]
+      # The scheduler's own identity (registered, role publisher) and trust, for its mutual-TLS request to the fuzzer.
+      PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
+      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/param-update.crt
+      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/param-update.key
+      PARAM_UPDATE_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      PARAM_UPDATE_HEALTHCHECK_CERT: /run/privoke/svc/param-update.crt
+      PARAM_UPDATE_HEALTHCHECK_KEY: /run/privoke/svc/param-update.key
+      PARAM_UPDATE_HEALTHCHECK_SERVER_NAME: param-update-service
+    command: *tls-args
+    volumes:
+      - param-update-data:/data
+      - v3-store:/v3-store
+      - v3-published:/v3-published
+      # Staged by the operator and never part of an image: the standard releases, the ORIGINALs, the source directory (the Python
+      # closure and the pinned BC01 inputs) and the approved retention bank (prompt text).
+      - type: bind
+        source: ${MODEL_RELEASE_DIR:?Set MODEL_RELEASE_DIR to prepared standard releases}
+        target: /model-releases
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_ORIGINAL_DIR:?Set V3_ORIGINAL_DIR to the staged ORIGINAL packages}
+        target: /v3-originals
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_SOURCE_DIR:?Set V3_SOURCE_DIR to the staged V3 source directory}
+        target: /v3-source
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_RETENTION_BANK_DIR:?Set V3_RETENTION_BANK_DIR to the directory holding approved-train-bank.json}
+        target: /v3-retention-bank
+        read_only: true
+        bind: {create_host_path: false}
+      # The publication key: a mounted secret (64 hexadecimal characters, group-readable by 10010), never an image layer.
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/v3-publication.key
+        target: /run/privoke/v3-publication.key
+        read_only: true
+        bind: {create_host_path: false}
+      - *pki-server
+      - *pki-client-ca
+      - *pki-server-ca
+      - *pki-live
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/param-update.crt
+        target: /run/privoke/svc/param-update.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/param-update.key
+        target: /run/privoke/svc/param-update.key
+        read_only: true
+        bind: {create_host_path: false}
     healthcheck:
-      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, param-update-service, "127.0.0.1:50052", /workspace/services/param-update-service/generated]
+      test: [CMD, /param-update-service, healthcheck]
       interval: 5s
       timeout: 3s
-      retries: 30
+      retries: 60
+      start_period: 30s
 
-  ingress:
-    <<: *security
-    image: nginx:1.28-alpine
-    user: "0:0"
-    cap_add: [CHOWN, SETUID, SETGID, NET_BIND_SERVICE]
-    entrypoint: [nginx, -g, "daemon off;"]
-    ports: ["443:443"]
-    depends_on:
-      model-streaming-service: {condition: service_healthy}
-      telemetry-service: {condition: service_healthy}
+  v3-runtime:
+    profiles: [v3-training]
+    <<: *service-security
+    image: ${IMAGE_PREFIX}/v3-runtime-service:${IMAGE_TAG}
+    container_name: v3-runtime
+    networks: [training]
+    environment:
+      V3_PORT: 50171
+      V3_CHECKPOINT_TARGET: param-update-service:50052
+      V3_RUNTIME_STATE: /state
+      V3_SOURCE_ROOT: /v3-source
+      V3_DEVICE: cpu
+      V3_TORCH_THREADS: ${V3_TORCH_THREADS:-8}
+      # Its own identity (registered role runtime) and trust, for the checkpoint service.
+      PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
+      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/v3-runtime.crt
+      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/v3-runtime.key
+      V3_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      V3_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
+      V3_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
+      V3_HEALTHCHECK_SERVER_NAME: v3-runtime
+    command: *tls-args
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ${SECRETS_DIR:?Set SECRETS_DIR}:/run/secrets:ro
+      - v3-runtime-state:/state
+      - type: bind
+        source: ${V3_SOURCE_DIR:?Set V3_SOURCE_DIR to the staged V3 source directory}
+        target: /v3-source
+        read_only: true
+        bind: {create_host_path: false}
+      - *pki-server
+      - *pki-client-ca
+      - *pki-server-ca
+      - *pki-live
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-runtime.crt
+        target: /run/privoke/svc/v3-runtime.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-runtime.key
+        target: /run/privoke/svc/v3-runtime.key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.crt
+        target: /run/privoke/svc/probe.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.key
+        target: /run/privoke/svc/probe.key
+        read_only: true
+        bind: {create_host_path: false}
     healthcheck:
-      test: [CMD, wget, -q, --spider, "http://127.0.0.1:8081/healthz"]
+      test: [CMD, /v3-runtime-service, healthcheck]
       interval: 5s
-      timeout: 2s
-      retries: 12
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+
+  v3-fuzzer:
+    profiles: [v3-training]
+    <<: *service-security
+    image: ${IMAGE_PREFIX}/v3-fuzzer-service:${IMAGE_TAG}
+    container_name: v3-fuzzer
+    networks: [training]
+    depends_on:
+      v3-runtime: {condition: service_healthy}
+    environment:
+      V3_MODE: routine
+      V3_PORT: 50172
+      V3_RUNTIME_TARGET: v3-runtime:50171
+      V3_CHECKPOINT_TARGET: param-update-service:50052
+      V3_FUZZER_STATE: /state
+      V3_POLICY_FILE: /config/v3-policy.json
+      V3_SOURCE_ROOT: /v3-source
+      V3_FIT_TIMEOUT: ${V3_FIT_TIMEOUT:-7200}
+      # Its own identity (registered role trainer) and trust, for the runtime and the checkpoint service.
+      PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
+      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/v3-fuzzer.crt
+      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/v3-fuzzer.key
+      V3_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      V3_HEALTHCHECK_CERT: /run/privoke/svc/probe.crt
+      V3_HEALTHCHECK_KEY: /run/privoke/svc/probe.key
+      V3_HEALTHCHECK_SERVER_NAME: v3-fuzzer
+    command: *tls-args
+    volumes:
+      - v3-fuzzer-state:/state
+      - type: bind
+        source: ${V3_SOURCE_DIR:?Set V3_SOURCE_DIR to the staged V3 source directory}
+        target: /v3-source
+        read_only: true
+        bind: {create_host_path: false}
+      - *pki-server
+      - *pki-client-ca
+      - *pki-server-ca
+      - *pki-live
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-fuzzer.crt
+        target: /run/privoke/svc/v3-fuzzer.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/v3-fuzzer.key
+        target: /run/privoke/svc/v3-fuzzer.key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.crt
+        target: /run/privoke/svc/probe.crt
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${PRIVOKE_PKI_DIR}/svc/probe.key
+        target: /run/privoke/svc/probe.key
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, /v3-fuzzer-service, healthcheck]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+
+networks:
+  # The fuzzer and the runtime: no route out and no published port.
+  training:
+    internal: true
 
 volumes:
-  model-package-cache:
   model-data:
   param-update-data:
   telemetry-data:
-  telemetry-client-state:
-  fuzzer-dumps:
+  v3-store:
+  v3-published:
+  v3-runtime-state:
+  v3-fuzzer-state:

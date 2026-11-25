@@ -4,8 +4,9 @@
 
 `model-streaming-service` serves persistent PriVoke contextual transformer and
 sparse annotation-presence artifacts. It reloads the selected artifact for every
-request, so an atomically published fuzzer update becomes visible without
-restarting this service or the client runtime.
+request, so a replaced legacy artifact becomes visible without restarting this
+service or the client runtime. V1 artifacts are no longer updated by a fuzzer
+(stage V3-R8b); V3 versions come from the signed publication tree.
 
 The opt-in `privoke_tiny_transformer_v2` architecture streams the same schema-1
 tensor protocol with explicit `residual_task_query_v1` readout configuration and
@@ -106,6 +107,40 @@ use additive runtime RPCs rather than changing this tensor transport. Rebuild
 affected images and regenerate consumer bindings when adopting those RPCs; older
 consumers retain the contextual path.
 
+## Transport and access control
+
+The deployed service is the Rust `model-streaming-service` (`rust/services/model-streaming`, built from
+`rust/services/model-streaming/Dockerfile`). It has no plaintext mode: every listener is mutual TLS, built from a
+client CA, a CRL and a registry, and the binary exits before binding if any of `--cert`, `--key`, `--client-ca`,
+`--crl` or `--registry` is missing or invalid. There is no reverse proxy; the service terminates TLS itself. The Go
+service (`services/model-streaming-service`) is retired from deployment and kept as the parity oracle. It opened a
+plaintext listener with no authentication and relied on a reverse proxy for client certificates.
+
+| Listener | Port | RPCs | Callers |
+| --- | --- | --- | --- |
+| Public | `50443` in the container, published as `443` | `Health`, `StreamModelParameters`, `GetModelPackage`, `StreamModelAsset` | registered installations (role `consumer`); rate-limited per installation identity |
+| Internal | `50051`, never published | `GetModelParameters`, `Health` | registered services (`publisher`, `trainer`, `runtime`) |
+
+An RPC that a listener does not list is `UNIMPLEMENTED` there, so the private RPCs (`GetModelParameters` and every
+`ParamUpdateService`, runtime and fuzzer method) are not reachable from the network. `GetModelPackage` and
+`StreamModelAsset` are public, so a cloud client can fetch the default `privoke-v3-balanced` package and verify its
+pin. On the public listener a request that names a `consumer_id` is refused unless it is the caller's own
+installation UUID (an empty one is accepted), so the label is no longer self-asserted. The reporter credential and
+unregistered certificates are refused. Revocation is a CRL applied at the handshake plus a registry deny list checked on
+every request. The default `latest` model is V3, and the legacy tensor RPCs reject V3 (including an empty or `latest`
+ID that resolves to it) with `FAILED_PRECONDITION`, so V3 is served only by the two package RPCs. Retrieval is
+read-only: no RPC on this service writes the model directory or the pinned V3 release store. The full description,
+including the environment and the health-check subcommand, is in
+[the Rust workspace document](../runtime/rust-workspace.md#privoke-model-streaming) and the deployment topology in
+[Google Cloud deployment](../deployment/google-cloud.md#architecture-and-prerequisites).
+
+The measured behaviour of the retired Go service, with the legacy and V3 paths exercised
+separately, is recorded in
+[UPDSEC-20261116](../../paper/research/update-security-20261116.md)
+(rows T1 to T14 and X1 to X16; gaps `GAP-NO-RETRIEVAL-AUTH`,
+`GAP-IDENTITY-SELF-ASSERTED`, `GAP-NO-REVOCATION`). The release-store
+fingerprint was unchanged across the whole run.
+
 ## Runtime
 
 Environment variables:
@@ -131,12 +166,10 @@ decision-margin objective uses the same S0/non-S0 label and category-threshold
 checks as the earlier decision-margin objective. Existing tensor shape,
 trainability and size checks still apply. Serving this metadata permits artifact
 transport; it does not establish training qualification or measured quality.
-# Frozen-window policy identity
+## Frozen-window policy identity
 
 Go admission recognizes the separate `full_projected_adam64_window_checkpoint_v1` optimizer, exact canonical frozen-window configuration, `candidate_window_exact_component_retention_v1` eligibility and both window/component manifest pins. It rejects orphan pins, policy mixtures and changed configuration, while preserving earlier Adam/retention contracts. Existing full tensor validation applies to both legacy and v2 task-query shapes. Stream cache identity includes all new policy/config/pin fields, preventing reuse of a snapshot under changed window semantics. No study result or default artifact is replaced by this opt-in capability.
 
-Normal startup seeds existing legacy JSON without training. Fuzzer and updater
-services require the explicit `legacy-training` Compose profile; their bootstrap
-and gradient/update paths remain legacy-only. Standard V3 is inference/refresh
-only: legacy gradient requests reject it explicitly. Selecting V3 reflects bounded
+Normal startup seeds existing legacy JSON without training. V1 training was removed in stage V3-R8b: V1 models are served for detection only. Routine training of the V3 tiers runs only under the explicit `v3-training` Compose profile, and
+its signed versions reach clients through `GetModelPackage` (see [V3 publication](../runtime/v3-publication.md)). Selecting V3 reflects bounded
 AU3 research results, not universal superiority or a retention guarantee.

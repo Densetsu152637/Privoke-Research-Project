@@ -70,7 +70,7 @@ def computation_sources():
                       "services/param-update-service/app", "services/model-streaming-service/cmd/server"):
         paths.update(p for p in (ROOT / directory).rglob("*")
                      if p.is_file() and p.suffix in (".py", ".go") and "__pycache__" not in p.parts)
-    paths.update(ROOT / name for name in ("docker-compose.yml", "evaluation/compose.tests.yml",
+    paths.update(ROOT / name for name in ("docker-compose.prod.yml", "evaluation/compose.tests.yml",
                  "evaluation/Dockerfile.fuzzer-bases", "evaluation/Dockerfile.fuzzer-runtime",
                  "evaluation/requirements-fuzzer-training.txt"))
     return sorted(paths)
@@ -189,7 +189,7 @@ class Driver:
         self.args, self.state = args, state
         self.environment = {**os.environ, "CONTEXTUAL_STUDY_ID": state["prefix"], "CONTEXTUAL_STUDY_CURRICULUM": str(Path(state["prepared"]).resolve() / "prompts.jsonl")}
         self.environment["PRIVOKE_RUNTIME_TARGET"] = state["runtime_target"]
-        self.base_compose = ["docker", "compose", "--project-directory", str(ROOT), "--project-name", args.project_name, "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml"]
+        self.base_compose = ["docker", "compose", "--project-directory", str(ROOT), "--project-name", args.project_name, "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml"]
         for override in state.get("base_overrides", []):
             self.base_compose += ["-f", override]
         self.compose = self.base_compose + ["-f", "evaluation/compose.contextual-fuzzer-study.yml"]

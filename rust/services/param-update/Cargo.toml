@@ -1,0 +1,55 @@
+[package]
+name = "privoke-param-update"
+description = "The PriVoke parameter-update service and training-cycle scheduler: guarded compare-and-swap publication, durable receipts, publisher identities over mutual TLS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_param_update"
+path = "src/lib.rs"
+
+[[bin]]
+name = "param-update-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+# The artifact loader and per-architecture validators are the stage 3 ones; the update path publishes only what they accept.
+privoke-model-streaming = { path = "../model-streaming" }
+# The V3 checkpoint store (stage V3-R1): the pinned frozen sources its admission validates against, and the safetensors reader.
+privoke-curriculum = { path = "../../crates/privoke-curriculum" }
+privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
+# The V3 retention rule and its reference releases (stage V3-R9).
+privoke-training = { path = "../../crates/privoke-training" }
+serde_json = "1"
+# The drift bounds file (`config/v3-drift-bounds.toml`).
+toml = { version = "1", default-features = false, features = ["std", "parse"] }
+tokio-stream = { workspace = true }
+tonic = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+prost = { workspace = true }
+# SQLite is compiled in and opens the receipt and journal databases the Python service wrote.
+rusqlite = { version = "0.37", features = ["bundled"] }
+uuid = { version = "1", default-features = false, features = ["v4"] }
+
+[dev-dependencies]
+# The deterministic publication keys of the publication tests.
+privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
+privoke-pki = { path = "../../tools/privoke-pki" }
+# The real-weight leg of stage 13c-2 (`tests/s13c_update_attacks_real.rs`, local only) fits the genuine candidate with the real V3
+# runtime and the routine engine in process, as `v3-fuzzer/tests/scheduler_real.rs` does. Cargo allows the cycle: those crates
+# depend on this one only through their own integration tests.
+privoke-v3-fuzzer = { path = "../v3-fuzzer" }
+privoke-v3-runtime = { path = "../v3-runtime" }
+tempfile = { workspace = true }
+serde_json = "1"
+base64 = { workspace = true }
+time = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,54 @@
+[package]
+name = "privoke-analysis"
+description = "The quarantined analysis microservice: a mutual-TLS gRPC front end over a supervised pool of W1 Python workers (stage W3)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_analysis"
+path = "src/lib.rs"
+
+[[bin]]
+name = "analysis-service"
+path = "src/main.rs"
+
+[[bin]]
+name = "privoke-analysis-test-worker"
+path = "src/bin/test_worker.rs"
+required-features = ["test-helpers"]
+
+[features]
+default = []
+# Test-only: the stand-in W1 worker that records what it is asked (`tests/gradients_removed.rs`). Never enabled by a normal build.
+test-helpers = []
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
+# The routing table of the stage 17 Rust analysis worker (`routing`): which worker serves a call, and the one retry.
+privoke-runtime-supervisor = { path = "../runtime-supervisor" }
+tonic = { workspace = true }
+prost = { workspace = true }
+tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "rt", "macros"] }
+clap = { workspace = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+bytes = "1"
+
+[dev-dependencies]
+privoke-analysis = { path = ".", features = ["test-helpers"] }
+# The worker's own reader of the cache, to compare it with the artifact file the cache was fetched from.
+privoke-runtime = { path = "../runtime" }
+privoke-pki = { path = "../../tools/privoke-pki" }
+privoke-model-streaming = { path = "../model-streaming" }
+tempfile = { workspace = true }
+time = { workspace = true }
+serde_json = "1"
+
+[lints]
+workspace = true

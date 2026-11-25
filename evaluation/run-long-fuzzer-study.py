@@ -56,7 +56,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     state = {"status": "preparing", "pid": os.getpid(), "started_at": now(), "study_id": args.study_id, "profiles": {}}
     write_json(output / "supervisor.json", state)
-    compose = ["docker", "compose", "--project-name", args.study_id, "-f", ROOT / "docker-compose.yml",
+    compose = ["docker", "compose", "--project-name", args.study_id, "-f", ROOT / "docker-compose.prod.yml",
                "-f", ROOT / "evaluation/compose.tests.yml", "-f", ROOT / "evaluation/compose.continual-fuzzer-study.yml"]
     env = dict(os.environ, CONTINUAL_STUDY_ID=args.study_id, CONTINUAL_STUDY_CURRICULUM=str(output / "curriculum"))
     try:

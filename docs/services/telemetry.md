@@ -36,17 +36,36 @@ For each domain value, the service estimates its true count within each epsilon 
 
 Compose stores protected marginal counts in the named `telemetry-data` volume at `/data/telemetry-ldp-v1.sqlite3`. The old `/data/telemetry.db` file is not imported, read, or exposed by the new API and is left untouched. It may contain historical unprotected telemetry; operators should handle that file under their data-retention policy. Pointing `TELEMETRY_DB_PATH` at an old-schema database fails closed with a migration explanation rather than mixing legacy rows with protected reports.
 
+## Deployed service
+
+The deployed collector is the Rust `telemetry-service` (`rust/services/telemetry`; the Python service is retired from
+deployment and kept as the parity oracle). It reads and writes the same SQLite schema. Two mutual-TLS listeners, both
+requiring a client certificate from the private client CA and the registry:
+
+- public, container port `58443`, published as `8443`: `RecordTelemetry` and `Health` for the shared reporter credential
+  (`urn:privoke:reporter`) only, rate-limited and capped per source IP, with no identity kept;
+- internal, `50055`, never published: `GetTelemetrySummary` and `Health` for registered services.
+
+An installation certificate is refused on both listeners, and the reporter credential cannot read the summary. The binary
+exits before binding without `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`. The server no longer runs a
+`client-runtime` that emits telemetry; reports come from workstations. Additional variables of the Rust service:
+`TELEMETRY_PUBLIC_PORT` (default `58443`), `TELEMETRY_BIND`, `TELEMETRY_DAILY_CAP_PER_IP` (default `10000`) and
+`TELEMETRY_RATE_PER_SECOND` and `TELEMETRY_RATE_BURST` (defaults `20` and `40`); see
+[the Rust workspace document](../runtime/rust-workspace.md#privoke-telemetry-stage-4).
+
 Environment variables:
 
-- `TELEMETRY_PORT`, default `50055`
+- `TELEMETRY_PORT`, default `50055` (the internal listener)
 - `TELEMETRY_DB_PATH`, default `/data/telemetry-ldp-v1.sqlite3`
 - `TELEMETRY_MAX_MESSAGE_BYTES`, default `131072`
 - `TELEMETRY_LDP_EPSILON`, default `1`; allowed range `0.5` to `2`
 - `TELEMETRY_LDP_DAILY_EPSILON`, default `8`; must be at least the event epsilon and no more than `8`
 - `TELEMETRY_PRIVACY_LEDGER_PATH`, optional stable client-side budget database path
 
-Run through Compose:
+Run through Compose (a certificate directory is required; see `docker-compose.prod.yml` and
+[Google Cloud deployment](../deployment/google-cloud.md#4-provision-tls-and-installation-credentials)):
 
 ```bash
-docker compose up --build telemetry-service client-runtime
+export PRIVOKE_PKI_DIR=<directory of test certificates>
+docker compose up --build telemetry-service
 ```

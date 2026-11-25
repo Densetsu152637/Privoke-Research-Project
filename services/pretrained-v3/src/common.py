@@ -9,6 +9,7 @@ sys.path[:0] = [str(GENERATED), str(ROOT / "shared/python"), str(ROOT / "extensi
 import grpc
 from privoke.experimental import v3_pb2 as pb, v3_pb2_grpc as rpc
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc, parameters_pb2
+from privoke_service.stack_connection import bind_server, build_server, service_channel
 from privoke_model.v3_contract import CHUNK_BYTES, MAX_BLOB_BYTES, canonical, digest, check_sha
 
 OPTIONS = (("grpc.max_receive_message_length", 2 * 1024 * 1024), ("grpc.max_send_message_length", 2 * 1024 * 1024))
@@ -28,7 +29,7 @@ def source_identity():
     return digest(canonical(source_inventory()))
 
 def channel(target):
-    return grpc.insecure_channel(target, options=OPTIONS)
+    return service_channel(target, options=OPTIONS)
 
 def chunks(payload, manifest=b""):
     sha = digest(payload)
@@ -51,8 +52,7 @@ def fetch(stub, sha):
 
 def serve(servicer, register, port):
     from concurrent.futures import ThreadPoolExecutor
-    server = grpc.server(ThreadPoolExecutor(max_workers=4), options=OPTIONS)
+    server = build_server(ThreadPoolExecutor(max_workers=4), options=OPTIONS)
     register(servicer, server)
-    address = os.getenv("V3_BIND", "127.0.0.1") + ":" + str(port)
-    if server.add_insecure_port(address) == 0: raise RuntimeError("Cannot bind isolated v3 server.")
+    bind_server(server, os.getenv("V3_BIND", "127.0.0.1"), port)
     server.start(); server.wait_for_termination()

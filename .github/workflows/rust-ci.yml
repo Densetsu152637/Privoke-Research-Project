@@ -1,0 +1,227 @@
+name: Rust workspace CI
+
+# Runs the Rust workspace checks on GitHub-hosted runners so that agents and
+# developers do not run full cargo builds locally (see the CI-first rule).
+on:
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'shared/proto/**'
+      - 'tests/conformance/**'
+      - '.github/workflows/rust-ci.yml'
+  push:
+    branches:
+      - feat/rust-rewrite
+      - 'wt/**'
+      - 'fix/**'
+    paths:
+      - 'rust/**'
+      - 'shared/proto/**'
+      - 'tests/conformance/**'
+      - '.github/workflows/rust-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.99.1'
+
+jobs:
+  lint:
+    name: Rust format and clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy,rustfmt
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-lint-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    name: Rust workspace tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-test-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Test
+        run: cargo test --workspace --locked --no-fail-fast
+      - name: Worker links no HTTP stack (stage 17)
+        # The isolated inference worker never opens a socket: the stage 16 external classifier is the cargo feature
+        # `external-classifier` of privoke-semantic, and the worker depends on that crate without it.
+        run: |
+          cargo check -p privoke-semantic --no-default-features --lib --locked
+          if cargo tree -p privoke-runtime -e normal --locked | grep -Ei 'reqwest|rustls|native-tls|openssl'; then
+            echo 'privoke-runtime links an HTTP or TLS stack' >&2
+            exit 1
+          fi
+      - name: Training parity report (stage 19)
+        # Prints the per-case gradient error and bitwise counts of privoke-training (eprintln).
+        run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1
+      - name: Runtime golden report (stage 17)
+        # Prints the per-scope byte-parity counts of the Rust analysis runtime against the Python servicer (eprintln).
+        run: cargo test -p privoke-runtime --test golden --test semantic_golden --test worker_golden --locked -- --nocapture --test-threads=1
+
+      - name: Fetch parity and contextual encoder reports (RUST-S17B)
+        # Prints the counts of the model fetch goldens (V3 package and legacy snapshot) and the contextual encoder goldens (eprintln).
+        run: |
+          cargo test -p privoke-runtime-supervisor --test fetch_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-analysis --test fetch_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-semantic --test context_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-runtime --test context_semantic --locked -- --nocapture --test-threads=1
+
+      - name: V3 fuzzer replay report (stage 21)
+        # Prints the counts of the V3 fuzzer replay against the Python oracle (eprintln): cycles, wire messages, work-directory files, rows.
+        run: cargo test -p privoke-v3-fuzzer --test replay --locked -- --nocapture --test-threads=1
+
+      - name: Publication test keys are absent from the service build (V3-R2)
+        # The deterministic keys of the fixtures exist behind the `test-keys` feature of privoke-contracts, enabled only by the
+        # dev-dependencies of the tests. The graph of the service (normal and build edges) must not enable it.
+        run: |
+          if cargo tree -p privoke-param-update -e normal,build,features --locked | grep -q 'test-keys'; then
+            echo 'privoke-param-update enables the test-keys feature outside its tests' >&2
+            exit 1
+          fi
+
+      - name: Publication test keys are absent from the client build (V3-R4a)
+        # The supervisor's lineage admission compiles the production key set; the deterministic test keys exist only through the
+        # dev-dependencies of its tests.
+        run: |
+          if cargo tree -p privoke-runtime-supervisor -e normal,build,features --locked | grep -q 'test-keys'; then
+            echo 'privoke-runtime-supervisor enables the test-keys feature outside its tests' >&2
+            exit 1
+          fi
+
+      - name: Publication test keys are absent from the worker build (V3-R4b)
+        # The worker and the semantic crate read the cache with the compiled key set; the test keys come only through their dev-dependencies.
+        run: |
+          for package in privoke-runtime privoke-semantic; do
+            if cargo tree -p "$package" -e normal,build,features --locked | grep -q 'test-keys'; then
+              echo "$package enables the test-keys feature outside its tests" >&2
+              exit 1
+            fi
+          done
+
+      - name: Client lineage attack rows (V3-R4a)
+        # Runs the shared signed-chain table and the Fetcher rows, then judges every row against the table of update_security.py.
+        run: |
+          rows="$RUNNER_TEMP/lineage-rows.jsonl"
+          rm -f "$rows"
+          PRIVOKE_LINEAGE_ROWS_OUT="$rows" cargo test -p privoke-runtime-supervisor --test lineage_chain --test lineage_fetch --locked -- --nocapture --test-threads=1
+          python3 ../evaluation/update_security.py --target rust --rust-service client-lineage --lineage-rows "$rows" --output "$RUNNER_TEMP/update-security-rust-lineage.json"
+
+      - name: V3 checkpoint store replay report (V3-R1)
+        # Prints the counts of the checkpoint store replay against the Python oracle (eprintln): steps, answers, refusals with their reasons, commit outcomes, blob listings and receipt rows.
+        run: cargo test -p privoke-param-update --test checkpoint_store_golden --test checkpoint_mtls --locked -- --nocapture --test-threads=1
+
+      - name: V3 runtime analysis replay report (stage 22)
+        # Prints the counts of the AnalyzePrompt and FitCandidate replays against the Python RuntimeServer (eprintln): rows, aborts, byte-identical responses, candidate coordinates within 1e-6 and bitwise.
+        run: cargo test -p privoke-v3-runtime --test analyze_replay --test fit_replay --locked -- --nocapture --test-threads=1
+
+  embed-check:
+    # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a
+    # CPython 3.11 development install. The full embed tests, the real-interpreter
+    # crash test and the NER parity gate need the Linux bundle, which is still
+    # pending (stage 23), so this job only proves the embed and in-process
+    # features compile and lint on Linux.
+    name: spaCy worker embed build (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-embed-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Clippy with embed
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-spacy-worker --features embed --all-targets --locked -- -D warnings
+      - name: Clippy with in-process
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-spacy --features in-process,test-hooks,fake-worker --all-targets --locked -- -D warnings
+      - name: Clippy runtime worker with in-process spaCy
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-runtime --features in-process --all-targets --locked -- -D warnings
+
+  gliner-check:
+    # The optional GLiNER ONNX backend (stage 15, cargo feature gliner-ort) is off by
+    # default, so the jobs above do not build it. ONNX Runtime is loaded dynamically at
+    # run time (no download while building); this job proves the feature compiles and lints.
+    name: GLiNER ONNX backend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-gliner-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Clippy with gliner-ort
+        run: cargo clippy -p privoke-ner-layer --features gliner-ort --all-targets --locked -- -D warnings

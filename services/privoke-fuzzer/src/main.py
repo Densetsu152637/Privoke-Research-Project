@@ -9,6 +9,7 @@ from pathlib import Path
 
 import grpc
 from privoke_service import configure_logging
+from privoke_service.stack_connection import bind_server, build_server
 
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
 if str(GENERATED_DIR) not in sys.path:
@@ -45,7 +46,7 @@ def main() -> None:
 
 
 def create_server(config: FuzzerConfig):
-    server = grpc.server(
+    server = build_server(
         futures.ThreadPoolExecutor(max_workers=4),
         options=(
             ("grpc.max_receive_message_length", MAX_REQUEST_BYTES),
@@ -56,7 +57,7 @@ def create_server(config: FuzzerConfig):
         FuzzerTrainingService(config),
         server,
     )
-    server.add_insecure_port(f"[::]:{config.port}")
+    bind_server(server, "[::]", config.port)
     return server
 
 

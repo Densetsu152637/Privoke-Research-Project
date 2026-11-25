@@ -25,6 +25,7 @@ if str(GENERATED_DIR) not in sys.path:
     sys.path.insert(0, str(GENERATED_DIR))
 
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc
+from privoke_service.stack_connection import service_channel
 
 LAYER_VALUES = {
     "runtime": runtime_pb2.DETECTION_LAYER_RUNTIME,
@@ -83,7 +84,7 @@ class PrivokeRuntimeClient:
         regex_first: bool | None = None,
     ):
         request = self._request(payload, layers=layers, regex_first=regex_first)
-        with grpc.insecure_channel(self.target) as channel:
+        with service_channel(self.target) as channel:
             response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(
                 channel
             ).AnalyzePrompt(
@@ -151,7 +152,7 @@ class PrivokeRuntimeClient:
             for text in texts
         ]
         responses = []
-        with grpc.insecure_channel(self.target) as channel:
+        with service_channel(self.target) as channel:
             method = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel).AnalyzePrompt
             for start in range(0, len(requests), self.max_in_flight):
                 pending = [
@@ -266,7 +267,7 @@ class PrivokeRuntimeClient:
                     os.getenv("PRIVOKE_FUZZER_DUMP_DIR"), exc)
                 raise
         try:
-            with grpc.insecure_channel(self.target) as channel:
+            with service_channel(self.target) as channel:
                 stub = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel)
                 method = stub.ComputeUnderlyingModelGradients if training_scope == "full_encoder" else stub.ComputeSemanticGradients
                 response = method(request, timeout=180.0 if expected_optimizer is not None and training_scope == "full_encoder" else self.timeout_seconds,
@@ -377,7 +378,7 @@ class PrivokeRuntimeClient:
         )
         from training.evidence import persist_presence_runtime_attempt
         try:
-            with grpc.insecure_channel(self.target) as channel:
+            with service_channel(self.target) as channel:
                 response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel).ComputePresenceGradients(
                     request, timeout=self.timeout_seconds)
         except grpc.RpcError as exc:

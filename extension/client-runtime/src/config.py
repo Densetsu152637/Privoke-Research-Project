@@ -151,6 +151,57 @@ class GlobalConfig:
     wait_for_regex: bool = field(
         default_factory=lambda: env_bool("PRIVOKE_WAIT_FOR_REGEX", True)
     )
+    # Default on (PRIVOKE_CASE_PRESERVING_DETECTORS=0 disables): regex and NER
+    # receive case-preserved normalized text. Semantic/LLM layers always receive
+    # lowercased text.
+    case_preserving_detectors: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_CASE_PRESERVING_DETECTORS", True)
+    )
+    # Default on (PRIVOKE_NER_POSTFILTER=0 disables): post-filter on spaCy
+    # entities, per-span cleaning plus category combination rules that decide
+    # the final NER sensitivity (src/NER/ner_postfilter.py).
+    ner_postfilter: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_NER_POSTFILTER", True)
+    )
+    # Robustness canonicalisations, all default off (set the variable to 1 to
+    # enable). They apply to the case-preserved detector view only, never to
+    # semantic input (src/detection/preprocessing.py, src/NER/ner_detector.py).
+    strip_format_chars: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_STRIP_FORMAT_CHARS", False)
+    )
+    canonicalise_digits: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_CANONICALISE_DIGITS", False)
+    )
+    canonicalise_email_words: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_CANONICALISE_EMAIL_WORDS", False)
+    )
+    ner_caseless_gate: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_NER_CASELESS_GATE", False)
+    )
+    # spaCy model for the NER layer (PRIVOKE_NER_MODEL). Default en_core_web_sm; a
+    # larger installed English model (e.g. en_core_web_lg) can be evaluated without
+    # code changes. The post-filter is unchanged and was designed on the default.
+    ner_model: str = field(
+        default_factory=lambda: env_optional_str("PRIVOKE_NER_MODEL") or "en_core_web_sm"
+    )
+    # NER backend (PRIVOKE_NER_BACKEND): "spacy" (default) or "gliner". The GLiNER
+    # backend is an evaluation candidate and requires the optional ``gliner``
+    # package; it stays off unless selected (src/NER/gliner_detector.py).
+    ner_backend: str = field(
+        default_factory=lambda: (env_optional_str("PRIVOKE_NER_BACKEND") or "spacy").lower()
+    )
+    # GLiNER checkpoint (local directory or Hugging Face id), span score threshold
+    # and label preset ("core" or "pii"); used only when ner_backend == "gliner".
+    ner_gliner_model: str = field(
+        default_factory=lambda: env_optional_str("PRIVOKE_NER_GLINER_MODEL")
+        or "knowledgator/gliner-pii-small-v1.0"
+    )
+    ner_gliner_threshold: float = field(
+        default_factory=lambda: env_positive_float("PRIVOKE_NER_GLINER_THRESHOLD", 0.3)
+    )
+    ner_gliner_labels: str = field(
+        default_factory=lambda: (env_optional_str("PRIVOKE_NER_GLINER_LABELS") or "core").lower()
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()

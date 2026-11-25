@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
+import { interceptionResponse, runtimeFailureResponse } from "../src/interception-failure.js";
 
 const source = (await readFile(new URL("../src/content-script.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?\n/gm, "");
@@ -15,7 +16,7 @@ function relay(sendRuntimeMessage, document = { getElementById() { throw new Err
     postMessage(data) { results.push(data); },
   };
   vm.runInNewContext(source, {
-    runtimeFailureResponse: () => ({ action: "BLOCK" }), window, sendRuntimeMessage,
+    interceptionResponse, runtimeFailureResponse, window, sendRuntimeMessage, answerCoveragePings() {},
     document,
   });
   listener({ source: window, data: {
@@ -38,19 +39,21 @@ for (const action of ["BLOCK", "WARN"]) {
   });
 }
 
-function workingDocument() {
+function workingDocument(elements = []) {
   const root = { append() {} };
   return {
     documentElement: root,
     getElementById() { return null; },
     createElement() {
-      return {
+      const element = {
         style: {},
         setAttribute() {},
         append() {},
         attachShadow() { return { append() {} }; },
         addEventListener() {},
       };
+      elements.push(element);
+      return element;
     },
   };
 }
@@ -65,8 +68,27 @@ test("notice status reflects an actual append and ALLOW needs no notice", async 
   assert.equal(allowed[0].observation.notice_status, "NOT_REQUESTED");
 });
 
+for (const [mode, detail, guidance] of [
+  ["reject", "Extension context invalidated.", "Reload this AI page"],
+  ["response", "Failed to fetch: private server detail", "could not reach its local runtime"],
+  ["reject", "operation timed out: private server detail", "analysis timed out"],
+]) {
+  test(`${mode} runtime failure renders actionable ${guidance} notice and warns`, async () => {
+    const elements = [];
+    const results = relay(() => mode === "reject"
+      ? Promise.reject(new Error(detail))
+      : Promise.resolve({ ok: false, error: detail }), workingDocument(elements));
+    await flush();
+    assert.equal(results[0].action, "WARN");
+    assert.equal(results[0].observation.notice_status, "RENDERED");
+    const texts = elements.map(({ textContent }) => textContent).filter(Boolean);
+    assert.ok(texts.some((text) => text.includes(guidance)));
+    assert.equal(texts.some((text) => text.includes("private server detail")), false);
+  });
+}
+
 for (const mode of ["sync", "async", "response"]) {
-  test(`${mode} runtime failure still delivers a block decision when notice rendering fails`, async () => {
+  test(`${mode} runtime failure still permits handoff when notice rendering fails`, async () => {
     const results = relay(() => {
       if (mode === "sync") throw new Error("extension context invalidated");
       if (mode === "async") return Promise.reject(new Error("runtime unavailable"));
@@ -74,7 +96,7 @@ for (const mode of ["sync", "async", "response"]) {
     });
     await flush();
     assert.equal(results.length, 1);
-    assert.equal(results[0].action, "BLOCK");
+    assert.equal(results[0].action, "WARN");
   });
 }
 
@@ -82,7 +104,7 @@ for (const mode of ["sync", "async", "response"]) {
 function highlight(text, evidence) {
   const container = { children: [], append(...items) { this.children.push(...items); } };
   const context = vm.createContext({
-    window: { addEventListener() {} },
+    window: { addEventListener() {} }, answerCoveragePings() {},
     document: { createElement(tag) { return { tag, className: "", textContent: "" }; } },
   });
   vm.runInContext(source, context);
@@ -102,6 +124,19 @@ test("reported span selects the second identical occurrence", () => {
   assert.equal(children[0], "alex and ");
   assert.equal(highlighted(children)[0].textContent, "alex");
   assert.equal(rendered(children), "alex and alex");
+});
+
+test("detector failure BLOCK becomes unavailable warning while genuine evidence remains blocked", async () => {
+  for (const [response, action] of [
+    [{ action: "BLOCK", error: "classifier unavailable", layers: [{ status: "error" }] }, "WARN"],
+    [{ action: "BLOCK", error: "partial failure", evidence: { action: "BLOCK" } }, "BLOCK"],
+    [undefined, "WARN"],
+    [{ action: "INVALID" }, "WARN"],
+  ]) {
+    const results = relay(async () => ({ ok: true, response }));
+    await flush();
+    assert.equal(results[0].action, action);
+  }
 });
 
 test("runtime code point offsets preserve emoji before and inside evidence", () => {
@@ -167,4 +202,21 @@ test("invalid unlocated evidence leaves source excerpt unhighlighted", () => {
   const children = highlight("😀 original prompt", { hasSpan: true, spanStart: 0, spanEnd: 99 });
   assert.equal(highlighted(children).length, 0);
   assert.equal(rendered(children), "😀 original prompt");
+});
+
+test("mask spans reach the page only with a WARN decision that carries them", async () => {
+  const spans = [{ start: 3, end: 9, categories: ["IDENTITY"] }];
+  const warned = relay(async () => ({ ok: true, response: { action: "WARN", maskSpans: spans } }), workingDocument());
+  await flush();
+  assert.deepEqual(JSON.parse(JSON.stringify(warned[0].maskSpans)), spans);
+
+  const defaults = relay(async () => ({ ok: true, response: { action: "WARN" } }), workingDocument());
+  await flush();
+  assert.equal(Object.hasOwn(defaults[0], "maskSpans"), false);
+
+  for (const action of ["ALLOW", "BLOCK"]) {
+    const other = relay(async () => ({ ok: true, response: { action, maskSpans: spans } }), workingDocument());
+    await flush();
+    assert.equal(Object.hasOwn(other[0], "maskSpans"), false);
+  }
 });

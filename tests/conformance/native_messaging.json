@@ -1,0 +1,192 @@
+{
+ "bridge_port": 8080,
+ "control_port": 50056,
+ "header_byte_order": "native (x86-64 little-endian captured)",
+ "host_name": "org.privoke.runtime_launcher",
+ "max_message_bytes": 1048576,
+ "schema": 1,
+ "transcripts": [
+  {
+   "label": "unsupported-action",
+   "request_hex": "120000007b22616374696f6e223a226f74686572227d",
+   "response_hex": "4d0000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22556e737570706f72746564206e6174697665206c61756e6368657220726571756573742e227d",
+   "responses": [
+    {
+     "message": "Unsupported native launcher request.",
+     "ok": false,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "missing-action",
+   "request_hex": "020000007b7d",
+   "response_hex": "4d0000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22556e737570706f72746564206e6174697665206c61756e6368657220726571756573742e227d",
+   "responses": [
+    {
+     "message": "Unsupported native launcher request.",
+     "ok": false,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "array-message",
+   "request_hex": "070000005b312c322c335d",
+   "response_hex": "4d0000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22556e737570706f72746564206e6174697665206c61756e6368657220726571756573742e227d",
+   "responses": [
+    {
+     "message": "Unsupported native launcher request.",
+     "ok": false,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "string-message",
+   "request_hex": "1300000022656e737572655f73757065727669736f7222",
+   "response_hex": "4d0000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22556e737570706f72746564206e6174697665206c61756e6368657220726571756573742e227d",
+   "responses": [
+    {
+     "message": "Unsupported native launcher request.",
+     "ok": false,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "null-message",
+   "request_hex": "040000006e756c6c",
+   "response_hex": "",
+   "responses": []
+  },
+  {
+   "label": "bridge-already-running",
+   "request_hex": "1e0000007b22616374696f6e223a22656e737572655f73757065727669736f72227d",
+   "response_hex": "550000007b226f6b223a747275652c2273746172746564223a66616c73652c226d657373616765223a22507269566f6b652073757065727669736f722062726964676520697320616c72656164792072756e6e696e672e227d",
+   "responses": [
+    {
+     "message": "PriVoke supervisor bridge is already running.",
+     "ok": true,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "control-port-conflict",
+   "request_hex": "1e0000007b22616374696f6e223a22656e737572655f73757065727669736f72227d",
+   "response_hex": "a20000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22507269566f6b6520636f6e74726f6c20706f727420353030353620697320696e207573652c206275742074686520627269646765206f6e20706f7274203830383020697320756e617661696c61626c652e2053746f702074686520636f6e666c696374696e672070726f6365737320616e642072657472792e227d",
+   "responses": [
+    {
+     "message": "PriVoke control port 50056 is in use, but the bridge on port 8080 is unavailable. Stop the conflicting process and retry.",
+     "ok": false,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "two-messages-in-sequence",
+   "request_hex": "120000007b22616374696f6e223a226f74686572227d1e0000007b22616374696f6e223a22656e737572655f73757065727669736f72227d",
+   "response_hex": "4d0000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22556e737570706f72746564206e6174697665206c61756e6368657220726571756573742e227d550000007b226f6b223a747275652c2273746172746564223a66616c73652c226d657373616765223a22507269566f6b652073757065727669736f722062726964676520697320616c72656164792072756e6e696e672e227d",
+   "responses": [
+    {
+     "message": "Unsupported native launcher request.",
+     "ok": false,
+     "started": false
+    },
+    {
+     "message": "PriVoke supervisor bridge is already running.",
+     "ok": true,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "unicode-payload",
+   "request_hex": "250000007b22616374696f6e223a225c75303065395c75346532645c75643833645c7564653030227d",
+   "response_hex": "4d0000007b226f6b223a66616c73652c2273746172746564223a66616c73652c226d657373616765223a22556e737570706f72746564206e6174697665206c61756e6368657220726571756573742e227d",
+   "responses": [
+    {
+     "message": "Unsupported native launcher request.",
+     "ok": false,
+     "started": false
+    }
+   ]
+  },
+  {
+   "label": "empty-stream",
+   "request_hex": "",
+   "response_hex": "",
+   "responses": []
+  },
+  {
+   "error": {
+    "message": "Incomplete native messaging header.",
+    "type": "ValueError"
+   },
+   "label": "truncated-header",
+   "request_hex": "0500",
+   "response_hex": ""
+  },
+  {
+   "error": {
+    "message": "Incomplete native messaging request.",
+    "type": "ValueError"
+   },
+   "label": "truncated-body",
+   "request_hex": "0a0000007b7d",
+   "response_hex": ""
+  },
+  {
+   "error": {
+    "message": "Native messaging request is too large.",
+    "type": "ValueError"
+   },
+   "label": "oversized-length",
+   "request_hex": "01001000",
+   "response_hex": ""
+  },
+  {
+   "error": {
+    "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+    "message_is_informational": true,
+    "type": "UnicodeDecodeError"
+   },
+   "label": "invalid-utf8",
+   "request_hex": "02000000fffe",
+   "response_hex": ""
+  },
+  {
+   "error": {
+    "message": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+    "message_is_informational": true,
+    "type": "JSONDecodeError"
+   },
+   "label": "invalid-json",
+   "request_hex": "090000007b6e6f74206a736f6e",
+   "response_hex": ""
+  },
+  {
+   "error": {
+    "message": "Expecting value: line 1 column 1 (char 0)",
+    "message_is_informational": true,
+    "type": "JSONDecodeError"
+   },
+   "label": "max-length-boundary-accepted-length-zero-payload-is-invalid-json",
+   "request_hex": "00000000",
+   "response_hex": ""
+  },
+  {
+   "label": "supervisor-entry-missing",
+   "request_hex": "1e0000007b22616374696f6e223a22656e737572655f73757065727669736f72227d",
+   "response_hex": "normalised-see-responses",
+   "responses": [
+    {
+     "message": "PriVoke supervisor entry point is missing: <ROOT>/extension/runtime-supervisor/src/main.py",
+     "ok": false,
+     "started": false
+    }
+   ]
+  }
+ ]
+}

@@ -1,5 +1,21 @@
 # Local development evidence package
 
+## Cross-platform and provider validation - 17 November 2026
+
+[XPLAT-20261117](cross-platform-20261117.md) ([JSON](cross-platform-20261117.json)) records evidence unit 12: installed-extension probes on Windows 11 (Chrome 157, Edge 157, Firefox 159 via a Playwright build; installed Firefox 134 not run) against a synthetic local receiver with the regex and NER runtime, plus synthetic provider request-shape fixtures and 166 page-hook harness tests. No live provider was contacted. Re-derive its counts with `python evaluation/cross_platform_study.py derive paper/research/cross-platform-20261117.json`.
+
+## Detector precision - 24 October 2026
+
+[DETPREC-20261024](detector-precision-20261024.md) records the eighth, detector-layer-only evidence unit authorized on 24 October 2026: regex precision repairs, case-preserved regex/NER input and the NER post-filter, with source revisions on `fix/regex-fp-reduction`, split and freeze protocol, and limitations. Results recorded: held-out regex specificity .985 to .996 at recall .653 to .640, union essentially unchanged, no net NER benefit established. Units 1 to 7 are not revalidated.
+
+[DETPREC-FOLLOWUP-20261024](detector-precision-followup-20261024.md) adds three settled follow-up findings: paired uncertainty (`research/wt-a-stats`, `bf5e24c1`; the held-out regex specificity gain and recall cost are 3-against-0 and 0-against-3 discordant rows, exact McNemar p = 0.25, not significant; union 13 against 14, p = 1.0; synthetic-set changes significant; endpoint now consumed), the `student_id` action-level repair (`fix/regex-fp-reduction`, `e70e3a2e`, added after endpoint scoring) and a full-product rerun of units 1 and 2 with the revised detectors (`research/wt-h-product`, `91b4ee83`; shared unnecessary restrictions 139 to 108, remove-regex net +121 to +85, NER now converts 48 findings). Units 1 and 2 are revalidated by that rerun except for the `student_id` rule; units 4 and 6 are not.
+
+[DETPREC-HELDOUT-20261025](detector-precision-heldout-20261025.md) records the 25 October 2026 integration, detector-layer only: the shipped rework K (`fix/regex-fp-reduction`, PR #5 head `c8ceaacc`, freeze `b7e716c3`), the registered fresh held-out v2 (`research/wt-w3-score` `1344070c`; the first revision N failed union-recall non-inferiority, -1.37 points) and v3 (`research/wt-v3-score` `40b6ee61`; K union recall -1.05 [-1.70, -0.41], inconclusive against the margin and significantly below the original detectors, BLOCK recall level; shipped by owner decision), and the supplementary span-scoring, NER-model, NER-role, robustness, latency and annotation-protocol results. The full-product rerun and installed probes predate K.
+
+## External manuscript expansion - 18 October 2026
+
+[LONG22](external-version-expansion-20261018.md) restores the original conference layout and four authors, removes the page cap, reintroduces scoped methodological appendices, merges historical explanation with the current refactors, and restores the corrected 81-source pool. No experiments are rerun and the seven-unit empirical scope remains fixed.
+
 ## Bibliography audit - 17 October 2026
 
 [BIBREST19](bibliography-audit-20261017.md) records the complete catalog/history check, primary-source metadata corrections, official BibTeX exports, access limits and PDF validation. It changes no empirical claims.

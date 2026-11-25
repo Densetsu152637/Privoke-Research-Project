@@ -172,6 +172,12 @@ class SemanticTrainingSmokeTests(unittest.TestCase):
             self.assertTrue(proof['old_position_prefix_preserved'])
             self.assertFalse(proof['training'])
             self.assertEqual(len(read_json(state/'prompts.json')),16)
+            # Runtime training metadata reports ModelConfig.to_mapping(); the
+            # stage guard compares it with the fixture config for equality.
+            from src.model import ModelConfig
+            initial=read_json(state/'initial-256.json')
+            runtime_config=json.loads(json.dumps(ModelConfig.from_mapping(initial['config']).to_mapping()))
+            self.assertEqual(runtime_config,initial['config'])
 
     def test_fuzzer_enrichment_preserves_actual_runtime_fields(self):
         _,req,res=self.fixture();trace=self.trace(req,res)

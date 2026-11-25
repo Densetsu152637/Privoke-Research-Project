@@ -14,7 +14,7 @@ This package is instantiated in two independent contexts:
 
 | Context | Owner | Binding | Consumer |
 | --- | --- | --- | --- |
-| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Host Python fuzzer and evaluator clients, and server services |
+| Server simulation | Docker Compose | `[::]:50054` inside Compose; the default development `docker-compose.yml` also publishes `127.0.0.1:50054` (`docker-compose.prod.yml` keeps it internal) | Host Python fuzzer and evaluator clients, and server services |
 | Browser extension | `../runtime-supervisor` | `127.0.0.1:50057` | Supervisor-owned bridge for the WebExtension |
 
 The contexts share source code only. The extension never calls the Compose instance, and the fuzzer never calls the extension instance. The supervisor also exposes its separate control service on `127.0.0.1:50056` and its gRPC-Web bridge on `127.0.0.1:8080`.
@@ -124,11 +124,14 @@ raw prompt
 
 Important behavior:
 
-- Normalization lowercases text, applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines.
+- Normalization applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines. Regex and NER receive case-preserved text by default (`PRIVOKE_CASE_PRESERVING_DETECTORS`, default on; `0` lowercases them); the semantic/LLM layer always receives lowercased text.
+- `PRIVOKE_NER_POSTFILTER` defaults to on: spaCy entities pass through per-span cleaning and category-combination rules before they set the NER sensitivity (`src/NER/ner_postfilter.py`). `0` emits raw mapped entities.
+- `PRIVOKE_NER_MODEL` (default `en_core_web_sm`) selects the spaCy pipeline for NER; `PRIVOKE_NER_BACKEND=gliner` (default `spacy`, off) selects the GLiNER candidate backend. See `docs/detectors/ner.md`.
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
 - gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
 - `ComputeSemanticGradients` accepts at most 1,024 weighted examples and 200,000 total text characters, executes the cached streamed transformer locally, and returns bounded head deltas tied to the exact snapshot version used.
+- Gradient routes in the Rust services: `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` and `ComputePresenceGradients` are `UNIMPLEMENTED` at the Rust analysis service and routed nowhere by the Rust supervisor since stage V3-R8a (V1 models are served for detection, not trained). This page describes the frozen Python runtime, which keeps them as the oracle for the committed goldens.
 - `DetectAnnotationPresence` and `ComputePresenceGradients` remain separate binary-task RPCs. They require an explicit `privoke-presence-*` model ID and never load that artifact as a semantic transformer. Presence output itself means only PRESENT or ABSENT; it carries no severity, visibility, category, or action.
 
 Both dedicated presence RPCs require exactly `layers=[DETECTION_LAYER_SEMANTIC]`; omitted, mixed or duplicate selections fail before model access. Inference returns exactly one successful semantic `RuntimeLayerExecution`. Training requires a nonempty disjoint binary guard and returns actual `training`, `base_heldout` and `candidate_heldout` `SemanticTrainingExecution` records with exact nonzero example counts. Callers reject missing or failed traces before accepting predictions or publishing updates. These records identify semantic computation of the binary task, not contextual classifications. Regenerate protobuf bindings for this stricter admission contract; older responses without execution evidence are rejected. Historical measurements are unchanged.
@@ -169,9 +172,9 @@ Action policy:
 
 ## Detector Layers
 
-Regex rules are in `src/regex`. `RuleDetector.analyze(text)` returns one `ClassificationResult` per regex or heuristic hit. Rules are grouped by visibility, identity, location, health, financial, sensitive category, and context modules.
+Regex rules are in `src/regex`. `RuleDetector.analyze(text)` returns one `ClassificationResult` per regex or heuristic hit. Rules are grouped by visibility, identity, labelled identifier, location, health, financial, sensitive category, and context modules, plus imported Presidio and Gitleaks rule sets (`PRIVOKE_REGEX_PRESIDIO` and `PRIVOKE_REGEX_GITLEAKS`, both default on). See [Regex detector](../detectors/regex.md).
 
-NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. spaCy and the model are install-time dependencies from `requirements.txt`; missing packages or model data fail during import or detector initialization.
+NER is in `src/NER`. `EntityNERDetector` uses the spaCy pipeline named by `PRIVOKE_NER_MODEL` (default `en_core_web_sm`) and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. spaCy and the model are install-time dependencies from `requirements.txt`; missing packages or model data fail during import or detector initialization.
 
 Semantic classifiers are in `src/LLM`:
 
@@ -241,6 +244,16 @@ Environment variables:
 - `PRIVOKE_GRPC_PORT`, direct/server default `50054`; the workstation supervisor sets it to `50057` for its child
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
+- `PRIVOKE_CASE_PRESERVING_DETECTORS`, default true; `0` lowercases regex and NER input
+- `PRIVOKE_NER_POSTFILTER`, default true; `0` disables the NER post-filter
+- `PRIVOKE_NER_MODEL`, default `en_core_web_sm`; the spaCy pipeline for the NER layer (any installed pipeline with the OntoNotes label scheme; the post-filter was designed on the default)
+- `PRIVOKE_NER_BACKEND`, default `spacy`; `gliner` selects the optional GLiNER detector (needs the `gliner` package)
+- `PRIVOKE_NER_GLINER_MODEL`, default `knowledgator/gliner-pii-small-v1.0`; local checkpoint directory or Hugging Face id
+- `PRIVOKE_NER_GLINER_THRESHOLD`, default `0.3`; GLiNER span score threshold
+- `PRIVOKE_NER_GLINER_LABELS`, default `core`; `pii` adds identifier labels (see `docs/detectors/ner.md`)
+- `PRIVOKE_NER_CASELESS_GATE`, default off; `1` lowercases a prompt with no case signal before NER (see `docs/detectors/ner.md`)
+- `PRIVOKE_STRIP_FORMAT_CHARS`, `PRIVOKE_CANONICALISE_DIGITS`, `PRIVOKE_CANONICALISE_EMAIL_WORDS`, default off; optional input canonicalisations for the case-preserved detector view (see `docs/detectors/preprocessing.md`)
+- `PRIVOKE_REGEX_PRESIDIO`, `PRIVOKE_REGEX_GITLEAKS`, default on; `0` excludes the imported Presidio or Gitleaks rule sets
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
@@ -268,7 +281,7 @@ To expose an NVIDIA GPU to the container, use the opt-in override on a host with
 the NVIDIA Container Toolkit installed:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml up --build
 ```
 
 The normal Compose files do not request a GPU and remain portable to CPU-only hosts.

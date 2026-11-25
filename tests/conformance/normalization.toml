@@ -1,0 +1,89 @@
+# Comparison rules for the Rust conformance replay (goal G5 of docs/plans/rust-server-rewrite.md).
+# Anything not listed here is compared byte for byte with no normalisation.
+
+[byte_equality]
+# No normalisation. Artifacts hash with CRLF folded to LF because the Python writer uses text mode.
+surfaces = [
+  "canonical_json",
+  "checksums",
+  "fingerprints",
+  "contract_configs",
+  "model_streaming.legacy",
+  "model_streaming.v3",
+  "native_messaging",
+  "grpc_web",
+  "update_sequence.steps.artifact_after",
+]
+
+[receipts_and_audit]
+# Byte equality after these replacements. Client-supplied request_id, base_version, digests and
+# versions are never replaced.
+timestamp_fields = ["timestamp", "time"]
+timestamp_suffix = "_at"
+timestamp_placeholder = "<TS>"
+# UUIDs the server generated (not supplied by the request) become <ID:n>, numbered by first appearance.
+generated_id_placeholder = "<ID:{n}>"
+
+[telemetry]
+# Integer counts and stored marginals are exact. Estimator outputs are compared as IEEE-754 bits.
+integer_fields_exact = true
+float_tolerance_ulps = 4
+
+[informational]
+# Recorded for reference, not compared: wording that comes from the Python standard library or the gRPC core.
+native_messaging_error_messages = "entries with message_is_informational"
+http_error_page_bodies = "grpc_web responses with status >= 400"
+unreachable_runtime_trailer = "grpc_web label runtime-service-unreachable"
+
+[analysis_runtime]
+# Stage 17 (Rust analysis runtime) against the Python PrivokeRuntimeService, per explicit layer selection.
+# Decisions are exact: action, sensitivity, severity, category, visibility, and every per-layer finding
+# (layer, span, label, rule or signal, section of text, reasoning).
+decision_fields_exact = true
+# The only fields cleared before any comparison: wall-clock time, and its copy in the response metadata map.
+cleared_fields = ["elapsed_ms", "metadata.elapsed_ms"]
+# Floating-point fields (confidences, scores, probabilities, thresholds and the category probabilities carried in
+# metadata) are equal after rounding to 6 decimal places, or within an absolute 1e-5, whichever the field needs; this is
+# consistent with the stage 14 logit tolerance of 1.5e-5 on the pinned releases.
+float_fields = ["confidence", "probability", "threshold", "model_threshold", "decision_threshold", "category_probabilities"]
+float_decimal_places = 6
+float_absolute_tolerance = 1e-5
+# Byte equality of the serialised AnalyzePromptResponse is required only for selections that involve no model floats
+# beyond spaCy parity (regex-only and NER-only). Every other selection is compared by the rules above.
+byte_equal_selections = ["regex", "ner", "regex+ner"]
+# LLM-only (semantic-only) results are reported apart from product-pipeline and detector-ablation results.
+llm_only_selections = ["semantic"]
+
+[worker_gradients]
+# Stage 17 checkpoint 3a: the presence, presence-gate and gradient RPCs of the Rust worker against the Python worker over W1
+# frames (`evaluation/generate_runtime_worker_golden.py`, `rust/services/runtime/tests/worker_golden.rs`). Every request
+# names its layers explicitly and non-empty; the presence and gradient rows select exactly the semantic layer (LLM only),
+# and the gate rows that add the regex layer are reported apart as product-pipeline rows.
+#
+# Gradient tensors (`RuntimeParameterDelta.values`): same names, shapes and order-free inventory; every coordinate within
+# an absolute 1e-6 of Python's float32 value. Bitwise equality is counted and reported, not required (Torch computes in
+# float32, the Rust port in float64 over float32 weights, as stage 19).
+gradient_tensor_absolute_tolerance = 1e-6
+# Metrics (`metrics` map): the metric names are identical. Metrics that count or rate decisions (examples, exact match,
+# recall, specificity, safety-regression rate) are exact; every other metric is within 1e-5 relative to max(1, |value|).
+metric_decisions_exact = true
+metric_relative_tolerance = 1e-5
+# Response metadata strings are exact, except: a string that parses as a float on both sides (loss and weight audit
+# values) is within 1e-5 relative; and the fingerprints that hash the updated floats (`updated_parameter_fingerprint`,
+# `candidate_parameter_fingerprint`, `publication_delta_fingerprint`) must be equal only when every transported coordinate is
+# bitwise equal, because a fingerprint of floats that differ in the last bit differs. The base fingerprints, the inventory
+# fingerprint, the cache key and the model configuration are exact.
+metadata_float_relative_tolerance = 1e-5
+value_dependent_fingerprints = ["updated_parameter_fingerprint", "candidate_parameter_fingerprint", "publication_delta_fingerprint"]
+# Stage 19 item 2c: the route traces (`contextual_optimizer_trace`, `contextual_training_diagnostics`,
+# `contextual_training_backtracking_trace`, `contextual_training_backtracking_trials`) are JSON strings compared structurally:
+# the same keys and array lengths; integers, booleans, nulls and text exactly; floats within 1e-5 relative to max(1, |value|);
+# a 64-digit fingerprint is exact when it hashes no computed value (the base state, the inventory) and counted otherwise.
+json_metadata_keys = ["contextual_optimizer_trace", "contextual_training_diagnostics", "contextual_training_backtracking_trace", "contextual_training_backtracking_trials"]
+json_metadata_float_relative_tolerance = 1e-5
+# Presence probabilities and thresholds (inference, gate trace): after rounding to 6 decimal places or within an absolute
+# 1e-5, as `[analysis_runtime]`; the predicted label, the gate status and every identity field are exact.
+presence_float_places = 6
+presence_float_absolute_tolerance = 1e-5
+# Responses that carry no model float (every refusal and validation answer) are byte-identical.
+refusals_byte_equal = true

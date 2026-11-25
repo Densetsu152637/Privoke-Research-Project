@@ -1,10 +1,19 @@
 param(
     [ValidateSet('Auto', 'OperaGX', 'Chrome', 'Edge', 'Chromium', 'Firefox', 'All')]
-    [string]$Browser = 'Auto'
+    [string]$Browser = 'Auto',
+    # The Rust controller (rust/services/runtime-supervisor, `privoke-supervisor`). Given, it is registered as the
+    # native host `org.privoke.runtime_controller`; omitted, the Python launcher stays registered as before.
+    [string]$SupervisorBinary = '',
+    # The directory of the pretrained contextual encoder's verified assets (the runtime's PRIVOKE_PRETRAINED_CONTEXT_DIR).
+    # Given, the launcher sets it for the host; omitted, the value of that variable in this session is used, if any.
+    [string]$PretrainedContextDir = $env:PRIVOKE_PRETRAINED_CONTEXT_DIR,
+    # The V3 models the Rust controller keeps fresh (V3_PACKAGE_REFRESH_MODELS, comma-separated `privoke-v3-<tier>` ids). The
+    # default is the standard model; an empty string starts no refresh loop. Only used with -SupervisorBinary.
+    [string]$RefreshModels = $(if ($null -ne $env:V3_PACKAGE_REFRESH_MODELS) { $env:V3_PACKAGE_REFRESH_MODELS } else { 'privoke-v3-balanced' })
 )
 
 $ErrorActionPreference = 'Stop'
-$hostName = 'org.privoke.runtime_launcher'
+$hostName = if ([string]::IsNullOrWhiteSpace($SupervisorBinary)) { 'org.privoke.runtime_launcher' } else { 'org.privoke.runtime_controller' }
 $supervisorRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $supervisorRoot '..\..')).Path
 $extensionRoot = Join-Path $repositoryRoot 'extension'
@@ -13,9 +22,32 @@ $pythonPath = Join-Path $extensionRoot 'client-runtime\.venv\Scripts\python.exe'
 $sourceHostPath = Join-Path $supervisorRoot 'src\native_messaging_host.py'
 $launcherSourcePath = Join-Path $supervisorRoot 'scripts\native-host-launcher.cs'
 
+$useRustHost = -not [string]::IsNullOrWhiteSpace($SupervisorBinary)
+if ($useRustHost) {
+    $pythonPath = (Resolve-Path -LiteralPath $SupervisorBinary).Path
+    $sourceHostPath = $pythonPath
+}
+
+$pretrainedContextPath = ''
+if (-not [string]::IsNullOrWhiteSpace($PretrainedContextDir)) {
+    if (-not (Test-Path -LiteralPath $PretrainedContextDir -PathType Container)) {
+        throw "The pretrained context directory is not a directory: $PretrainedContextDir"
+    }
+    $pretrainedContextPath = (Resolve-Path -LiteralPath $PretrainedContextDir).Path
+}
+
 foreach ($requiredFile in @($identityPath, $pythonPath, $sourceHostPath, $launcherSourcePath)) {
     if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
         throw "Required PriVoke file is missing: $requiredFile"
+    }
+}
+
+# A copied virtual environment can retain python.exe while losing its base
+# interpreter or pyvenv.cfg. Validate it before replacing a working installation.
+if (-not $useRustHost) {
+    & $pythonPath -c "import sys; sys.exit(0)"
+    if ($LASTEXITCODE -ne 0) {
+        throw "PriVoke Python cannot start. Recreate extension/client-runtime/.venv and install its dependencies, then rerun this installer."
     }
 }
 
@@ -44,12 +76,14 @@ $launcherPath = Join-Path $installRoot 'privoke-native-host.exe'
 $launcherConfigPath = Join-Path $installRoot 'privoke-native-host.config'
 $chromiumManifestPath = Join-Path $installRoot "$hostName.chromium.json"
 $firefoxManifestPath = Join-Path $installRoot "$hostName.firefox.json"
-Copy-Item -LiteralPath $sourceHostPath -Destination $installedHostPath -Force
+if (-not $useRustHost) {
+    Copy-Item -LiteralPath $sourceHostPath -Destination $installedHostPath -Force
+}
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllLines(
     $launcherConfigPath,
-    @($pythonPath, $installedHostPath, $repositoryRoot),
+    @($pythonPath, $(if ($useRustHost) { 'native-host' } else { $installedHostPath }), $repositoryRoot) + $(if ($pretrainedContextPath -or ($useRustHost -and $RefreshModels)) { @($pretrainedContextPath) } else { @() }) + $(if ($useRustHost -and $RefreshModels) { @($RefreshModels) } else { @() }),
     $utf8NoBom
 )
 if (Test-Path -LiteralPath $launcherPath) {
