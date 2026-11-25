@@ -1,6 +1,6 @@
 //! Stage 13c-2 (`docs/plans/asiaccs-stage13-experiments.md`): the real-weight and container legs of the V3 update-attack matrix.
 //!
-//! Four env-gated entry points; each prints why it skipped and passes when its variables are unset (CI has no weights and no stack).
+//! Five env-gated entry points; each prints why it skipped and passes when its variables are unset (CI has no weights and no stack).
 //!
 //! * `s13c_real_leg`: the **real-weight leg**. One genuine candidate is built by a real routine fit, as
 //!   `v3-fuzzer/tests/scheduler_real.rs` does it (the real scheduler round, the routine engine and the real V3 runtime in process, the
@@ -10,6 +10,8 @@
 //!   manifests, `S13C_EXPORT_EVIDENCE` for the evidence, which carries prompt text). Every fit's wall time is kept as `fit_timings`.
 //! * `s13c_journal_seed`: writes `S13C_ALLOCATIONS` (the 13c-1 format) into the scheduler journal `S13C_JOURNAL` with
 //!   `Journal::allocate`, while the param-update container is stopped.
+//! * `s13c_source_root`: writes the source root of a container stack (`S13C_WRITE_SOURCE_ROOT`), as the real leg lays it out;
+//!   stage 13d-1b mounts it as `V3_SOURCE_DIR` when it reuses the exported candidates.
 //! * `s13c_compose_pki`: a disposable test PKI and publication key in the `PRIVOKE_PKI_DIR` layout of `docker-compose.prod.yml`,
 //!   plus the test principals (trainer, publisher, a registered installation).
 //! * `s13c_container_leg`: the **container leg**. Every `wire_path: true` row that is not CI-only, against the Compose `v3-training`
@@ -1644,6 +1646,21 @@ fn s13c_journal_seed() {
         assert_eq!(read.map(|found| found.expected_base), Some(row.expected_base.clone()), "{}", row.request_id);
     }
     say(&format!("SEEDED {} allocations into {}", rows.len(), journal.display()));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// The source root of a container stack (`V3_SOURCE_DIR`), written apart from the real-weight leg: stage 13d-1b reuses the
+// exported 13c-2 candidates on a fresh stack, whose admission checks their evidence against these files.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn s13c_source_root() {
+    let Some(root) = path_var("S13C_WRITE_SOURCE_ROOT") else {
+        say("PENDING: set S13C_WRITE_SOURCE_ROOT to write the source root of a container stack");
+        return;
+    };
+    prepare_source(&root);
+    say(&format!("SOURCE ROOT written to {}", root.display()));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------

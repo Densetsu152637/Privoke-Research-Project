@@ -416,6 +416,15 @@ def replay_refused(original: dict, replay: dict, closed: bool) -> bool:
     return bool(closed and replay["last_record_bytes"] <= ALERT_RECORD_MAX and replay["application_bytes"] < original["application_bytes"])
 
 
+def replay_aborted(replay: dict, closed: bool) -> bool:
+    """The shape of a handshake the server aborted, without comparing to an answered exchange (TL1-candidate, whose original was never
+    answered): the server answered with a handshake, sent at least two records, closed the connection and ended with an alert-sized
+    record. It says what the TLS layer did; the store says whether a request got through."""
+    if replay.get("first_record_type") != TLS_HANDSHAKE or replay.get("records", 0) < 2:
+        return False
+    return bool(closed and replay["last_record_bytes"] <= ALERT_RECORD_MAX)
+
+
 def flip_bit(record: bytes) -> bytes:
     """One bit of the ciphertext of a TLS record (the middle byte of its body; the header stays intact so the record still parses)."""
     mutated = bytearray(record)
@@ -425,11 +434,15 @@ def flip_bit(record: bytes) -> bytes:
 
 class RecordingProxy:
     """A loopback TCP proxy in front of a TLS listener. It forwards both directions and keeps what crossed it, in order, as TLS
-    records. With `flip_record=k` it flips one bit of the ciphertext of the k-th client application-data record (1-based). It never
-    sees a key: it can record, replay and corrupt bytes, which is the attacker model of the TL rows."""
+    records. With `flip_record=k` it flips one bit of the ciphertext of the k-th client application-data record (1-based). With
+    `withhold_after=k` it forwards the first k client application-data records (k=1: the client's handshake flight, so the handshake
+    completes) and keeps every later one without forwarding it: the server never receives the request, while the recorded bytes hold
+    all of it (TL1-candidate). It never sees a key: it can record, replay, withhold and corrupt bytes, which is the attacker model of
+    the TL rows."""
 
-    def __init__(self, upstream_port: int, *, flip_record: int | None = None):
-        self.upstream_port, self.flip_record = upstream_port, flip_record
+    def __init__(self, upstream_port: int, *, flip_record: int | None = None, withhold_after: int | None = None):
+        self.upstream_port, self.flip_record, self.withhold_after = upstream_port, flip_record, withhold_after
+        self.withheld = 0  # client application-data records kept and never forwarded
         self._lock = threading.Lock()
         self.events: list[tuple[int, str, int, int]] = []  # (sequence, direction, content type, bytes), appended before each record is forwarded
         self.flip_seq: int | None = None  # the sequence of the event that carried the flipped record
@@ -455,7 +468,7 @@ class RecordingProxy:
                 client, _ = self._listener.accept()
             except (socket.timeout, OSError):
                 continue
-            if self.flip_record is not None and self._accepted >= 1:
+            if (self.flip_record is not None or self.withhold_after is not None) and self._accepted >= 1:
                 client.close()  # a tampering run corrupts one connection; the client's transparent retry must not turn into a clean answer
                 continue
             self._accepted += 1
@@ -497,6 +510,11 @@ class RecordingProxy:
                         application += 1
                         if self.flip_record == application and not self.flipped:
                             record, self.flipped, self.flip_seq = flip_bit(record), True, sequence
+                        if self.withhold_after is not None and application > self.withhold_after:
+                            with self._lock:
+                                self.withheld += 1
+                            consumed = offset + length
+                            continue
                     sink.sendall(record)
                     consumed = offset + length
                 pending = pending[consumed:]
@@ -565,6 +583,15 @@ def answer_bytes(events: list[tuple[int, str, int, int]]) -> int:
     """The size of the server's answer in the log of a clean exchange: its last response-sized protected record."""
     answers = [(sequence, length) for sequence, direction, kind, length in events if direction == "s2c" and kind == TLS_APPLICATION and length > ALERT_RECORD_MAX]
     return max(answers)[1] if answers else 0
+
+
+def server_records_after_flight(events: list[tuple[int, str, int, int]]) -> int:
+    """Protected records the server sent after the client's handshake flight (its first application-data record): session tickets and
+    HTTP/2 settings, which a server sends only once the handshake completed. 0 when there was no flight."""
+    flight = next((sequence for sequence, direction, kind, _ in events if direction == "c2s" and kind == TLS_APPLICATION), None)
+    if flight is None:
+        return 0
+    return sum(1 for sequence, direction, kind, _ in events if direction == "s2c" and kind == TLS_APPLICATION and sequence > flight)
 
 
 def tamper_set(events: list[tuple[int, str, int, int]]) -> list[dict]:
