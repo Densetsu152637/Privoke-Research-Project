@@ -1508,7 +1508,7 @@ async fn s13c_real_leg() {
         (
             "C11b",
             "the evidence claims a pass, but the recomputed guard fails",
-            "the genuine evidence over weights moved back toward the pin",
+            "the genuine evidence over weights moved past the pin, away from the genuine candidate",
             "guard_recomputed",
             "GuardGate::prepare (V3Scorer, Rust V3 encoder)",
         ),
@@ -2115,7 +2115,7 @@ async fn s13c_container_leg() {
         staging(
             "C6a",
             "the shape changed in both the manifest and the blob",
-            "a heads tensor flattened everywhere",
+            "a heads bias reshaped to one row everywhere",
             get("C6a"),
             STORE,
             "admit_candidate",
@@ -2124,7 +2124,7 @@ async fn s13c_container_leg() {
         staging(
             "C6b",
             "the shape changed only in the blob",
-            "a heads tensor flattened in the blob only",
+            "a heads bias reshaped to one row in the blob only",
             get("C6b"),
             STORE,
             "verify_checkpoint",
@@ -2357,7 +2357,7 @@ async fn s13c_container_leg() {
         (
             "C11b",
             "the evidence claims a pass, but the recomputed guard fails",
-            "the genuine evidence over weights moved back toward the pin",
+            "the genuine evidence over weights moved past the pin, away from the genuine candidate",
             "guard_recomputed",
             GUARD,
             "GuardGate::prepare (V3Scorer, Rust V3 encoder)",

@@ -1846,7 +1846,7 @@
         "candidate_sha": "d2e508fec3959badf32bbdf037f56d375fcd7e44f47ff2be840841a4a27ecd2d",
         "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
         "model_id": "privoke-v3-efficient",
-        "mutation": "a heads tensor flattened everywhere",
+        "mutation": "a heads bias reshaped to one row everywhere",
         "request_id": "s13c2-c6a"
       },
       "chain": "main",
@@ -1944,7 +1944,7 @@
         "candidate_sha": "1840d454e75d1a981817dbb082ce4d57b455a62d15d54cc4b6034d627a23dc14",
         "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
         "model_id": "privoke-v3-efficient",
-        "mutation": "a heads tensor flattened in the blob only",
+        "mutation": "a heads bias reshaped to one row in the blob only",
         "request_id": "s13c2-c6b"
       },
       "chain": "main",
@@ -3697,7 +3697,7 @@
         "candidate_sha": "b1a26d880e899f5cd0b6f260824a84f750ee0b815c09d4cb142ee5b59a010009",
         "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
         "model_id": "privoke-v3-efficient",
-        "mutation": "the genuine evidence over weights moved back toward the pin",
+        "mutation": "the genuine evidence over weights moved past the pin, away from the genuine candidate",
         "request_id": "s13c2-c11b-real"
       },
       "chain": "main",
@@ -3747,7 +3747,7 @@
         "candidate_sha": "cadcb0fc27a7dc8096fd67ef9d0717f416b5ac2948910f592711672395f18959",
         "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
         "model_id": "privoke-v3-efficient",
-        "mutation": "the genuine evidence over weights moved back toward the pin",
+        "mutation": "the genuine evidence over weights moved past the pin, away from the genuine candidate",
         "request_id": "s13c2-c11b"
       },
       "chain": "main",

@@ -8,7 +8,8 @@ the rows.
 - **Question.** Can an invalid, stale, replayed or behaviourally unsafe update replace the active V3 model? This is RQ2,
   `sec:eval_update`.
 - **Build.** `feat/asiaccs-s13c2` at `90fcd35b67551eb555b369b398a555c7fc82a1f1`, clean, for the CI and container legs. The V3
-  guarded update path exists only in the Rust build. The real-weight rows ran on `4d1b8ba` plus the search fix that was later
+  guarded update path exists only in the Rust build. The container leg's param-update image was built from `b3ed95b` and its
+  model-streaming image from `4d1b8ba`; the source of both is identical to `90fcd35`. The real-weight rows ran on `4d1b8ba` plus the search fix that was later
   committed as `f693e52`, which was not clean at run time. The record states this for each leg.
 - **Scope label.** `update path (Rust V3)`.
 
