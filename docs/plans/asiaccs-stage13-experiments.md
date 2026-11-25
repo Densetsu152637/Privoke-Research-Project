@@ -874,7 +874,12 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
   - **G8 hygiene (root runs it):** `$PY evaluation/check_s13_commit_hygiene.py --repo <stage worktree> --range <stage-base>..HEAD --stage 13c-2` exits 0.
   - **S13-G3 holds.** `$PY evaluation/v3_update_attacks_report.py --check <json>` exits 0. Among other things, `--check` fails when a class with a wire path has neither a `container` row with `active_after.served_manifest` nor a `not_run_reason`.
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** done. Outcome: `4d1b8ba`, `f693e52`, `b3ed95b` (fix), `8fa6b15`, `90fcd35`, `215943f` (record), `0eba784`; merged into `feat/rust-rewrite` at `edf0d55`; record imported into `feat/nick-branch` at `94fee12` (byte-identical). V3UPDATK-20261126: 87 rows, 85 run, 85 property met, 0 not met.
+  - **Legs:** CI 50/50. Real 3/3 run (C11b guard_recomputed, C11f retention_regressed, C11g applied by design at 7 violations). Container 32/32 run. C8b is not run in the real and container legs (CI only).
+  - **Finding F1:** RollbackModel to the pinned release failed in a publishing deployment, because bootstrap_pinned never stored evidence.json. Fixed in `b3ed95b`, which stores it only after verifying it against the manifest. The container leg ran on the fixed build. The real rows ran on 4d1b8ba plus an uncommitted search fix (clean false), and the record says so.
+  - **Finding F2:** the v3-training healthcheck reports NOT_SERVING because the V1 baseline is not mounted. Open.
+  - **Gate:** 1 round with 0 acceptance-changing findings, 3 wording improvements adopted. G8: 0 violations.
+  - **Hardware:** host lock held 14:13–15:37 and 15:59–16:36 UTC on 25 Nov, under the cross-session grants (8 cores, later 12). The 13d-1b inputs are kept in models/experiments/s13c2-20261126/ and evaluation/results/s13c/evidence/.
 - **Handoff notes:** the record reaches `feat/nick-branch` only through the record import.
 
 ---
