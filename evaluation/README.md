@@ -121,7 +121,22 @@ Each script's module docstring gives its subcommands and scope.
 | `fresh_set_plan.py`, `build_fresh_sets.py` | Plan and build fresh, never-scored evaluation sets and their power tables |
 | `w3_scoring.py`, `w3_analysis.py`, `w3_followup.py`, `v3_scoring.py`, `v3_analysis.py` | Pre-registered Wave 3 and v3 scoring drivers and analyses (`w3_run.sh`, `v3_run.sh` run the frozen stages) |
 | `run-product-rerun.py` | Separately authorized full-product rerun (not detector-layer or semantic-only) |
-| `annotation/` | Blinded double-annotation sampling and agreement tooling |
+| `annotation/` | Blinded double-annotation tooling: `sample_annotation.py` (stratified blinded sheets and sampling key), `compute_iaa.py` with `agreement.py` (agreement statistics), `provisional_accuracy.py`, and the Stage 13a pieces: `fresh_set.py` (normalise, de-duplicate and contamination-check a fresh prompt set), `check_order.py` (commit-order proof), `score_privoke.py` and `human_eval_report.py` (score against frozen human labels and re-derive the record); `s13_paths.py` confines prompt-bearing output to the Git-ignored `evaluation/results/s13a`. No agent produces labels. See the [packet status](../docs/research/s13a-packet-status-20261124.md) and [guideline v2](../docs/research/annotation-guideline-v2-20261124.md) |
+
+### Security, cross-platform and release tools
+
+These host tools produced the 16 and 17 November 2026 records. They are product-pipeline,
+installed-extension or service-security measurements, not LLM-only evidence. Each module
+docstring gives its sub-commands and scope; each record carries its own limitations.
+
+| Script | Purpose |
+| --- | --- |
+| `adversarial_evasion.py`, `adversarial_evasion_transforms.py`, `adversarial_evasion_report.py` | ADVEVADE-20261116 privacy-evasion evaluation of the product pipeline (regex, NER, semantic; layers named explicitly and asserted): `build` freezes the transformed set, `score` runs it, `analyse` aggregates; the report tool renders and checks the record tables. See the [experiment note](../docs/experiments/adversarial-evasion-20261116.md) |
+| `update_security.py`, `update_security_pki.py`, `update_security_report.py` | UPDSEC-20261116 guarded-update and authentication attack harness against loopback services, with a disposable test PKI; see the [experiment note](../docs/experiments/update-security-20261116.md) |
+| `warn_intervention.py` | WARNINT-20261116 post-WARN intervention comparison (regex and NER, development data); see the [experiment note](../docs/experiments/warn-intervention-20261116.md) |
+| `cross_platform_study.py`, `cross_platform_probes.py`, `cross_platform_receiver.py` | XPLAT-20261117 installed-extension study on Windows with a synthetic loopback HTTPS receiver; see the [experiment note](../docs/experiments/cross-platform-20261117.md) |
+| `export_anonymous_artifact.py` | Anonymized code export for double-blind review; see [anonymous code artifact](../docs/deployment/anonymous-artifact.md) |
+| `check_s13_commit_hygiene.py`, `s13_allowlist.json` | Stage 13 commit-hygiene check: scans a Git range for prompt-bearing fields, local-input 8-grams, model weights, private keys and prompt-output paths; exit 0 clean, 1 violations, 2 usage error |
 
 For controlled TW01 runs, execute `evaluation/run-task-query-window-study.py`
 with host Python. The `teacher` phase requires `--target 127.0.0.1:PORT`,
