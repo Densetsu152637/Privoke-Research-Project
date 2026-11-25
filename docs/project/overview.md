@@ -130,7 +130,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](../runtime/browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
+Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](../runtime/browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. No server Compose detector exists, so there is no port conflict with the stack. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 
