@@ -217,6 +217,19 @@ class CheckRulesTests(unittest.TestCase):
             record["settings"]["warn_masking"] = True
         self.assertTrue(any("warn_masking" in p for p in self.problems(on)))
 
+    def test_warn_masking_is_derived_from_the_observed_dispositions(self):
+        self.assertEqual(self.record["settings"]["warn_masking"], False)
+        self.assertEqual(self.record["settings"]["masked_request_handed_off_rows"], 0)
+        rows = [dict(r) for r in self.rows]
+        rows[0]["request_disposition"] = "MASKED_REQUEST_HANDED_OFF"
+        masked = rep.build_record(rows, {}, make_plan(rows), make_meta(), "20261201", detector_meta=DETECTOR_META)
+        self.assertTrue(masked["settings"]["warn_masking"])
+        self.assertTrue(any("masked hand-off" in p for p in rep.check_record(masked)))
+
+        def forged(record):
+            record["rows"][0]["request_disposition"] = "MASKED_REQUEST_HANDED_OFF"
+        self.assertTrue(any("do not re-derive" in p for p in self.problems(forged)))
+
     def test_a_prompt_key_in_a_late_row_is_found(self):
         def late(record):
             record["rows"][-1]["text"] = "x"

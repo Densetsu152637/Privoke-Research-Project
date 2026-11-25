@@ -160,6 +160,7 @@ class RunOrchestrationTests(unittest.TestCase):
 
         def probe(target, identity):
             world.probed = target
+            world.lock_held_at_probe = world.lock_path.exists()
             if probe_error:
                 raise probe_error
             return {"target": target, "model_id": identity["model_id"], "artifact_checksum": identity["artifact_checksum"]}
@@ -231,6 +232,7 @@ class RunOrchestrationTests(unittest.TestCase):
         world, code, error = self.do_run()
         self.assertIsNone(error)
         self.assertEqual(world.probed, "127.0.0.1:50051")
+        self.assertTrue(world.lock_held_at_probe, "the stack is never probed before the host lock is held")
         self.assertEqual(world.env["PRIVOKE_USE_LOCAL_STACK"], "true")
         self.assertEqual(world.env["PRIVOKE_LOCAL_MODEL_STREAMING_TARGET"], "127.0.0.1:50051")
         self.assertEqual(world.env["PRIVOKE_LLM_CHOICE"], "streamed")
@@ -255,6 +257,13 @@ class RunOrchestrationTests(unittest.TestCase):
         world, code, error = self.do_run(args=args)
         self.assertIsInstance(error, e2e.HarnessError)
         self.assertEqual(world.started, [])
+
+    def test_a_run_that_cannot_take_the_lock_never_probes_the_stack(self):
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self.lock_path.write_text('{"stage": "13e", "pid": 1}', encoding="utf-8")
+        world, code, error = self.do_run()
+        self.assertIsInstance(error, e2e.HostLockHeld)
+        self.assertFalse(hasattr(world, "probed"))
 
     def test_a_caller_held_lock_is_verified_and_left_in_place(self):
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)

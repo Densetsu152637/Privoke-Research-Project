@@ -97,9 +97,10 @@ class FakeDriver:
                                                     "application/json", body)]
         messages = []
         if spec.get("page", True):
-            messages = [{"type": "ANALYZE_PROMPT", "text": text},
-                        {"type": "ANALYZE_RESULT", "action": spec.get("page_action", spec.get("action", "ALLOW")),
-                         "noticeStatus": "RENDERED" if spec.get("warn") else None}]
+            messages = [{"type": "ANALYZE_PROMPT", "text": text}]
+            if spec.get("result", True):
+                messages.append({"type": "ANALYZE_RESULT", "action": spec.get("page_action", spec.get("action", "ALLOW")),
+                                 "noticeStatus": "RENDERED" if spec.get("warn") else None})
         disposition = spec.get("disposition", "ORIGINAL_REQUEST_HANDED_OFF" if spec.get("deliver", True) else "BLOCKED_LOCALLY")
         if disposition:
             messages.append({"type": "ANALYZE_OUTCOME", "disposition": disposition})
@@ -311,10 +312,38 @@ class RowConstructionTests(unittest.TestCase):
         self.assertTrue(row["inspection_unavailable"])
         self.assertIsNone(row["error"], "page WARN with bridge BLOCK and failed_closed is the expected path")
         self.assertEqual(row["layers_executed"]["semantic"], "error")
-        self.assertEqual((row["receiver_got"], row["decision"]), (True, "BLOCK"))
-        self.assertEqual(e2e.e2e_action(row), "BLOCK")
+        self.assertEqual((row["receiver_got"], row["decision"], row["warn_shown"]), (True, "BLOCK", True))
+        self.assertEqual(e2e.e2e_action(row), "WARN", "the user saw a fail-open WARN, not the bridge's BLOCK")
+        rows = [dict(row, seed_id="a", variant="baseline", failed_closed=False, receiver_got=False, payload_intact=False,
+                     warn_shown=False, inspection_unavailable=False),
+                dict(row, seed_id="a", variant="v1")]
+        self.assertEqual(e2e.annotate_outcomes(rows)[1]["e2e_outcome"], "fail_closed")
+        scored = e2e.score_group([dict(r, detector_level={"action": "BLOCK", "failed_closed": False,
+                                                          "layers_executed": {n: "ok" for n in FULL}}) for r in rows])
+        action_level = scored["arms"]["end_to_end"]["action_level"]["overall"]
+        self.assertEqual((action_level["block_pairs"], action_level["downgraded_block_to_warn"], action_level["evaded"]), (1, 1, 0))
+        detection_level = scored["arms"]["end_to_end"]["detection_level"]["overall"]
+        self.assertEqual(detection_level["evaded"], 1, "counted as a missed detection at detection level")
         self.assertEqual(e2e.score_group([dict(row, seed_id="a", variant="baseline", detector_level=None)])["anomalies"]
                          ["delivered_despite_block"], 0)
+
+    def test_a_page_side_analysis_timeout_delivered_behind_a_fail_open_warn_is_a_fail_closed_warn(self):
+        for tap in (False, True):
+            row = self.send(lambda t: {"result": False, "tap": tap})
+            self.assertIsNone(row["error"], row)
+            self.assertEqual((row["receiver_got"], row["payload_intact"], row["warn_shown"]), (True, True, True))
+            self.assertEqual((row["failed_closed"], row["inspection_unavailable"]), (True, True))
+            self.assertEqual(e2e.e2e_action(row), "WARN")
+            self.assertFalse(e2e.delivered_without_analysis(row))
+        base = row_with("a", "baseline", "BLOCK", detector="BLOCK")
+        self.assertEqual(e2e.annotate_outcomes([base, dict(row, seed_id="a", variant="v1")])[1]["e2e_outcome"], "fail_closed")
+        silent = self.send(lambda t: {"result": False, "tap": False})
+        self.assertIsNone(silent["decision"])
+        self.assertEqual(e2e.score_group([base, dict(silent, seed_id="a", variant="v1")])["anomalies"]["page_timeout_fail_open"], 1)
+
+    def test_a_timeout_without_delivery_stays_an_error_row(self):
+        row = self.send(lambda t: {"result": False, "tap": False, "deliver": False, "disposition": None})
+        self.assertIn("no_bridge_request", row["error"])
 
     def test_a_fail_closed_block_shown_as_block_by_the_page_is_a_mismatch(self):
         layers = layers_payload(("ok", "ok", "error"), ("ALLOW", "ALLOW", "ALLOW"))

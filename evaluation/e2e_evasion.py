@@ -817,7 +817,11 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
         intact = (capture.method == "POST" and reply.get("expectedBodySha256") == capture.sha256
                   and extract_prompt(capture.body) == item["text"])
     warn_shown = bool(results) and results[-1].get("noticeStatus") == NOTICE_RENDERED
-    without_analysis = not driver_error and receiver_got and intact and not results and not tap_entries
+    delivered = not driver_error and receiver_got and intact
+    # The page analysed (one ANALYZE_PROMPT) but never got a result: its own timeout turned this into a
+    # fail-open WARN (runtimeFailureResponse, with the page's unavailable notice) and the request went out.
+    page_timeout = delivered and len(prompts) == 1 and not results
+    without_analysis = delivered and not results and not tap_entries and not prompts
     if not without_analysis:
         if len(prompts) != 1:
             errors.append("page_analysis_count")
@@ -826,7 +830,7 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
 
     decision, requested, executed, failed_closed, unavailable = None, [], {}, False, False
     if not tap_entries:
-        if not without_analysis:
+        if not without_analysis and not page_timeout:
             errors.append("no_bridge_request")
     else:
         if len(tap_entries) > 1:
@@ -847,9 +851,11 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
             requested = require_explicit_request_layers(entry["request"]["layer_values"])
         response = entry.get("response")
         if response is None:
-            errors.append(entry.get("error") or "no_bridge_response")
+            if not page_timeout:
+                errors.append(entry.get("error") or "no_bridge_response")
         elif response["error"] and not response["layers"]:
-            errors.append("runtime_error")
+            if not page_timeout:
+                errors.append("runtime_error")
         else:
             executed = assert_executed_layers(response["layers"], expected, expected_checksum, response.get("metadata"))
             summary = response_summary(response)
@@ -858,6 +864,8 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
             page_action = results[-1].get("action") if results else None
             if page_action and page_action != expected_page_action:
                 errors.append("page_bridge_decision_mismatch")
+    if page_timeout:
+        warn_shown, failed_closed, unavailable = True, True, True
     if (disposition == "BLOCKED_LOCALLY" and receiver_got) or (disposition in DISPOSITION_HANDED_OFF and not receiver_got):
         errors.append("disposition_receiver_mismatch")
     page_error = outcome.get("errorName")
@@ -876,7 +884,7 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
 
 def delivered_without_analysis(row: dict) -> bool:
     return (not row["error"] and row["receiver_got"] and row["payload_intact"] and row["decision"] is None
-            and not row["layers_requested"])
+            and not row["layers_requested"] and not row["failed_closed"])
 
 
 def e2e_action(row: dict) -> str | None:
@@ -884,14 +892,13 @@ def e2e_action(row: dict) -> str | None:
 
     BLOCK: the receiver got nothing and the bridge decided BLOCK. WARN: delivered intact after the
     notice was shown. ALLOW: delivered intact with no notice, including a request forwarded without
-    analysis. A runtime fail-closed decision that the page turned into a fail-open WARN with
-    ``inspectionUnavailable`` keeps the bridge's decision (it is classified ``fail_closed``).
+    analysis. A runtime fail-closed decision that the page turned into a fail-open WARN (or a page-side
+    analysis timeout) is observed as the WARN the user saw, not as the bridge's BLOCK; ``failed_closed``
+    stays true so it is labelled ``fail_closed`` and a BLOCK baseline counts as a downgrade.
     Delivered but altered, or not delivered for any other reason, is unclassified.
     """
     if row["error"]:
         return None
-    if row["failed_closed"] and row["inspection_unavailable"] and row["decision"] in ("WARN", "BLOCK"):
-        return row["decision"]
     if not row["receiver_got"]:
         return "BLOCK" if row["decision"] == "BLOCK" else None
     if not row["payload_intact"]:
@@ -1048,6 +1055,8 @@ def score_group(rows: list[dict], groups: dict[str, str] | None = None) -> dict:
         "delivered_despite_block": sum(1 for r in rows if r["decision"] == "BLOCK" and r["receiver_got"]
                                        and not r["failed_closed"]),
         "delivered_without_analysis": sum(1 for r in rows if delivered_without_analysis(r)),
+        "page_timeout_fail_open": sum(1 for r in rows if r["failed_closed"] and r["inspection_unavailable"]
+                                      and r["decision"] is None and r["receiver_got"]),
         "masked_request_handed_off": sum(1 for r in rows if r["request_disposition"] == "MASKED_REQUEST_HANDED_OFF"),
         "warn_decision_notice_not_shown": sum(1 for r in rows if r["decision"] == "WARN" and r["receiver_got"]
                                               and not r["warn_shown"]),
@@ -1336,7 +1345,16 @@ def start_supervisor(supervisor, xp, runtime_env: dict[str, str]) -> None:
 
 
 def execute_run(args) -> int:
-    """Run the installed-extension sends for each browser. Holds the host lock for the whole run."""
+    """Run the installed-extension sends for each browser. The host lock is held before the stack is probed."""
+    parse_layers(args.layers)
+    ensure_out_dir(args.out)
+    if not args.stack and not args.expected_checksum:
+        raise HarnessError("--no-stack needs --expected-checksum: both arms must be checked against one model")
+    with lock_scope(args):
+        return _execute_run(args)
+
+
+def _execute_run(args) -> int:
     import cross_platform_study as xp
     from cross_platform_receiver import Receiver, generate_certificate
     from cross_platform_probes import load_shapes
@@ -1395,7 +1413,7 @@ def execute_run(args) -> int:
     outbound: list[str] = []
     foreign_driver: list[str] = []
     abort: Exception | None = None
-    with lock_scope(args):
+    with contextlib.nullcontext():  # the host lock is held by execute_run
         try:
             receiver.start()
             tap.start()

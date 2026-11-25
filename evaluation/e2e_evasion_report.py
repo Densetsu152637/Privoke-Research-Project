@@ -94,6 +94,14 @@ def git_build(repo: Path) -> dict:
             "clean": not run("status", "--porcelain", "--untracked-files=no")}
 
 
+def observed_settings(rows: list[dict]) -> dict:
+    """WARN masking as the run observed it: any MASKED_REQUEST_HANDED_OFF disposition means it was on."""
+    masked = sum(1 for r in rows if r.get("request_disposition") == "MASKED_REQUEST_HANDED_OFF")
+    return {"warn_masking": masked > 0, "masked_request_handed_off_rows": masked,
+            "rows_with_disposition": sum(1 for r in rows if r.get("request_disposition")),
+            "source": "derived from the request dispositions of the rows; the disposable profile uses DEFAULT_SETTINGS"}
+
+
 def build_record(rows: list[dict], detector: dict[str, dict], plan: dict, meta: dict, date: str,
                  build: dict | None = None, detector_meta: dict | None = None) -> dict:
     """Assemble the record from rows, detector records, the run plan and the run meta."""
@@ -124,7 +132,7 @@ def build_record(rows: list[dict], detector: dict[str, dict], plan: dict, meta: 
             "e2e_artifact_checksum": meta.get("expected_checksum"),
             "detector_artifact_checksum": ((detector_meta or {}).get("identity") or {}).get("artifact_checksum"),
             "stack": meta.get("stack")},
-        "settings": dict(meta.get("settings") or e2e.SETTINGS_IN_PROFILE),
+        "settings": observed_settings(rows),
         "inputs": {k: plan[k] for k in (
             "frozen_set_sha256", "f4_source_sha256", "stage3_transform_module_sha256", "template_sha256",
             "run_set_sha256", "sample_seed", "n_seed", "rows_by_source", "excluded_ids", "variants",
@@ -315,8 +323,12 @@ def check_record(record: dict, md_text: str | None = None, require_attended: boo
     model = record.get("semantic_model") or {}
     if not model.get("e2e_artifact_checksum") or model.get("e2e_artifact_checksum") != model.get("detector_artifact_checksum"):
         problems.append("semantic_model: the end-to-end and detector arms are not both checked against one artifact checksum")
-    if (record.get("settings") or {}).get("warn_masking") is not False:
-        problems.append("settings.warn_masking must be recorded as false")
+    settings = record.get("settings") or {}
+    derived = observed_settings(record.get("rows", []))
+    if settings != derived:
+        problems.append("settings do not re-derive from the row dispositions")
+    if derived["warn_masking"] or settings.get("warn_masking") is not False:
+        problems.append("settings.warn_masking: a masked hand-off was observed (or it is not recorded false)")
     leaks: list[str] = []
     _forbidden_keys(record, "", leaks)
     problems += [f"forbidden prompt-bearing key {p}" for p in leaks]
