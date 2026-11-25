@@ -2724,7 +2724,8 @@ def run_client_lineage_target(args) -> int:
 # `--target rust --rust-service authz`. Legitimate principals come from `privoke-pki`; deliberately invalid credentials come from the
 # OpenSSL helper. It re-runs the model-streaming, telemetry and revocation families with the V3 packages present, adds the
 # CheckpointService rows (CK) and the TLS replay and tamper rows (TL), and records, for every request, the layer that denied it
-# (`denied_by`). Rows that need the genuine 13c candidate (CK8 and the positive controls) are `not_run`, pending 13d-1b.
+# (`denied_by`). The rows that need the genuine 13c candidate (CK8, the positive controls and TL1-candidate, stage 13d-1b) run on
+# their own Compose stack from the 13c-2 export; without that export they are `not_run` with the reason.
 # --------------------------------------------------------------------------------------
 
 import uuid  # noqa: E402
@@ -2756,6 +2757,7 @@ CLAIMED_LAYER = {
     "X13-revoked": REVOCATION, "X13-corrupt-crl-keeps-revocation": REVOCATION, "X13-denylist-open-connection": REGISTRY, "X13-denylist-new-connection": REGISTRY,
     "CK1": ROLE, "CK2": ROLE, "CK3": ROLE, "CK4": ROLE, "CK5": TLS, "CK6": REVOCATION, "CK7": REGISTRY, "CK9": SURFACE, "CK9-submit-update": SURFACE,
     "TL1": TLS, "TL2": TLS, "TL2-handshake": TLS, "TL3": TLS,
+    "CK8": APPLICATION, "TL1-candidate": TLS,
 }
 # The messages the transport's authorisation layer produces (`rust/crates/privoke-transport/src/authz.rs` and `registry.rs`).
 REGISTRY_MESSAGES = ("identity is not registered", "identity is revoked", "registration has expired")
@@ -2763,20 +2765,24 @@ ROLE_MESSAGE = "role may not call this method"
 CLAIM_MESSAGE = "claimed identity differs from the client certificate"
 SURFACE_MESSAGE = "method is not served on this listener"
 
-# Rows that do not exist until 13c-2 has produced the genuine candidate. They are listed so that the record names what is pending.
+# The rows of 13d-1b: they need the genuine 13c-2 candidate. Without the export (or when its stack cannot run) they are recorded as
+# not_run with the reason, so that the record names what did not run.
 PENDING_ROWS = (
-    ("TL1-candidate", "replayed_request", "The recorded TLS 1.3 bytes of an authenticated CommitCandidate that carries a valid 13c candidate, replayed on a new connection: the store-unchanged half is not vacuous."),
+    ("TL1-candidate", "replayed_request", "The TLS 1.3 bytes of a publisher's authenticated CommitCandidate of the genuine 13c candidate, recorded while the proxy held the request back from the server, replayed on a new connection: no receipt, the authority unchanged, and the same commit is applied when sent cleanly afterwards (the unchanged store is not vacuous)."),
     ("CK8", "impersonation", "CommitCandidate from a valid trainer carrying a valid 13c candidate with an unallocated request id (application layer; cross-identity misuse)."),
     ("CK-positive-publisher-commit", "control", "A publisher commits an allocated valid candidate (applied)."),
     ("CK-positive-publisher-rollback", "control", "A publisher rolls back to the pin (applied)."),
     ("CK-positive-runtime-stage", "control", "A runtime stages a checkpoint (accepted)."),
 )
-PENDING_REASON = "pending 13d-1b: needs the genuine real-weight candidate, its rejection-only derivatives and the s13c_journal_seed allocation helper, which 13c-2 exports"
+PENDING_REASON = "13d-1b rows not run: they need the genuine real-weight candidate, its rejection-only derivatives and the s13c_journal_seed allocation helper, which 13c-2 exports"
 
 
 UNKNOWN_LAYER = report_tools.UNCLASSIFIED
 # Statuses the stores and services themselves produce for a request that got past the transport's authorisation.
-APPLICATION_CODES = frozenset({"NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION", "ALREADY_EXISTS", "OUT_OF_RANGE", "RESOURCE_EXHAUSTED", "ABORTED"})
+# RECEIPT_REJECTED: the call returned OK with a receipt whose status is `rejected` (a store gate refused the commit; CK8).
+RECEIPT_REJECTED = "RECEIPT_REJECTED"
+APPLICATION_CODES = frozenset({"NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION", "ALREADY_EXISTS", "OUT_OF_RANGE", "RESOURCE_EXHAUSTED", "ABORTED",
+                               RECEIPT_REJECTED})
 
 
 def observed_layer(row: dict) -> str | None:
@@ -2877,12 +2883,15 @@ def finalize_authz_rows(rows: list[dict], pki) -> list[dict]:
     return rows
 
 
-def pending_rows() -> list[dict]:
+def pending_rows(reason: str = PENDING_REASON, only: tuple[str, ...] | None = None) -> list[dict]:
+    """The 13d-1b rows as not_run, with the reason (all of them, or those named in `only`)."""
     return [{"id": row_id, "class": cls, "path": "rust-tls" if row_id.startswith("TL") else "rust-checkpoint", "description": text,
              "expected": "rejected_unchanged" if row_id in ("CK8", "TL1-candidate") else "positive_control",
-             "observed": "not_run", "code": "NOT_RUN", "message": PENDING_REASON, "model_unchanged": None, "expected_codes": None,
-             "identity": "trainer" if row_id in ("CK8", "TL1-candidate") else "publisher" if "publisher" in row_id else "runtime", "property_met": None, "gap": None, "evidence": [],
-             "duration_s": 0.0, "denied_by": None, "credential_issuer": pki_tools.ISSUER_PKI} for row_id, cls, text in PENDING_ROWS]
+             "observed": "not_run", "code": "NOT_RUN", "message": short(reason), "model_unchanged": None, "expected_codes": None,
+             "identity": "trainer" if row_id == "CK8" else "publisher" if row_id == "TL1-candidate" or "publisher" in row_id else "runtime",
+             "property_met": None, "gap": None, "evidence": [],
+             "duration_s": 0.0, "denied_by": None, "credential_issuer": pki_tools.ISSUER_PKI} for row_id, cls, text in PENDING_ROWS
+            if only is None or row_id in only]
 
 
 class RustCheckpointService(RustUpdateService):
@@ -2980,7 +2989,7 @@ def authz_row(row_id, cls, path, description, expected, identity, result, unchan
 def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | None = None) -> list[dict]:
     """CK1 to CK7 and CK9 against `CheckpointService`, following the policy in `rust/services/param-update/src/server.rs`. Every row is a live call;
     "store unchanged" is the absence of a receipt for its request id and of a staged blob for its candidate. CK8 and the positive controls
-    need the genuine 13c candidate and are `not_run` (pending 13d-1b)."""
+    need the genuine 13c candidate and run on their own stack (`run_candidate_rows`, 13d-1b)."""
     rows: list[dict] = []
     service = service or RustCheckpointService(work, pki, "checkpoint", image=args.rust_update_image)
     refused, denied, unimplemented = ("UNAVAILABLE",), ("PERMISSION_DENIED",), ("UNIMPLEMENTED",)
@@ -3076,11 +3085,11 @@ def run_checkpoint_rows(args, work: Path, pki, service: RustCheckpointService | 
         rows.extend(run_tls_rows(service, pki, work))
     finally:
         service.stop()
-    rows.extend(pending_rows())
     return rows
 
 
-VACUOUS_STORE_NOTE = ("The store-unchanged check is vacuous until 13d-1b: the store is empty, so an admitted request and a refused one leave the same state.")
+VACUOUS_STORE_NOTE = ("The store-unchanged check of this row is vacuous: the store is empty, so an admitted request and a refused one leave the same "
+                      "state. CK8 and TL1-candidate (13d-1b) carry the check on a store that holds the pin and an admissible candidate.")
 STORE_ANSWER_CODE = "NOT_FOUND"  # what the empty store answers to a commit of a candidate that was never staged ("Checkpoint object is not in this private catalog.")
 
 
@@ -3257,6 +3266,520 @@ def run_tls_rows(service: RustCheckpointService, pki, work: Path) -> list[dict]:
     return rows
 
 
+# --------------------------------------------------------------------------------------
+# Stage 13d-1b: CK8, the three positive controls and TL1-candidate. They need the genuine real-weight candidate that 13c-2 exported, so
+# they run against their own Compose `v3-training` stack (param-update with its real gates over the pinned efficient release, and
+# model-streaming), reusing the 13c-2 harness seam in `rust/services/param-update/tests/s13c_update_attacks_real.rs`: `s13c_compose_pki`
+# (the test PKI and publication key), `s13c_source_root` (the source root the evidence is checked against) and `s13c_journal_seed` (the
+# scheduler journal, fed the 13c-1 allocation format). "Unchanged" is the authority (shared conventions): the `current` row, the
+# `versions`, the `publications` (count and highest sequence) and the version model-streaming serves, plus the receipt of the request.
+# --------------------------------------------------------------------------------------
+
+S13C_MODEL = "privoke-v3-efficient"
+S13C_CHUNK_BYTES = 1024 * 1024  # `privoke_contracts::v3::CHUNK_BYTES`
+S13C_ALLOCATION_KEYS = ("request_id", "cycle", "model_id", "stage", "attempt", "sampler", "seed", "expected_base", "source_commitment", "state")
+S13C_RUST_TEST = "s13c_update_attacks_real"
+RUSTDOCK_IMAGE = "rust:1.99.1-bookworm"
+STACK_COMPOSE_FILE = ROOT / "docker-compose.prod.yml"
+STACK_SERVER_NAME = "localhost"
+STACK_WAIT_SECONDS = 900
+SERVED_WAIT_SECONDS = 20
+WITHHELD_DEADLINE_SECONDS = 8
+# The test principals of `s13c_compose_pki`: (certificate, key) under its directory, and the identity a row records.
+STACK_IDENTITIES = {
+    "publisher": ("test/s13c2-publisher.crt", "test/s13c2-publisher.key", "s13c2-publisher (publisher)"),
+    "trainer": ("test/s13c2-trainer.crt", "test/s13c2-trainer.key", "s13c2-trainer (trainer)"),
+    "runtime": ("svc/v3-runtime.crt", "svc/v3-runtime.key", "v3-runtime (runtime)"),
+    "installation": ("test/installation/client.crt", "test/installation/client.key", "registered test installation"),
+}
+CANDIDATE_ROLES = ("genuine", "C11e")
+
+
+class StackIssuers:
+    """Every credential of the candidate stack comes from the `privoke_pki` crate (`s13c_compose_pki`)."""
+
+    issuers = {label: pki_tools.ISSUER_PKI for _, _, label in STACK_IDENTITIES.values()}
+
+    def credential_issuer(self, identity: str | None) -> str:
+        return self.issuers.get(identity or "", pki_tools.ISSUER_NONE)
+
+
+def allocation_json(rows: list[dict]) -> str:
+    """`S13C_ALLOCATIONS` in the 13c-1 format (`tests/s13c_allocations`): exactly the allocation columns, state `allocated`."""
+    for row in rows:
+        if set(row) != set(S13C_ALLOCATION_KEYS):
+            raise ValueError(f"allocation {row.get('request_id')!r} does not have exactly the 13c-1 fields")
+        if row["state"] != "allocated":
+            raise ValueError(f"allocation {row['request_id']!r} is not in state allocated")
+    return json.dumps([{key: row[key] for key in S13C_ALLOCATION_KEYS} for row in rows], indent=2)
+
+
+class Candidate:
+    """One exported 13c-2 candidate: its manifest, blob and evidence, checked against the digests the export names."""
+
+    def __init__(self, entry: dict, candidates: Path, evidence: Path):
+        self.role, self.request_id, self.allocated = entry["role"], entry["request_id"], bool(entry.get("allocated"))
+        self.manifest_sha, self.blob_sha, self.evidence_sha = entry["manifest_sha"], entry["blob_sha"], entry["evidence_sha"]
+        self.paths = {"manifest": candidates / "manifests" / f"{self.manifest_sha}.json", "blob": candidates / "blobs" / f"{self.blob_sha}.safetensors",
+                      "evidence": evidence / f"{self.evidence_sha}.json"}
+
+    def missing(self) -> list[str]:
+        return [f"{self.role} {kind}" for kind, path in self.paths.items() if not path.is_file()]
+
+    def read(self, kind: str) -> bytes:
+        data = self.paths[kind].read_bytes()
+        expected = {"manifest": self.manifest_sha, "blob": self.blob_sha, "evidence": self.evidence_sha}[kind]
+        if hashlib.sha256(data).hexdigest() != expected:
+            raise RuntimeError(f"the exported {self.role} {kind} does not hash to {expected}")
+        return data
+
+    def commit(self, pin: str) -> dict:
+        return {"request_id": self.request_id, "model_id": S13C_MODEL, "expected_base": pin, "candidate": self.manifest_sha, "evidence": self.evidence_sha}
+
+
+class CandidateExport:
+    """The 13c-2 export (`S13C_EXPORT_CANDIDATES`, `S13C_EXPORT_EVIDENCE`): the pin, the candidates by role and the allocations."""
+
+    def __init__(self, candidates: Path, evidence: Path):
+        index = json.loads((candidates / "index.json").read_text(encoding="utf-8"))
+        self.pin, self.original, self.model = index["pin"], index["original"], index.get("model_id", S13C_MODEL)
+        self.candidates = {entry["role"]: Candidate(entry, candidates, evidence) for entry in index["candidates"]}
+        self.allocations = json.loads((candidates / "allocations.json").read_text(encoding="utf-8"))
+
+    def allocation(self, request_id: str) -> dict | None:
+        return next((row for row in self.allocations if row["request_id"] == request_id), None)
+
+    def problems(self) -> list[str]:
+        """Why this export cannot drive the 13d-1b rows (empty when it can)."""
+        problems = [] if self.model == S13C_MODEL else [f"the export is for {self.model}, not {S13C_MODEL}"]
+        for role in CANDIDATE_ROLES:
+            if role not in self.candidates:
+                problems.append(f"no exported {role} candidate")
+        if problems:
+            return problems
+        genuine, unallocated = self.candidates["genuine"], self.candidates["C11e"]
+        allocation = self.allocation(genuine.request_id)
+        if allocation is None or allocation["expected_base"] != self.pin:
+            problems.append(f"the genuine request {genuine.request_id} has no allocation on the pin")
+        if self.allocation(unallocated.request_id) is not None or unallocated.allocated:
+            problems.append(f"the CK8 request {unallocated.request_id} is allocated")
+        if unallocated.request_id == genuine.request_id:
+            problems.append("CK8 and the genuine candidate share a request id")
+        for role in CANDIDATE_ROLES:
+            problems.extend(f"missing file: {item}" for item in self.candidates[role].missing())
+        return problems
+
+
+def candidate_inputs_problem(args) -> str | None:
+    """Why the 13d-1b rows cannot run with these options (None when they can); checked before anything is hosted."""
+    named = {"--s13c-candidates": args.s13c_candidates, "--s13c-evidence": args.s13c_evidence, "--s13c-originals": args.s13c_originals,
+             "--s13c-retention-bank-dir": args.s13c_retention_bank_dir}
+    absent = [flag for flag, value in named.items() if value is None]
+    if absent:
+        return f"no 13c-2 export was named ({', '.join(absent)})"
+    missing = [f"{flag} {value}" for flag, value in named.items() if not Path(value).is_dir()]
+    if not Path(args.release_dir).is_dir():
+        missing.append(f"--release-dir {args.release_dir}")
+    if missing:
+        return f"not found: {', '.join(missing)}"
+    try:
+        problems = CandidateExport(Path(args.s13c_candidates), Path(args.s13c_evidence)).problems()
+    except (OSError, ValueError, KeyError) as error:
+        return f"the 13c-2 export cannot be read: {type(error).__name__}: {error}"
+    return "; ".join(problems) or None
+
+
+def receipt_result(receipt) -> dict:
+    """A commit or rollback that returned a receipt: applied is `accepted`, a gate's refusal is `rejected` with RECEIPT_REJECTED."""
+    if receipt.status == "applied":
+        return {"observed": "accepted", "code": "OK", "message": f"applied{f' ({receipt.reason})' if receipt.reason else ''}", "status": "applied",
+                "reason": receipt.reason}
+    if receipt.status == "rejected":
+        return {"observed": "rejected", "code": RECEIPT_REJECTED, "message": receipt.reason, "status": "rejected", "reason": receipt.reason}
+    return {"observed": "accepted", "code": "OK", "message": f"receipt {receipt.status} {receipt.reason}".strip(), "status": receipt.status, "reason": receipt.reason}
+
+
+class StackClient:
+    """A gRPC client of the candidate stack: the update listener's CheckpointService, or model-streaming's public listener."""
+
+    def __init__(self, stack: "CandidateStack", identity: str, *, port: int | None = None, retries: bool = True):
+        import grpc
+        from privoke.experimental import v3_pb2 as pb3, v3_pb2_grpc as rpc3
+        from privoke.v1 import parameters_pb2 as pb, parameters_pb2_grpc as rpc
+
+        self.grpc, self.pb, self.pb3 = grpc, pb, pb3
+        certificate, key, _ = STACK_IDENTITIES[identity]
+        credentials = grpc.ssl_channel_credentials(root_certificates=(stack.pki_dir / "server-ca.pem").read_bytes(),
+                                                   private_key=(stack.pki_dir / key).read_bytes(), certificate_chain=(stack.pki_dir / certificate).read_bytes())
+        options = [("grpc.enable_http_proxy", 0), ("grpc.ssl_target_name_override", STACK_SERVER_NAME), ("grpc.max_receive_message_length", 64 * 1024 * 1024)]
+        if not retries:
+            options.append(("grpc.enable_retries", 0))
+        self.channel = grpc.secure_channel(f"127.0.0.1:{port or stack.port}", credentials, options=options)
+        self.checkpoint = rpc3.CheckpointServiceStub(self.channel)
+        self.models = rpc.ModelStreamingServiceStub(self.channel)
+
+    def close(self):
+        self.channel.close()
+
+    def stage(self, data: bytes, manifest: bytes = b"", *, timeout: float = 120):
+        sha = hashlib.sha256(data).hexdigest()
+        chunks = [self.pb3.Chunk(sha256=sha, offset=offset, total_bytes=len(data), data=data[offset:offset + S13C_CHUNK_BYTES],
+                                 manifest_json=manifest if offset == 0 else b"") for offset in range(0, max(len(data), 1), S13C_CHUNK_BYTES)]
+        return self.checkpoint.StageCheckpoint(iter(chunks), timeout=timeout).sha256
+
+    def commit(self, commit: dict, *, timeout: float = 300):
+        return self.checkpoint.CommitCandidate(self.pb3.Commit(**commit), timeout=timeout)
+
+    def rollback(self, request_id: str, manifest: str, *, timeout: float = 300):
+        return self.checkpoint.RollbackModel(self.pb3.Rollback(request_id=request_id, model_id=S13C_MODEL, manifest=manifest), timeout=timeout)
+
+    def status(self, request_id: str) -> str:
+        return self.checkpoint.GetCommitStatus(self.pb3.StatusRequest(request_id=request_id), timeout=15).status
+
+    def outcome(self, fn) -> dict:
+        """A receipt (commit, rollback) by its status; a staged reference by its digest; a refusal by its status code."""
+        try:
+            value = fn()
+        except self.grpc.RpcError as error:
+            return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
+        return receipt_result(value) if hasattr(value, "status") else {"observed": "accepted", "code": "OK", "message": str(value)}
+
+
+def authority_unchanged(*states: dict) -> bool:
+    """Every observation of the authority is the same (orphan blobs are not part of it)."""
+    return all(state == states[0] for state in states[1:])
+
+
+class CandidateStack:
+    """The Compose `v3-training` param-update and model-streaming containers, on loopback, under the project and container names
+    `<stack name>-...`, with the test PKI, the source root and the journal the 13c-2 seam writes. Docker hosts the services and the
+    Rust helpers; the rows are driven from here."""
+
+    def __init__(self, args, work: Path, export: CandidateExport):
+        self.args, self.export = args, export
+        self.name = args.stack_name
+        self.work = work / "candidate-stack"
+        self.pki_dir, self.source_dir, self.observed_dir = self.work / "pki", self.work / "source", self.work / "observed"
+        self.override = self.work / "compose.override.json"
+        self.port, self.model_port = free_port(), free_port()
+        self.update_container, self.model_container = f"{self.name}-param-update", f"{self.name}-model-streaming"
+        self.commands: list[str] = []
+        self.started = False
+
+    # ---- Docker
+    def rustdock(self, test: str, environment: dict[str, str], mounts: list[tuple[str, str]], marker: str) -> str:
+        """One env-gated helper of the 13c-2 seam, in the RUSTDOCK container. It passes silently when its variables are unset, so the
+        helper's own success line is required."""
+        command = ["docker", "run", "--rm", "--name", f"{self.name}-rustdock-{uuid.uuid4().hex[:8]}", f"--cpus={self.args.stack_cpus}",
+                   "-e", "CARGO_TARGET_DIR=target-docker", "-v", f"{ROOT}:/work", "-w", "/work/rust"]
+        for source, target in mounts:
+            command += ["-v", f"{source}:{target}"]
+        for key, value in environment.items():
+            command += ["-e", f"{key}={value}"]
+        command += [RUSTDOCK_IMAGE, "cargo", "test", "-p", "privoke-param-update", "--release", "--locked", "--test", S13C_RUST_TEST, test, "--", "--exact",
+                    "--nocapture"]
+        self.commands.append(f"RUSTDOCK cargo test -p privoke-param-update --release --locked --test {S13C_RUST_TEST} {test} ({', '.join(sorted(environment))})")
+        result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env={**os.environ, "MSYS_NO_PATHCONV": "1"})
+        if result.returncode or marker not in result.stdout:
+            raise RuntimeError(f"{test} failed: {result.stdout[-800:]}")
+        return result.stdout
+
+    def environment(self) -> dict[str, str]:
+        return {**os.environ, "PRIVOKE_PKI_DIR": self.pki_dir.as_posix(), "PRIVOKE_MODEL_STREAMING_IMAGE": self.args.rust_image,
+                "PRIVOKE_PARAM_UPDATE_IMAGE": self.args.rust_update_image, "V3_ORIGINAL_DIR": Path(self.args.s13c_originals).resolve().as_posix(),
+                "V3_SOURCE_DIR": self.source_dir.as_posix(), "V3_RETENTION_BANK_DIR": Path(self.args.s13c_retention_bank_dir).resolve().as_posix(),
+                "FUZZER_PROMPT_COUNT": "0", "MODEL_PUBLISH": f"127.0.0.1:{self.model_port}"}
+
+    def compose(self, *arguments: str, check: bool = True) -> subprocess.CompletedProcess:
+        command = ["docker", "compose", "-p", self.name, "-f", str(STACK_COMPOSE_FILE), "-f", str(self.override), "--profile", "v3-training", *arguments]
+        result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=self.environment())
+        if check and result.returncode:
+            raise RuntimeError(f"docker compose {' '.join(arguments)} failed: {result.stdout[-800:]}")
+        return result
+
+    def write_override(self) -> None:
+        """Container names under the stack name (a stale container may hold `model-streaming-service`), no restart loop, the standard
+        releases from `--release-dir`, CPU caps, and the update listener published on a loopback port for the host client."""
+        releases = {"type": "bind", "source": Path(self.args.release_dir).resolve().as_posix(), "target": "/model-releases", "read_only": True,
+                    "bind": {"create_host_path": False}}
+        override = {"services": {
+            "model-streaming-service": {"container_name": self.model_container, "restart": "no", "cpus": 1, "volumes": [releases]},
+            "param-update-service": {"container_name": self.update_container, "restart": "no", "cpus": float(self.args.stack_cpus), "volumes": [releases],
+                                     "ports": [f"127.0.0.1:{self.port}:{RUST_UPDATE_CONTAINER_PORT}"]},
+        }}
+        self.override.write_text(json.dumps(override, indent=2), encoding="utf-8")
+
+    # ---- lifecycle
+    def start(self) -> None:
+        self.work.mkdir(parents=True)
+        self.observed_dir.mkdir()
+        mount = [(str(self.work), "/s13d")]
+        self.rustdock("s13c_compose_pki", {"S13C_PKI_DIR": "/s13d/pki"}, mount, "PKI written to")
+        self.rustdock("s13c_source_root", {"S13C_WRITE_SOURCE_ROOT": "/s13d/source"}, mount, "SOURCE ROOT written to")
+        allocations = self.work / "allocations.json"
+        allocations.write_text(allocation_json([self.export.allocation(self.export.candidates["genuine"].request_id)]), encoding="utf-8")
+        self.write_override()
+        self.started = True
+        self.commands.append(f"docker compose -p {self.name} -f docker-compose.prod.yml -f <scratch override> --profile v3-training up -d --no-build "
+                             "param-update-service model-streaming-service (FUZZER_PROMPT_COUNT=0, test PKI and publication key)")
+        self.compose("up", "-d", "--no-build", "--pull", "never", "param-update-service", "model-streaming-service")
+        self.wait_serving()
+        # The journal is the scheduler's (the scheduler is off): written only while param-update is stopped.
+        subprocess.run(["docker", "stop", self.update_container], check=True, stdout=subprocess.DEVNULL)
+        self.rustdock("s13c_journal_seed", {"S13C_JOURNAL": "/seed/training-cycles.sqlite3", "S13C_ALLOCATIONS": "/s13d/allocations.json"},
+                      [*mount, (f"{self.name}_param-update-data", "/seed")], "SEEDED 1 allocations")
+        subprocess.run(["docker", "start", self.update_container], check=True, stdout=subprocess.DEVNULL)
+        self.wait_serving()
+        state = self.observe()
+        if (state["current"], state["publications"], state["served"]) != (self.export.pin, 0, self.export.pin):
+            raise RuntimeError(f"the stack did not start on the pin: {state}")
+
+    def wait_serving(self) -> None:
+        deadline, last = time.time() + STACK_WAIT_SECONDS, ""
+        while time.time() < deadline:
+            client = StackClient(self, "publisher")
+            try:
+                client.checkpoint.Health(client.pb3.HealthRequest(), timeout=5)
+                served = self.served()
+                if served == self.export.pin:
+                    return
+                last = f"model-streaming serves {served}"
+            except Exception as error:  # noqa: BLE001 - not ready yet
+                last = f"{type(error).__name__}: {short(str(error))}"
+            finally:
+                client.close()
+            time.sleep(2)
+        raise RuntimeError(f"the stack did not serve within {STACK_WAIT_SECONDS} s: {last}; {self.logs()[-600:]}")
+
+    def logs(self) -> str:
+        return "".join(subprocess.run(["docker", "logs", "--tail", "20", name], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+                       for name in (self.update_container, self.model_container))
+
+    def stop(self) -> None:
+        if self.started:
+            self.compose("down", "-v", "--remove-orphans", check=False)
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    # ---- observation
+    def observe_catalog(self) -> dict:
+        """The authority, read from a copy of the store's catalog (the database and its write-ahead log) taken with `docker cp`."""
+        import contextlib
+        import sqlite3
+
+        target = Path(tempfile.mkdtemp(dir=self.observed_dir))
+        try:
+            for name in ("catalog.sqlite", "catalog.sqlite-wal"):
+                subprocess.run(["docker", "cp", f"{self.update_container}:/v3-store/{name}", str(target / name)], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
+            if not (target / "catalog.sqlite").is_file():
+                raise RuntimeError("the store catalog could not be copied")
+            with contextlib.closing(sqlite3.connect(target / "catalog.sqlite")) as db:
+                current = db.execute("SELECT manifest FROM current WHERE model=?", (S13C_MODEL,)).fetchone()
+                versions = db.execute("SELECT COUNT(*) FROM versions WHERE model=?", (S13C_MODEL,)).fetchone()[0]
+                publications, sequence = db.execute("SELECT COUNT(*), MAX(sequence) FROM publications WHERE model=?", (S13C_MODEL,)).fetchone()
+            return {"current": current[0] if current else None, "versions": versions, "publications": publications, "max_sequence": sequence or 0}
+        finally:
+            shutil.rmtree(target, ignore_errors=True)
+
+    def served(self) -> str:
+        """The version model-streaming serves to a registered installation (GetModelPackage on its public listener)."""
+        installation = (self.pki_dir / "test/installation/installation.id").read_text(encoding="utf-8").strip()
+        client = StackClient(self, "installation", port=self.model_port)
+        try:
+            request = client.pb.ModelParametersRequest(consumer_id=installation, model_id=S13C_MODEL)
+            return client.models.GetModelPackage(request, timeout=30).manifest_sha256
+        except client.grpc.RpcError as error:
+            return f"refused:{error.code().name}"
+        finally:
+            client.close()
+
+    def observe(self, served: str | None = None) -> dict:
+        """The authority and the served version; with `served`, wait briefly for model-streaming to serve that version."""
+        state = self.observe_catalog()
+        deadline = time.time() + (SERVED_WAIT_SECONDS if served else 0)
+        state["served"] = self.served()
+        while served and state["served"] != served and time.time() < deadline:
+            time.sleep(1)
+            state["served"] = self.served()
+        return state
+
+    def status(self, request_id: str) -> str:
+        client = StackClient(self, "publisher")
+        try:
+            return client.status(request_id)
+        finally:
+            client.close()
+
+    def call(self, identity: str, fn) -> dict:
+        client = StackClient(self, identity)
+        try:
+            return client.outcome(lambda: fn(client))
+        finally:
+            client.close()
+
+    def withheld_commit(self, identity: str, commit: dict) -> tuple[dict, int, bytes]:
+        """A commit through a proxy that forwards the handshake flight and holds back every later client record: (what the client saw,
+        how many records were held back, every byte the client sent). `original["server_records_after_flight"]` counts the protected
+        records the server sent after the client's flight (session tickets, HTTP/2 settings): the handshake completed when it is above 0."""
+        proxy = pki_tools.RecordingProxy(self.port, withhold_after=1)
+        client = StackClient(self, identity, port=proxy.port, retries=False)
+        try:
+            original = client.outcome(lambda: client.commit(commit, timeout=WITHHELD_DEADLINE_SECONDS))
+            time.sleep(0.3)
+            sent, _ = proxy.captured()
+            original["server_records_after_flight"] = pki_tools.server_records_after_flight(list(proxy.events))
+            return original, proxy.withheld, sent
+        finally:
+            client.close()
+            proxy.close()
+
+    def replay(self, sent: bytes) -> dict:
+        return pki_tools.replay_bytes(self.port, sent, wait=TL_WAIT_SECONDS)
+
+
+def tl1_candidate_verdict(original: dict, withheld: int, replay: dict, held_back: bool, replay_unchanged: bool, control_applied: bool) -> dict:
+    """TL1-candidate. The proxy completed the handshake and held back every request record, so the server never saw the commit
+    (`held_back`: no receipt and the authority unchanged after that exchange); the recorded bytes, all of the request included, are then
+    replayed on a new connection. A replay that left a receipt or changed the authority reached the store, whatever else holds. The replay
+    is refused only when the TLS layer aborted it (`replay_aborted`) and the store kept no trace of it, and that counts only when the same
+    commit, sent afterwards on a clean connection, is applied: the request was admissible, so the unchanged store is not vacuous."""
+    if not held_back:
+        return harness_error("the store changed during the held-back exchange: the proxy let the request through")
+    after_flight = original.get("server_records_after_flight", 0)
+    if original["code"] != "DEADLINE_EXCEEDED" or withheld < 1 or after_flight < 1:
+        return harness_error(f"the proxy did not hold back the request after a completed handshake (client {original['code']}, {withheld} records held, "
+                             f"{after_flight} server records after the client's flight)")
+    if not replay_unchanged:
+        return {"observed": "accepted", "code": "OK", "message": "the replayed request reached the store"}
+    if not control_applied:
+        return harness_error("the same commit sent afterwards on a clean connection was not applied, so the unchanged store proves nothing")
+    if not pki_tools.replay_aborted(replay["stats"], replay["closed"]):
+        return harness_error("the store is unchanged, but the server did not abort the replayed handshake, so the denying layer is not identified")
+    return {"observed": "rejected", "code": "CONNECTION_ABORTED", "message": "the replayed bytes got a TLS alert; no receipt and the authority unchanged"}
+
+
+def candidate_rows(stack: CandidateStack, rows: list[dict]) -> list[dict]:
+    """The 13d-1b rows on one fresh stack that starts on the pin P, appended to `rows` as they complete. In order: a runtime stages the
+    genuine candidate G (control); a trainer commits the unallocated derivative of G (CK8); TL1-candidate records a publisher's commit of
+    G while the proxy holds the request back, and replays it; the same commit, sent cleanly, is applied (control); a publisher rolls back
+    to P (control)."""
+    export = stack.export
+    pin, genuine, unallocated = export.pin, export.candidates["genuine"], export.candidates["C11e"]
+    path, issuer = "rust-checkpoint", pki_tools.ISSUER_PKI
+    label = {identity: entry[2] for identity, entry in STACK_IDENTITIES.items()}
+
+    def add(row_id, cls, description, expected, identity, result, unchanged, met, evidence, started, *, row_path=path, codes=None):
+        row = authz_row(row_id, cls, row_path, description, expected, label[identity], result, unchanged, codes=codes, started=started,
+                        evidence=evidence, credential_issuer=issuer)
+        row["property_met"] = bool(met) if result["observed"] not in report_tools.NOT_RUN_OUTCOMES else None
+        row["service"] = "param-update"
+        rows.append(row)
+
+    # The runtime stage (control): G's evidence, then G's blob with its manifest, as a runtime service.
+    started, before = time.time(), stack.observe()
+    staged = [stack.call("runtime", lambda client: client.stage(genuine.read("evidence"))),
+              stack.call("runtime", lambda client: client.stage(genuine.read("blob"), genuine.read("manifest")))]
+    after = stack.observe()
+    references = [item.get("message") for item in staged]
+    # `store.rs` `stage` answers the evidence's digest for the evidence, and the manifest's digest for a checkpoint with its manifest.
+    accepted = all(item["code"] == "OK" for item in staged) and references == [genuine.evidence_sha, genuine.manifest_sha]
+    refused = [item for item in staged if item["code"] != "OK"]
+    result = ({"observed": "accepted", "code": "OK", "message": "staged the evidence and the checkpoint"} if accepted else refused[0] if refused
+              else harness_error(f"the stage replies name other objects: {references}"))
+    add("CK-positive-runtime-stage", "control", "A runtime service stages the genuine 13c candidate: its evidence, then its checkpoint with the manifest (accepted).",
+        "positive_control", "runtime", result, authority_unchanged(before, after), accepted and authority_unchanged(before, after),
+        [f"stage replies: {references}", f"authority before {before}; after {after}"], started)
+
+    # CK8: a trainer stages and commits G's unallocated derivative (evidence naming a request the scheduler never allocated).
+    started = time.time()
+    staging = [stack.call("trainer", lambda client: client.stage(unallocated.read("evidence"))),
+               stack.call("trainer", lambda client: client.stage(unallocated.read("blob"), unallocated.read("manifest")))]
+    if any(item["code"] != "OK" for item in staging):
+        result, before, after, receipt = harness_error(f"staging the CK8 candidate failed: {staging}"), None, None, None
+    else:
+        before, receipt_before = stack.observe(), stack.status(unallocated.request_id)
+        result = stack.call("trainer", lambda client: client.commit(unallocated.commit(pin)))
+        after, receipt = stack.observe(), stack.status(unallocated.request_id)
+        if receipt_before != "unknown":
+            result = harness_error(f"the CK8 request already had a receipt ({receipt_before})")
+    unchanged = before is not None and authority_unchanged(before, after)
+    add("CK8", "impersonation", "CommitCandidate from a valid trainer carrying a valid 13c candidate (the genuine checkpoint, evidence naming an "
+        "unallocated request id): rejected/request_not_allocated, the authority unchanged.", "rejected_unchanged", "trainer", result, unchanged,
+        result["observed"] == "rejected" and result["code"] == RECEIPT_REJECTED and result["message"] == "request_not_allocated" and unchanged,
+        [f"request {unallocated.request_id} (no allocation); candidate {unallocated.manifest_sha}; receipt after: {receipt}",
+         f"authority before {before}; after {after}"], started, codes=(RECEIPT_REJECTED,))
+
+    # TL1-candidate: the publisher's commit of G, recorded through a proxy that forwards the handshake flight and holds back every later
+    # client record; then the recorded bytes are replayed on a new connection.
+    started, before, receipts = time.time(), stack.observe(), [stack.status(genuine.request_id)]
+    original, withheld, sent = stack.withheld_commit("publisher", genuine.commit(pin))
+    middle = stack.observe()
+    receipts.append(stack.status(genuine.request_id))
+    replay = stack.replay(sent)
+    replayed = stack.observe()
+    receipts.append(stack.status(genuine.request_id))
+    held_back = authority_unchanged(before, middle) and receipts[:2] == ["unknown"] * 2
+    replay_unchanged = authority_unchanged(middle, replayed) and receipts[2] == "unknown"
+    tl1_unchanged = held_back and replay_unchanged
+
+    # The publisher commit (control): the same commit of G on a clean connection is applied, signed and served.
+    started_control = time.time()
+    result = stack.call("publisher", lambda client: client.commit(genuine.commit(pin)))
+    applied = stack.observe(served=genuine.manifest_sha)
+    control_applied = (result.get("status") == "applied" and not result.get("reason") and applied["current"] == genuine.manifest_sha
+                       and applied["served"] == genuine.manifest_sha and applied["publications"] == replayed["publications"] + 1)
+    verdict = tl1_candidate_verdict(original, withheld, replay, held_back, replay_unchanged, control_applied)
+    add("TL1-candidate", "replayed_request", "The TLS 1.3 bytes of a publisher's authenticated CommitCandidate of the genuine 13c candidate, recorded while "
+        "the proxy held the request back from the server, replayed on a new connection: no receipt, the authority unchanged, and the same commit "
+        "is applied when sent cleanly afterwards (the unchanged store is not vacuous).", "rejected_unchanged", "publisher", verdict, tl1_unchanged,
+        verdict["observed"] == "rejected" and tl1_unchanged, [
+            f"withheld exchange: client {original['code']}; {withheld} client records held back; sent {len(sent)} bytes in all; "
+            f"server records after the client's flight: {original.get('server_records_after_flight')}",
+            f"replay server stream: {replay['stats']}; closed: {replay['closed']}",
+            f"receipts of {genuine.request_id}: before, after the withheld exchange, after the replay: {receipts}",
+            f"authority before {before}; after the withheld exchange {middle}; after the replay {replayed}"], started,
+        row_path="rust-tls", codes=("CONNECTION_ABORTED",))
+    rows[-1]["service"] = "param-update"
+    add("CK-positive-publisher-commit", "control", "A publisher commits the allocated genuine 13c candidate on the pin (applied, signed and served).",
+        "positive_control", "publisher", result, False, control_applied,
+        [f"request {genuine.request_id}; candidate {genuine.manifest_sha}; receipt {result.get('status')} {result.get('reason')}",
+         f"authority before {replayed}; after {applied}"], started_control)
+
+    # The publisher rollback (control): RollbackModel to the pin.
+    started, request_id = time.time(), f"{stack.name}-rollback-{uuid.uuid4().hex[:8]}"
+    result = stack.call("publisher", lambda client: client.rollback(request_id, pin))
+    rolled = stack.observe(served=pin)
+    met = (result.get("status") == "applied" and result.get("reason") == "rollback" and rolled["current"] == pin and rolled["served"] == pin
+           and rolled["max_sequence"] == applied["max_sequence"] + 1)
+    add("CK-positive-publisher-rollback", "control", "A publisher rolls back to the pin (applied: a new signed publication with a higher sequence, served).",
+        "positive_control", "publisher", result, False, met, [f"request {request_id}; receipt {result.get('status')} {result.get('reason')}",
+                                                              f"authority before {applied}; after {rolled}"], started)
+    return rows
+
+
+def run_candidate_rows(args, work: Path) -> tuple[list[dict], list[str]]:
+    """The 13d-1b rows and the commands that produced them. Without the 13c-2 export they are not_run with the reason; if the stack fails
+    part way, the rows that did not run say why. The stack is always torn down."""
+    problem = candidate_inputs_problem(args)
+    if problem:
+        return pending_rows(f"13d-1b rows not run: {problem}"), []
+    stack = CandidateStack(args, work, CandidateExport(Path(args.s13c_candidates), Path(args.s13c_evidence)))
+    rows: list[dict] = []
+    try:
+        stack.start()
+        candidate_rows(stack, rows)
+    except Exception as error:  # a harness or stack failure is recorded, never a silent pass
+        done = {row["id"] for row in rows}
+        missing = tuple(row_id for row_id, _, _ in PENDING_ROWS if row_id not in done)
+        rows += pending_rows(f"13d-1b rows not run: the candidate stack failed: {type(error).__name__}: {error}", only=missing)
+        for row in rows:
+            if row["id"] in missing:
+                row["code"] = "HARNESS_ERROR"
+    finally:
+        stack.stop()
+    return rows, stack.commands
+
+
 def authz_gaps(rows: list[dict], static: list[dict]) -> list[dict]:
     """The gap table of AUTHZ: the stage 9 gaps that a row of this record exercised, and the two records it extends."""
     gaps = [gap for gap in gap_table(rows, static) if gap["rows"]]
@@ -3324,15 +3847,55 @@ def run_authz_rows(args, work: Path, pki, models_dir: Path, release_dir: Path) -
     return rows, logs
 
 
+def authz_not_established(rows: list[dict], *, no_v3: bool, candidate_only: bool) -> list[str]:
+    """The `not_established` list of a run, from the rows it produced."""
+    candidate = [row for row in rows if row["id"] in report_tools.PENDING_13D_1B]
+    skipped = [row for row in candidate if row["observed"] in report_tools.NOT_RUN_OUTCOMES]
+    notes = []
+    if skipped:
+        notes.append(f"{', '.join(row['id'] for row in skipped)} did not run: {skipped[0]['message']}")
+    if len(skipped) < len(candidate):
+        notes.append("CK8, the positive controls and TL1-candidate run on their own Compose v3-training stack (param-update with its real gates over the "
+                     "pinned efficient release, and model-streaming), with the test PKI of the 13c-2 helper s13c_compose_pki (the privoke_pki crate), "
+                     "not the privoke-pki CLI PKI of the other rows. Their candidates are the 13c-2 export; no candidate was fitted here.")
+    if candidate_only:
+        notes.append("Only the 13d-1b rows ran (--authz-families candidate): this run alone does not cover the attack map.")
+    else:
+        notes += [
+            "Application-level replay and tamper are the 13c rows C2a, C2b and C9, cross-referenced here, not repeated.",
+            "The store-unchanged half of TL1, TL2 and CK1 to CK7 is vacuous: their store is empty, so an admitted request and a refused one leave the same "
+            "state. CK8 and TL1-candidate carry the check on a store that holds the pin and an admissible candidate.",
+            "The TL rows show that the TLS record layer refuses replayed and altered bytes; they say nothing about the supervisor's client admission (13c).",
+        ]
+    if no_v3:
+        notes.append("The standard V3 packages were absent: the rows that need them are not_run and are not evidence.")
+    return notes
+
+
 def run_authz_target(args) -> int:
-    """`--target rust --rust-service authz`: the whole 13d-1a row set against the Rust containers on loopback, one record."""
-    if args.pki_binary is None and args.pki_linux_binary is None:
+    """`--target rust --rust-service authz`: the 13d row set against the Rust containers on loopback, one record. `--authz-families
+    candidate` runs only the 13d-1b rows (CK8, the positive controls, TL1-candidate)."""
+    candidate_only = args.authz_families == "candidate"
+    if not candidate_only and args.pki_binary is None and args.pki_linux_binary is None:
         print("name the privoke-pki build: --pki-binary (a host executable) or --pki-linux-binary (run in a container)", file=sys.stderr)
         return 2
     release_dir = args.release_dir
     if not args.no_v3 and not release_dir.is_dir():
         print(f"standard release store not found: {release_dir} (pass --no-v3 when the packages are unavailable)", file=sys.stderr)
         return 2
+    if candidate_only:
+        problem = candidate_inputs_problem(args)
+        if problem:
+            print(f"the 13d-1b rows cannot run: {problem}", file=sys.stderr)
+            return 2
+    elif not args.allow_no_candidate:
+        absent = [flag for flag, value in (("--s13c-candidates", args.s13c_candidates), ("--s13c-evidence", args.s13c_evidence),
+                                           ("--s13c-originals", args.s13c_originals), ("--s13c-retention-bank-dir", args.s13c_retention_bank_dir))
+                  if value is None]
+        if absent:
+            print(f"a full authz run needs the 13c-2 export for the 13d-1b rows: name {', '.join(absent)}, or pass --allow-no-candidate to "
+                  "record them as not_run", file=sys.stderr)
+            return 2
     scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
     work = Path(tempfile.mkdtemp(prefix="updsec-authz-", dir=scratch_parent))
     try:
@@ -3340,27 +3903,24 @@ def run_authz_target(args) -> int:
             release_dir = work / "no-v3-releases"
             release_dir.mkdir()
         release_before = release_fingerprint(release_dir)
-        pki_root = work / "pki-root"
-        pki_root.mkdir()
-        tool = pki_tools.PkiTool(pki_root, binary=args.pki_binary, linux_binary=args.pki_linux_binary, runner_image=args.pki_runner_image)
-        pki = pki_tools.PrivokePki(pki_root, tool)
-        models_dir = work / "models"
-        models_dir.mkdir()
-        shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", models_dir / f"{LEGACY_MODEL}.json")
-        rows, logs = run_authz_rows(args, work, pki, models_dir, release_dir)
-        static = rust_static_evidence()
-        not_established = [
-            "CK8 and the positive controls (a publisher's applied commit and rollback, a runtime's accepted stage) need the genuine real-weight 13c candidate; "
-            "they are not_run, pending 13d-1b.",
-            "Application-level replay and tamper are the 13c rows C2a, C2b and C9, cross-referenced here, not repeated.",
-            "The store-unchanged half of the TL1, TL2 and CK rows is vacuous until 13d-1b: the store is empty, so an admitted request and a refused one leave "
-            "the same state. TL1-candidate, on a valid 13c candidate, is pending 13d-1b.",
-            "The TL rows show that the TLS record layer refuses replayed and altered bytes; they say nothing about the supervisor's client admission (13c).",
-        ]
-        if args.no_v3:
-            not_established.append("The standard V3 packages were absent: the rows that need them are not_run and are not evidence.")
+        if candidate_only:
+            pki, tool_commands, static, logs = StackIssuers(), [], [], ""
+            rows, commands = run_candidate_rows(args, work)
+        else:
+            pki_root = work / "pki-root"
+            pki_root.mkdir()
+            tool = pki_tools.PkiTool(pki_root, binary=args.pki_binary, linux_binary=args.pki_linux_binary, runner_image=args.pki_runner_image)
+            pki = pki_tools.PrivokePki(pki_root, tool)
+            models_dir = work / "models"
+            models_dir.mkdir()
+            shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", models_dir / f"{LEGACY_MODEL}.json")
+            rows, logs = run_authz_rows(args, work, pki, models_dir, release_dir)
+            candidate, commands = run_candidate_rows(args, work)
+            rows.extend(candidate)
+            static, tool_commands = rust_static_evidence(), tool.commands
+        not_established = authz_not_established(rows, no_v3=args.no_v3, candidate_only=candidate_only)
         rows = finalize_authz_rows(rows, pki)
-        record = authz_record(args, rows, pki, static, tool.commands, not_established, logs)
+        record = authz_record(args, rows, pki, static, [*tool_commands, *commands], not_established, logs)
         record["standard_release_store_unchanged"] = release_before == release_fingerprint(release_dir)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -3368,8 +3928,19 @@ def run_authz_target(args) -> int:
         shutil.rmtree(work, ignore_errors=True)
     summary, coverage = record["summary"], record["coverage"]
     print(f"{summary['total_rows']} rows ({len(record['rows_not_run'])} not run); property unmet: {summary['property_unmet_ids']}; "
-          f"coverage problems: {coverage['problems']}; unmet (not_denied): {coverage['unmet_properties']}; pending 13d-1b: {coverage['pending_13d_1b']}")
-    return 0 if not summary["property_unmet_ids"] and coverage["ok"] and record["standard_release_store_unchanged"] else 1
+          f"coverage problems: {coverage['problems']}; unmet (not_denied): {coverage['unmet_properties']}; 13d-1b rows not run: {coverage['pending_13d_1b']}")
+    return authz_exit_status(record, candidate_only=candidate_only)
+
+
+def authz_exit_status(record: dict, *, candidate_only: bool) -> int:
+    """0 when every property was met and the standard releases were untouched; a full run also needs complete coverage, and no 13d-1b
+    row may have failed to run because its stack failed. A candidate-only run needs every 13d-1b row to have run."""
+    summary, coverage, rows = record["summary"], record["coverage"], record["attacks"]
+    failed = [row["id"] for row in rows if row["id"] in report_tools.PENDING_13D_1B and row.get("code") == "HARNESS_ERROR"]
+    sound = not summary["property_unmet_ids"] and record["standard_release_store_unchanged"] and not failed
+    if candidate_only:
+        return 0 if sound and not coverage["pending_13d_1b"] else 1
+    return 0 if sound and coverage["ok"] else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -3392,6 +3963,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pki-linux-binary", type=Path, default=None,
                         help="--rust-service authz: a Linux `privoke-pki` build (for example rust/target-docker/release/privoke-pki), run in a container")
     parser.add_argument("--pki-runner-image", default=pki_tools.PKI_RUNNER_IMAGE, help="--rust-service authz: the image that runs --pki-linux-binary")
+    parser.add_argument("--authz-families", choices=("all", "candidate"), default="all",
+                        help="--rust-service authz: every 13d family (all), or only the 13d-1b rows on the 13c-2 candidate (candidate)")
+    parser.add_argument("--s13c-candidates", type=Path, default=None,
+                        help="--rust-service authz: the 13c-2 candidate export (S13C_EXPORT_CANDIDATES: index.json, allocations.json, blobs, manifests)")
+    parser.add_argument("--s13c-evidence", type=Path, default=None,
+                        help="--rust-service authz: the 13c-2 evidence export (S13C_EXPORT_EVIDENCE; prompt-bearing, read only)")
+    parser.add_argument("--s13c-originals", type=Path, default=None, help="--rust-service authz: the ORIGINAL packages (V3_ORIGINAL_DIR)")
+    parser.add_argument("--s13c-retention-bank-dir", type=Path, default=None,
+                        help="--rust-service authz: the directory of the approved retention bank (V3_RETENTION_BANK_DIR; prompt-bearing, read only)")
+    parser.add_argument("--allow-no-candidate", action="store_true",
+                        help="--rust-service authz: run every family without the 13c-2 export; the 13d-1b rows are then recorded as not_run")
+    parser.add_argument("--stack-name", default="s13d", help="--rust-service authz: the Compose project and container-name prefix of the 13d-1b stack")
+    parser.add_argument("--stack-cpus", default="8", help="--rust-service authz: the CPU cap of the 13d-1b param-update container and of the RUSTDOCK helpers")
     parser.add_argument("--lineage-rows", type=Path, default=None,
                         help="--rust-service client-lineage: the rows file the Rust lineage tests wrote (PRIVOKE_LINEAGE_ROWS_OUT); "
                              "without it the target runs the tests with cargo itself")

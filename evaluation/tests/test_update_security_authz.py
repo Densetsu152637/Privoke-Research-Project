@@ -573,10 +573,11 @@ class TlVerdictTests(unittest.TestCase):
         self.assertEqual(harness.tl3_verdict(refused, seen, False)["code"], "HARNESS_ERROR")
 
     def test_the_vacuous_store_check_is_stated_in_the_run_notes(self):
-        import inspect
-
         self.assertIn("vacuous", harness.VACUOUS_STORE_NOTE)
-        self.assertIn("vacuous until 13d-1b", inspect.getsource(harness.run_authz_target))
+        self.assertIn("CK8 and TL1-candidate", harness.VACUOUS_STORE_NOTE)
+        notes = "\n".join(harness.authz_not_established(harness.pending_rows(), no_v3=False, candidate_only=False))
+        self.assertIn("TL1, TL2 and CK1 to CK7 is vacuous", notes)
+        self.assertIn("TL1-candidate, CK8, CK-positive-publisher-commit", notes)  # the 13d-1b rows that did not run, with the reason
 
 
 class CheckpointServiceTests(unittest.TestCase):
