@@ -107,7 +107,7 @@ What this entry records:
   - the V3 guarded update: admission, drift bounds with the cumulative cap, the recomputed guard, the retention gate, Ed25519-signed publication, compare-and-swap and receipts;
   - routine training of all three V3 tiers, with V1 models kept for detection only;
   - in-service mutual TLS with a role policy and no reverse proxy;
-  - the native-messaging controller with its sandboxed Rust and Python workers;
+  - the native-messaging controller with sandboxed analysis workers (Python by default, an optional Rust worker for the selections it claims);
   - the controller-owned telemetry reporter.
 - **No new empirical result.** This entry adds none. Stage 13 records on the Rust branch (13c-1, 13d-1a) and the Rust telemetry audit record are not integrated; the Stage 13-P integration covers them.
 - **Build-dependent numbers.** These are kept unchanged and labelled as measured on the earlier prototype build:

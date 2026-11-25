@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  25 NOV 2026 23:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  25 NOV 2026 23:27
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1719,6 +1719,9 @@ LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/sc' will be
 /lbtn_omcwp2.enc}]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
+
+Underfull \vbox (badness 5908) has occurred while \output is active []
+
  [4.4{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine
 /lbtn_tlukpt.enc} <F:/Git-Worktrees/Privoke-Research-Project/wt-paper-sync/pape
 r/figures/architecture-current.pdf>]
@@ -1833,11 +1836,11 @@ PGFPlots: reading {figures/data/continuation.csv}
 
 Class acmart Warning: A possible image without description on input line 449.
 
-[9.9]
-Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [10.10]
-(F:/Git-Worktrees/Privoke-Research-Project/wt-paper-sync/paper/main.bbl
+Underfull \vbox (badness 3049) has occurred while \output is active []
+
+ [9.9]
+[10.10] (F:/Git-Worktrees/Privoke-Research-Project/wt-paper-sync/paper/main.bbl
 [11.11]
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/sb/n' will be
 (Font)              scaled to size 7.3pt on input line 67.
@@ -2198,7 +2201,7 @@ x/txexs.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public
 /newtx/txmiaX.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/newtx/txsys.pfb>
 Output written on F:/Git-Worktrees\Privoke-Research-Project\wt-paper-sync\paper
-\main.pdf (22 pages, 884071 bytes).
+\main.pdf (22 pages, 884554 bytes).
 PDF statistics:
  731 PDF objects out of 1000 (max. 8388607)
  158 named destinations out of 1000 (max. 500000)

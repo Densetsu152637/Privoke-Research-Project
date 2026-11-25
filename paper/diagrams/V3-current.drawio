@@ -31,7 +31,7 @@
         <mxCell id="enforce" value="Request gate&#10;ALLOW / WARN&#10;send original body&#10;BLOCK cancels" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=1;spacing=5;">
           <mxGeometry as="geometry" x="10" y="235" width="150" height="105" />
         </mxCell>
-        <mxCell id="local" value="Rust controller&#10;Rules / NER /&#10;semantic&#10;+ policy" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=1;spacing=5;">
+        <mxCell id="local" value="Rust controller;&#10;sandboxed&#10;analysis&#10;workers" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=1;spacing=5;">
           <mxGeometry as="geometry" x="180" y="235" width="140" height="105" />
         </mxCell>
         <mxCell id="collector" value="Telemetry collector&#10;Randomized coarse fields&#10;Lifetime marginal estimates" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#f3eafa;strokeColor=#8961a8;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
@@ -88,7 +88,7 @@
             <mxPoint as="targetPoint" x="85" y="520" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="bridge" value="Native messaging;&#10;sandboxed workers" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
+        <mxCell id="bridge" value="Native messaging&#10;to the extension" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
           <mxGeometry as="geometry" x="175" y="355" width="155" height="50" />
         </mxCell>
         <mxCell id="modelClient" value="" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#338568;strokeWidth=2;fontFamily=Arial;fontSize=15;fontColor=#338568;labelBackgroundColor=#ffffff;">
