@@ -1130,69 +1130,88 @@ fn search(scorer: &Scorer<'_>, changed: &[String], bound: f64, allowance: usize)
     let mut result = Search { c11b: None, c11f: None, c11g: None, trace: Vec::new() };
     let genuine = scorer.score(&lineage.genuine_tensors, true);
     result.trace.push(scored_json("genuine", 0.0, 0, &genuine));
-    for alpha in [0.02f32, 0.05, 0.1, 0.2, 0.35] {
-        let tensors = toward(&lineage.pin_tensors, &lineage.genuine_tensors, changed, alpha);
+    // C11b: weights moved away from the genuine candidate (past the pin), with the genuine evidence still claiming a pass.
+    for alpha in [0.5f32, 1.0, 1.5] {
+        let tensors = toward(&lineage.pin_tensors, &lineage.genuine_tensors, changed, -alpha);
         if changed_names(&lineage.pin_tensors, &tensors) != changed {
             continue;
         }
         let scored = scorer.score(&tensors, false);
-        result.trace.push(scored_json("toward_genuine", f64::from(alpha), 0, &scored));
-        if !scored.guard_passes {
+        result.trace.push(scored_json("away_from_genuine", f64::from(alpha), 0, &scored));
+        if !scored.guard_passes && scored.l2_from_pin <= bound * 0.98 {
             result.c11b = Some((tensors, scored));
             break;
         }
     }
-    let heads: Vec<String> = changed.iter().filter(|name| name.starts_with("heads.")).cloned().collect();
+    // C11f and C11g: one head bias entry of the genuine candidate moved by a scale within the update bound (a concentrated
+    // logit shift; spread heads noise within the bound barely moves retention). Every entry and sign is tried at the full budget,
+    // then the scale is bisected for exactly the allowance on the directions that regress beyond it.
     let budget = (bound * bound - genuine.l2_from_pin * genuine.l2_from_pin).max(0.0).sqrt() * 0.95;
-    'directions: for noise_seed in [20_261_126u64, 7_919, 104_729] {
-        let step = direction(&lineage.genuine_tensors, &heads, noise_seed);
-        let mut below: Option<(f64, usize)> = None;
-        let evaluate = |scale: f64, result: &mut Search| -> Scored {
-            let tensors = moved(&lineage.genuine_tensors, &step, scale as f32);
-            let scored = scorer.score(&tensors, true);
-            result.trace.push(scored_json("genuine_plus_heads_noise", scale, noise_seed, &scored));
-            let within = scored.l2_from_pin <= bound * 0.98 && changed_names(&lineage.pin_tensors, &tensors) == changed;
-            if within && scored.guard_passes && scored.violations > allowance && result.c11f.is_none() {
-                result.c11f = Some((tensors.clone(), scored));
+    let biases: Vec<String> =
+        changed.iter().filter(|name| name.starts_with("heads.") && lineage.genuine_tensors[*name].shape.len() == 1).cloned().collect();
+    let mut directions: Vec<(String, BTreeMap<String, Vec<f32>>)> = Vec::new();
+    for name in &biases {
+        for index in 0..lineage.genuine_tensors[name].data.len() {
+            for sign in [1.0f32, -1.0] {
+                let mut unit = vec![0.0f32; lineage.genuine_tensors[name].data.len()];
+                unit[index] = sign;
+                directions.push((format!("{name}[{index}]{}", if sign > 0.0 { "+" } else { "-" }), BTreeMap::from([(name.clone(), unit)])));
             }
-            if within && scored.guard_passes && scored.violations == allowance && result.c11g.is_none() {
-                result.c11g = Some((tensors, scored));
+        }
+    }
+    // Record one scored candidate in the trace and keep it when it has a property the search wants (in evaluation order).
+    let record = |label: &str, scale: f64, tensors: Tensors, scored: Scored, result: &mut Search| {
+        let mut entry = scored_json("genuine_plus_head_bias", scale, 0, &scored);
+        entry["direction"] = json!(label);
+        result.trace.push(entry);
+        let within = scored.l2_from_pin <= bound * 0.98 && changed_names(&lineage.pin_tensors, &tensors) == changed;
+        if within && scored.guard_passes && scored.violations > allowance && result.c11f.is_none() {
+            result.c11f = Some((tensors.clone(), scored));
+        }
+        if within && scored.guard_passes && scored.violations == allowance && result.c11g.is_none() {
+            result.c11g = Some((tensors, scored));
+        }
+    };
+    let evaluate = |label: &str, step: &BTreeMap<String, Vec<f32>>, scale: f64, result: &mut Search| -> Scored {
+        let tensors = moved(&lineage.genuine_tensors, step, scale as f32);
+        let scored = scorer.score(&tensors, true);
+        record(label, scale, tensors, scored, result);
+        scored
+    };
+    // The sweep scores `batch` candidates at once (each scoring keeps its own production thread counts, so the verdicts are the
+    // sequential ones; only the wall time changes), and records them in direction order.
+    let batch: usize = var_or("S13C_SCORE_BATCH", "2").parse().unwrap();
+    let mut beyond: Vec<(usize, usize)> = Vec::new();
+    for (offset, group) in directions.chunks(batch.max(1)).enumerate() {
+        let candidates: Vec<Tensors> = group.iter().map(|(_, step)| moved(&lineage.genuine_tensors, step, budget as f32)).collect();
+        let scores: Vec<Scored> = std::thread::scope(|scope| {
+            let handles: Vec<_> = candidates.iter().map(|tensors| scope.spawn(move || scorer.score(tensors, true))).collect();
+            handles.into_iter().map(|handle| handle.join().unwrap()).collect()
+        });
+        for (position, ((label, _), (tensors, scored))) in group.iter().zip(candidates.into_iter().zip(scores)).enumerate() {
+            if scored.guard_passes && scored.violations > allowance {
+                beyond.push((scored.violations, offset * batch.max(1) + position));
             }
-            scored
-        };
-        let grid: Vec<f64> = (1..=10).map(|index| budget * f64::from(index) / 10.0).collect();
-        for scale in grid {
-            let scored = evaluate(scale, &mut result);
-            if result.c11f.is_some() && result.c11g.is_some() {
-                break 'directions;
+            record(label, budget, tensors, scored, &mut result);
+        }
+    }
+    beyond.sort_unstable();
+    for (_, index) in beyond.iter().take(4) {
+        if result.c11g.is_some() {
+            break;
+        }
+        let (label, step) = &directions[*index];
+        let (mut low, mut high) = (0.0f64, budget);
+        for _ in 0..10 {
+            let middle = (low + high) / 2.0;
+            let found = evaluate(label, step, middle, &mut result);
+            if result.c11g.is_some() {
+                break;
             }
-            if !scored.guard_passes {
-                continue;
-            }
-            match below {
-                Some((low, below_violations)) if below_violations < allowance && scored.violations > allowance => {
-                    // Bisect between the two scales for exactly the allowance.
-                    let (mut low, mut high) = (low, scale);
-                    for _ in 0..8 {
-                        let middle = (low + high) / 2.0;
-                        let found = evaluate(middle, &mut result);
-                        if result.c11g.is_some() {
-                            break;
-                        }
-                        if found.violations < allowance || !found.guard_passes {
-                            low = middle;
-                        } else {
-                            high = middle;
-                        }
-                    }
-                }
-                _ => {}
-            }
-            if scored.violations < allowance {
-                below = Some((scale, scored.violations));
-            }
-            if result.c11f.is_some() && result.c11g.is_some() {
-                break 'directions;
+            if found.violations < allowance {
+                low = middle;
+            } else {
+                high = middle;
             }
         }
     }
