@@ -1218,6 +1218,69 @@ fn search(scorer: &Scorer<'_>, changed: &[String], bound: f64, allowance: usize)
     result
 }
 
+/// Another shape of the same element count: a vector becomes one row, a matrix is flattened (a 1-D head bias flattened stays
+/// unchanged, which is no fault at all).
+fn other_shape(shape: &[usize]) -> Vec<usize> {
+    if shape.len() == 1 { vec![1, shape[0]] } else { vec![shape.iter().product()] }
+}
+
+/// C6a (the shape of one heads tensor changed in both the manifest and the blob) and C6b (in the blob only), from the genuine one.
+fn shape_candidates(lineage: &Lineage, c6a: &str, c6b: &str) -> (Built, Built) {
+    let name = lineage.genuine_tensors.keys().find(|name| name.starts_with("heads.")).unwrap().clone();
+    let mut reshaped = lineage.genuine_tensors.clone();
+    let item = reshaped.get_mut(&name).unwrap();
+    item.shape = other_shape(&item.shape);
+    let shape = item.shape.clone();
+    assert_ne!(shape, lineage.genuine_tensors[&name].shape, "the mutation changes the shape");
+    let manifest = |document: &mut Json| document["tensors"][&name]["shape"] = json!(shape);
+    let mut spec = Derive::new("C6a", c6a.to_string(), "a heads tensor reshaped in both the manifest and the blob");
+    spec.tensors = Some(&reshaped);
+    spec.manifest = Some(&manifest);
+    let both = lineage.derive(&spec);
+    let mut spec = Derive::new("C6b", c6b.to_string(), "a heads tensor reshaped in the blob only");
+    spec.blob_tensors = Some(&reshaped);
+    (both, lineage.derive(&spec))
+}
+
+/// Re-derive the exported C6a and C6b candidates from the exported genuine one (stage 13c-2: the first export flattened a 1-D head
+/// bias, which left its shape unchanged). Nothing else in the export changes; the request ids and their allocations stay.
+#[test]
+fn s13c_rederive_shape_candidates() {
+    let (Some(models), Some(evidence)) = (path_var("S13C_EXPORT_CANDIDATES"), path_var("S13C_EXPORT_EVIDENCE")) else {
+        say("PENDING: set S13C_EXPORT_CANDIDATES and S13C_EXPORT_EVIDENCE to re-derive the exported shape candidates");
+        return;
+    };
+    let (mut index, built) = load_candidates(&models, &evidence);
+    let genuine = &built["genuine"];
+    let allocations = parse_allocations(&std::fs::read_to_string(models.join("allocations.json")).unwrap()).unwrap();
+    let allocation = allocations.into_iter().find(|row| row.request_id == genuine.request_id).unwrap();
+    let lineage = Lineage {
+        pin: index["pin"].as_str().unwrap().to_string(),
+        original: index["original"].as_str().unwrap().to_string(),
+        pin_tensors: Tensors::new(),
+        genuine_manifest: serde_json::from_slice(&genuine.manifest).unwrap(),
+        genuine_manifest_bytes: genuine.manifest.clone(),
+        genuine_blob: genuine.blob.clone(),
+        genuine_evidence: serde_json::from_slice(&genuine.evidence).unwrap(),
+        genuine_evidence_bytes: genuine.evidence.clone(),
+        genuine_tensors: safetensors::parse(&genuine.blob).unwrap(),
+        allocation,
+    };
+    let (c6a, c6b) = shape_candidates(&lineage, &built["C6a"].request_id, &built["C6b"].request_id);
+    for candidate in [&c6a, &c6b] {
+        std::fs::write(models.join("blobs").join(format!("{}.safetensors", candidate.blob_sha)), &candidate.blob).unwrap();
+        std::fs::write(models.join("manifests").join(format!("{}.json", candidate.manifest_sha)), &candidate.manifest).unwrap();
+        std::fs::write(evidence.join(format!("{}.json", candidate.evidence_sha)), &candidate.evidence).unwrap();
+        let entry = index["candidates"].as_array_mut().unwrap().iter_mut().find(|entry| entry["role"] == candidate.role.as_str()).unwrap();
+        entry["manifest_sha"] = json!(candidate.manifest_sha);
+        entry["blob_sha"] = json!(candidate.blob_sha);
+        entry["evidence_sha"] = json!(candidate.evidence_sha);
+        entry["note"] = json!(format!("{} (re-derived from the exported genuine candidate)", candidate.note));
+        say(&format!("REDERIVED {} manifest={}", candidate.role, candidate.manifest_sha));
+    }
+    write_json(&models.join("index.json"), &index);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------
 // The real-weight leg.
 // ---------------------------------------------------------------------------------------------------------------------------
@@ -1342,10 +1405,6 @@ async fn s13c_real_leg() {
         let item = tensors.remove(name).unwrap();
         tensors.insert(format!("{name}_renamed"), item);
     });
-    let reshaped = edit_head(&|tensors, name| {
-        let item = tensors.get_mut(name).unwrap();
-        item.shape = vec![item.data.len()];
-    });
     let nonfinite = |value: f32| {
         edit_head(&move |tensors: &mut Tensors, name: &str| {
             let item = &tensors[name];
@@ -1360,10 +1419,6 @@ async fn s13c_real_leg() {
         let entry = document["tensors"].as_object_mut().unwrap().remove(&first_head).unwrap();
         document["tensors"][format!("{first_head}_renamed")] = entry;
     };
-    let reshape_manifest = |document: &mut Json| {
-        let count: u64 = document["tensors"][&first_head]["shape"].as_array().unwrap().iter().map(|dim| dim.as_u64().unwrap()).product();
-        document["tensors"][&first_head]["shape"] = json!([count]);
-    };
     let mut spec = Derive::new("C5a", rid("c5a"), "a heads tensor renamed in both the manifest and the blob");
     spec.tensors = Some(&renamed);
     spec.manifest = Some(&rename_manifest);
@@ -1371,13 +1426,9 @@ async fn s13c_real_leg() {
     let mut spec = Derive::new("C5b", rid("c5b"), "a heads tensor renamed in the blob only");
     spec.blob_tensors = Some(&renamed);
     candidates.push((derived(spec), json!({})));
-    let mut spec = Derive::new("C6a", rid("c6a"), "a heads tensor flattened in both the manifest and the blob");
-    spec.tensors = Some(&reshaped);
-    spec.manifest = Some(&reshape_manifest);
-    candidates.push((derived(spec), json!({})));
-    let mut spec = Derive::new("C6b", rid("c6b"), "a heads tensor flattened in the blob only");
-    spec.blob_tensors = Some(&reshaped);
-    candidates.push((derived(spec), json!({})));
+    let (c6a, c6b) = shape_candidates(&lineage, &rid("c6a"), &rid("c6b"));
+    candidates.push((c6a, json!({})));
+    candidates.push((c6b, json!({})));
     for (role, tensors, note) in [
         ("C7a", &nan, "NaN in one heads coordinate"),
         ("C7b", &positive, "+Inf in one heads coordinate"),
@@ -2455,6 +2506,7 @@ fn the_serializer_round_trips_and_the_digests_are_the_raw_tensor_bytes() {
     for (name, item) in &tensors {
         assert_eq!((&parsed[name].shape, &parsed[name].data, &parsed[name].sha256), (&item.shape, &item.data, &item.sha256), "{name}");
     }
+    assert_eq!((other_shape(&[5]), other_shape(&[2, 3])), (vec![1, 5], vec![6]), "a vector becomes a row, a matrix is flattened");
     let step = direction(&tensors, &["heads.b".to_string()], 3);
     let norm: f64 = step["heads.b"].iter().map(|value| f64::from(*value).powi(2)).sum::<f64>().sqrt();
     assert!((norm - 1.0).abs() < 1e-5, "a unit direction: {norm}");
