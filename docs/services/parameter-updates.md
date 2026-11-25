@@ -60,6 +60,7 @@ Environment variables (defaults from `FuzzerRequestConfig::defaults`):
 - `FUZZER_REQUEST_INTERVAL_SECONDS`, default `10800`; `0` requests one round and stops
 - `FUZZER_REQUEST_TIMEOUT_SECONDS`, default `3600`
 - `FUZZER_REQUEST_INITIAL_DELAY_SECONDS`, default `2`; `FUZZER_REQUEST_RETRY_SECONDS`, default `30`; `FUZZER_REQUEST_MAX_ATTEMPTS`, default `3`
+- `PARAM_UPDATE_SOURCE_ID`, default `param-update-service`: the `source_id` the scheduler puts in each request to the fuzzer (`scheduler.rs`)
 - `FUZZER_REQUEST_SEED`, default `1337`, unsigned 32-bit initial seed
 - `FUZZER_CYCLE_STATE_PATH`, default `/data/training-cycles.sqlite3`, the durable allocation journal
 - `V3_POLICY_FILE`, default `/config/v3-policy.json`, the canonical 64-step policy

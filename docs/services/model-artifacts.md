@@ -130,6 +130,6 @@ For controlled experiments, retain temporary ORIGINAL weights, per-cell catalogs
 effective weights, and provenance pins under `models/experiments/<run>/`. Remove
 redundant weight copies only after verifying byte hashes and recorded references.
 
-The Compose stacks seed the shipped V1 artifacts into the `model-data` volume with the one-shot `model-seed`; they do not rewrite repository files, and nothing mutates the seeded artifacts afterwards.
+The Compose stacks seed the shipped V1 artifacts into the `model-data` volume with the one-shot `model-seed`; they do not rewrite repository files, and no Compose service mutates the seeded artifacts afterwards. Only the manual `param-update-service bootstrap` subcommand (`rust/services/param-update/src/main.rs`) rewrites a V1 artifact.
 
 The checked-in model is intentionally small enough for ordinary Git. If a future artifact approaches the hosting provider's file-size limit, keep the same manifest/streaming contract and move the tensor payload to Git LFS rather than committing an oversized blob.

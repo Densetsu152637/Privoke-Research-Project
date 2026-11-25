@@ -78,7 +78,7 @@ The extension-local ports `8080`, `50056`, and `50057` are not Compose service p
 
 ## Development Commands
 
-Run the development server simulation with bind-mounted sources and generated stubs. Without profiles it starts `model-seed`, `model-streaming-service` and `telemetry-service`; add `--profile v3-training` for `param-update-service`, `v3-fuzzer` and `v3-runtime`, which `docker-compose.prod.yml` gates the same way. It has the same topology as the production deployment; it does not run the WebExtension or its local supervisor/bridge:
+Run the default host-test stack (the production Rust images with the internal listeners published on loopback). Without profiles it starts `model-seed`, `model-streaming-service` and `telemetry-service`; add `--profile v3-training` for `param-update-service`, `v3-fuzzer` and `v3-runtime`, which `docker-compose.prod.yml` gates the same way. It has the same topology as the production deployment; it does not run the WebExtension or its local supervisor/bridge:
 
 ```bash
 docker compose up --build
@@ -158,7 +158,7 @@ curl -X POST http://127.0.0.1:8765/config/llm \
 Run prompt tests through the frozen Python fuzzer (it is not deployed; these commands need the retired stack of `docker-compose.legacy.yml` and its `legacy-training` profile):
 
 ```bash
-docker compose exec privoke-fuzzer \
+docker compose -f docker-compose.legacy.yml exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer runtime \
   --prompt "My email is alex@example.com"
@@ -167,7 +167,7 @@ docker compose exec privoke-fuzzer \
 Run layer probes:
 
 ```bash
-docker compose exec privoke-fuzzer \
+docker compose -f docker-compose.legacy.yml exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer regex \
   --layer ner \
@@ -176,7 +176,7 @@ docker compose exec privoke-fuzzer \
   --generated-count 8
 ```
 
-In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`. The production stack persists them in the `fuzzer-dumps` named volume.
+In the legacy stack, fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer` or kept in its `fuzzer-dumps` volume (`docker-compose.legacy.yml`). The Rust Compose files have no such volume.
 
 ## Current Prototype Boundaries
 
