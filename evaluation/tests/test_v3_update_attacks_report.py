@@ -377,7 +377,13 @@ class AssembleTest(unittest.TestCase):
         ci = [row_of(entry) for entry in self.manifest]
         container = [row_of(entry, leg="container") for entry in self.manifest if entry["wire_path"] and entry["legs"] != ["ci"]]
         container[0] = row_of(
-            next(entry for entry in self.manifest if entry["id"] == container[0]["id"]), leg="container", not_run_reason="a reason", property_met=None
+            next(entry for entry in self.manifest if entry["id"] == container[0]["id"]),
+            leg="container",
+            not_run_reason="a reason",
+            property_met=None,
+            active_before=None,
+            active_after=None,
+            rejecting_check=None,
         )
         return ci, container
 
@@ -387,6 +393,8 @@ class AssembleTest(unittest.TestCase):
         refused = row_of(entry, observed={"grpc_code": "INVALID_ARGUMENT", "receipt_status": "", "receipt_reason": "", "message": "m"})
         self.assertEqual(report.observed_label(refused), "refused:INVALID_ARGUMENT")
         self.assertEqual(report.observed_label(row_of(entry, not_run_reason="r")), "not_run")
+        client = row_of(entry, observed={"grpc_code": None, "receipt_status": None, "receipt_reason": None, "message": "m"})
+        self.assertEqual(report.observed_label(client), "client_refused")
 
     def test_a_record_is_assembled_checked_and_rendered(self):
         ci, container = self.legs()

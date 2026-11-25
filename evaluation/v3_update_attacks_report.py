@@ -305,11 +305,15 @@ def check_row(row: Any, manifest: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def observed_label(row: dict[str, Any]) -> str:
-    """What a row observed, in one label: ``not_run``, ``applied``, ``rejected:<reason>``, ``refused:<gRPC code>`` or ``ok``."""
+    """What a row observed, in one label: ``not_run``, ``applied``, ``rejected:<reason>``, ``refused:<gRPC code>``, ``client_refused``
+    (a client-side check, no call) or ``ok``."""
     if row.get("not_run_reason"):
         return "not_run"
     observed = row["observed"]
     code, status, reason = observed.get("grpc_code"), observed.get("receipt_status"), observed.get("receipt_reason")
+    if not code:
+        # A client-side admission check: no call, only the client's refusal.
+        return "client_refused"
     if code != "OK":
         return f"refused:{code}"
     if status:
@@ -371,7 +375,7 @@ def check_coverage(rows: list[dict[str, Any]], manifest: dict[str, dict[str, Any
                 errors.append(f"{ident}: a wire_path variant needs a container row or a not_run_reason")
             continue
         for row in container:
-            served = row.get("active_after", {}).get("served_manifest")
+            served = (row.get("active_after") or {}).get("served_manifest")
             if not row.get("not_run_reason") and not served:
                 errors.append(f"{ident}: its container row records no served version and carries no not_run_reason")
     return errors
@@ -483,6 +487,20 @@ def render_markdown(record: dict[str, Any]) -> str:
             ["run_dates", ", ".join(record.get("run_dates", []))],
         ],
     )
+    legs = build.get("legs", {})
+    if legs:
+        lines += ["", "### Build of each leg", ""]
+        lines += _table(["leg", "build"], [[leg, text] for leg, text in legs.items()])
+    real_build = build.get("real_leg_build")
+    if real_build:
+        lines += ["", f"Real-weight rows: build `{real_build.get('sha')}`, clean `{real_build.get('clean')}`."]
+    findings = record.get("findings", [])
+    if findings:
+        lines += ["", "## Findings", ""]
+        for finding in findings:
+            fixed = f" Fixed by `{finding['fixed_by']}`." if finding.get("fixed_by") else ""
+            extra = " ".join(finding.get(key, "") for key in ("fix", "container_leg_build") if finding.get(key))
+            lines.append(f"- **{finding.get('id')}**: {finding.get('summary')}{fixed} {extra}".rstrip())
     lines += ["", "## Chain", ""]
     lines += _table(["link", "statement"], [[key, chain.get(key)] for key in ("threat", "defense", "experiment", "metric", "evidence")])
     lines += ["", "## Aggregates", ""]
@@ -511,6 +529,27 @@ def render_markdown(record: dict[str, Any]) -> str:
             for item in controls
         ]
         lines += [*_table(["control", "request", "observed", "met"], body), ""]
+    real_leg = record.get("real_leg")
+    if real_leg:
+        lines += ["## Real-weight leg", ""]
+        lines += _table(
+            ["measure", "value"],
+            [
+                ["genuine request", real_leg.get("genuine", {}).get("request_id")],
+                ["genuine scope", real_leg.get("genuine", {}).get("scope")],
+                ["retention allowance", real_leg.get("allowance")],
+                ["update bound (max_update_l2)", real_leg.get("update_bound")],
+                ["scorer evaluations (run 2; run 1)", f"{real_leg.get('search_evaluations')}; {real_leg.get('first_search_evaluations')}"],
+                ["search seconds (run 2)", real_leg.get("search_seconds")],
+            ],
+        )
+        chosen = real_leg.get("chosen", {})
+        if chosen:
+            lines += ["", *_table(["row", "guard passes", "joint (base, candidate)", "retention violations", "L2 from the pin"], [
+                [role, item.get("guard_passes"), f"{item.get('base_joint')}, {item.get('candidate_joint')}", item.get("retention_violations"), item.get("l2_from_pin")]
+                for role, item in sorted(chosen.items())
+            ])]
+        lines.append("")
     timings = record.get("fit_timings", [])
     lines += ["## Fit timings (planning only, not a result)", ""]
     if timings:
@@ -539,11 +578,16 @@ def render_markdown(record: dict[str, Any]) -> str:
         )
     lines += _table(["id", "leg", "surface", "expected", "observed", "rejecting check", "property", "not run reason"], body)
     sections = (
+        ("Harness corrections during the run", "harness_corrections"),
         ("Deviations from the plan", "deviations"),
         ("Not established", "not_established"),
         ("User actions", "user_actions"),
         ("Commands", "commands"),
     )
+    times = record.get("run_times_utc")
+    if times:
+        lines += ["", "## Run times (UTC)", ""]
+        lines += _table(["run", "step", "time"], [[run, step, when] for run, steps in times.items() for step, when in steps.items()])
     for title, key in sections:
         items = record.get(key, [])
         lines += ["", f"## {title}", ""]

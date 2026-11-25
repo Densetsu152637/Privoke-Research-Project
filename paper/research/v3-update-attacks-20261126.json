@@ -1,0 +1,4690 @@
+{
+  "schema": "v3-update-attacks/1",
+  "study_id": "V3UPDATK-20261126",
+  "chain": {
+    "threat": "A compromised or faulty trainer (trainer or publisher role), or a corrupted transfer or store, supplies a bad V3 candidate.",
+    "defense": "Admission (admit_candidate); DriftGate, GuardGate, RetentionGate and the Publisher's staging in prepare before the compare-and-swap; the compare-and-swap with request-id idempotence, stale_base and the trainer-evidence guard, signing; model-streaming serves only signed versions; clients apply admit_lineage and verify_package.",
+    "experiment": "Every variant of rust/services/param-update/tests/s13c_rows.json: in CI (stand-in weights, test scorers), with the real Rust V3 encoder and the efficient release (C11b, C11f, C11g), and against the Compose v3-training param-update and model-streaming containers (every wire_path variant that is not CI-only).",
+    "metric": "Per variant: the active model is unchanged (current, versions, publications, served version, client mark), or applied and recovered, or applied by design; and the check that refused it.",
+    "evidence": "This record (rows, aggregates) and the row manifest; --check re-derives every aggregate."
+  },
+  "build": {
+    "branch": "feat/asiaccs-s13c2",
+    "sha": "90fcd35b67551eb555b369b398a555c7fc82a1f1",
+    "clean": true,
+    "update_path": "The V3 guarded update path exists only in the Rust build (feat/rust-rewrite line); the Python submission build has no V3 update path.",
+    "legs": {
+      "ci": "cargo test in rust:1.99.1-bookworm on 90fcd35b67551eb555b369b398a555c7fc82a1f1, clean tree.",
+      "container": "Test client on 90fcd35b67551eb555b369b398a555c7fc82a1f1, clean tree; param-update image built from git archive of b3ed95b5ffc498f35a2e8bb9e7725bcbdb758a36 (the defect fix; param-update src identical to the build sha); model-streaming image built from git archive of 4d1b8ba780f3953941f5a56884c2832ea110c6af (model-streaming src identical to the build sha).",
+      "real": "NOT the build sha and NOT clean: the real-weight leg ran on 4d1b8ba780f3953941f5a56884c2832ea110c6af plus the then uncommitted search fix that was committed unchanged as f693e5250dcc69bde71b3c9dd34d8db2df285aa5 (build.clean false for these rows). The later commits change only the rollback-control check, the C6 shape mutation and the param-update bootstrap of the pin's evidence, none of which the real rows exercise."
+    },
+    "real_leg_build": {
+      "sha": "4d1b8ba780f3953941f5a56884c2832ea110c6af+f693e52 (uncommitted at run time)",
+      "clean": false
+    }
+  },
+  "host": {
+    "os": "Windows 11 Home, Docker Desktop 29.8.2 (WSL2)",
+    "logical_cpus": 24,
+    "cpu_caps": "real leg run 1 --cpus=8 (8 fit threads); real leg run 2 --cpus=12 (12 fit threads, 3 scorings at once); image builds on a buildx docker-container builder with cpuset and quota of 8 then 12 CPUs; stack param-update cpus 10, model-streaming 1, test client 1",
+    "toolchain": "rust:1.99.1-bookworm",
+    "network": "test client on the Compose project network (param-update-service:50052, model-streaming-service:50443); published ports stay on 127.0.0.1"
+  },
+  "run_dates": [
+    "2026-11-25 (UTC)",
+    "2026-11-26 (AEST)"
+  ],
+  "run_times_utc": {
+    "heavy_run_1": {
+      "lock_taken": "2026-11-25T14:13:02Z",
+      "image_builds": "14:19:30-14:45:20",
+      "real_leg_run_1": "14:46:00-14:55:53",
+      "real_leg_run_2": "15:04:28-15:14:10",
+      "stack_up": "15:15:32",
+      "container_run_1_stopped_on_defect": "about 15:27-15:28",
+      "lock_released": "2026-11-25T15:37:03Z"
+    },
+    "heavy_run_2": {
+      "lock_taken": "2026-11-25T15:58:55Z",
+      "param_update_image_build": "15:59:44-16:10:23",
+      "container_run_2": "16:18:23-16:20:41",
+      "container_run_3": "16:23:16-16:24:48",
+      "container_run_4": "16:28:00-16:29:12",
+      "teardown": "16:29:29",
+      "ci_rows": "16:29:29-16:32:33"
+    }
+  },
+  "commands": [
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks (S13C_OUT=ci)",
+    "RUSTDOCK cargo test -p privoke-runtime-supervisor --release --locked --test s13c_client_admission (S13C_OUT=ci)",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_real_leg (PRIVOKE_V3_S13C_*, S13C_EXPORT_*, S13C_SCORE_BATCH=3)",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_rederive_shape_candidates",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_compose_pki (S13C_PKI_DIR)",
+    "docker compose -p s13c2 -f docker-compose.yml -f <scratch override> --profile v3-training up -d --no-build param-update-service model-streaming-service (FUZZER_PROMPT_COUNT=0, test PKI and publication key)",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_journal_seed (S13C_JOURNAL, S13C_ALLOCATIONS; param-update stopped)",
+    "RUSTDOCK cargo test -p privoke-param-update --release --locked --test s13c_update_attacks_real s13c_container_leg (S13C_ENDPOINT, S13C_MODEL_ENDPOINT, --network s13c2_default)",
+    "$PY evaluation/v3_update_attacks_report.py --assemble <header> --rows <ci, client, real, container rows> --out paper/research/v3-update-attacks-20261126.json --markdown paper/research/v3-update-attacks-20261126.md",
+    "$PY evaluation/v3_update_attacks_report.py --check paper/research/v3-update-attacks-20261126.json"
+  ],
+  "scope_label": "update path (Rust V3)",
+  "findings": [
+    {
+      "id": "F1 rollback-to-pin",
+      "summary": "13c-2 found that RollbackModel to the pinned standard release failed in every publishing deployment: bootstrap_pinned never stored the release's evidence.json, which the Publisher writes when it publishes the pin again, so the rollback answered NOT_FOUND 'Checkpoint object is not in this private catalog.' (container run 1, plan step 4).",
+      "fixed_by": "b3ed95b5ffc498f35a2e8bb9e7725bcbdb758a36",
+      "fix": "bootstrap_pinned stores <release>/evidence.json after checking its SHA-256 against the manifest; a mismatch is refused and nothing unverified is stored; regression tests in rust/services/param-update/tests/v3_pinned.rs.",
+      "container_leg_build": "The container rows of this record ran on the fixed build."
+    },
+    {
+      "id": "F2 v3-training healthcheck",
+      "summary": "Under the docker-compose v3-training profile, the param-update healthcheck reports NOT_SERVING: the V1 engine's Health requires /models/privoke-baseline.json, which that profile does not mount. The V3 CheckpointService answers normally; the leg ran without waiting for Compose health. Not fixed (recorded only)."
+    }
+  ],
+  "harness_corrections": [
+    "Real leg run 1 (fit and search only, no rows kept): the first scorer search found no C11b, C11f or C11g candidate; the search was changed (f693e52) and the real leg rerun (run 2), whose rows and export this record uses.",
+    "Container run 2 (fixed build): the rollback to the pin was applied, signed as sequence 2 and served, but the harness demanded an empty receipt reason (the reason is 'rollback'); corrected in 8fa6b15.",
+    "Container run 3: C6a and C6b staged as valid because the exported mutation flattened a 1-D head bias (no shape change); corrected in 90fcd35, the two candidates re-derived from the exported genuine one, and the leg rerun on a fresh stack (run 4, whose rows this record uses). Every other container row of run 3 matched run 4's expected checks."
+  ],
+  "deviations": [
+    "The container-leg test client runs in a container on the Compose project network instead of the host loopback; the services stay published on 127.0.0.1 only.",
+    "GetModelPackage is on model-streaming's public listener (consumer role), so the leg reads the served version as a registered test installation.",
+    "A scratch Compose override rebinds /model-releases to the main checkout's standard releases, renames the two containers (s13c2-...) because a stale container from another project holds the name model-streaming-service, and caps their CPUs.",
+    "The source root (the Python closure and the BC01/AU3 fixtures, as scheduler_real lays them out) is evaluation/results/s13c/source in the main checkout, mounted as V3_SOURCE_DIR.",
+    "The evidence of the exported candidates (prompt-bearing) is exported separately (S13C_EXPORT_EVIDENCE) under evaluation/results/s13c; weights and manifests under models/experiments/s13c2-20261126.",
+    "Rejection-only container candidates use the genuine candidate's evidence, not synthetic evidence: production admission validates the evidence source, so synthetic evidence would be refused before the targeted check.",
+    "C11c and C11d are refused at stage in production by the admission source validation (recorded at that check); their CI rows reach GuardGate because CI stubs that validation (the 13c-1 deviation).",
+    "C8b is not run in the real and container legs (CI only, per the plan).",
+    "C11f and C11g real candidates come from a search with the real scorers (one head bias entry of the genuine candidate, swept at the full update budget, then bisected for exactly the allowance); the search trace is summarized below.",
+    "The S13C_ALLOCATIONS parser moved to tests/s13c_allocations (shared); the report script gained --assemble."
+  ],
+  "fit_timings": [
+    {
+      "cpus": "8",
+      "outcome": "applied",
+      "request_id": "v3r-c0-efficient-heads-a0-acd05a0b",
+      "scope": "heads",
+      "tier": "efficient",
+      "wall_seconds": 45.7
+    },
+    {
+      "cpus": "8",
+      "outcome": "rejected:guard_rejected",
+      "request_id": "v3r-c0-efficient-full_encoder-a0-093bfb25",
+      "scope": "full_encoder",
+      "tier": "efficient",
+      "wall_seconds": 93.1
+    },
+    {
+      "cpus": "12",
+      "outcome": "applied",
+      "request_id": "v3r-c0-efficient-heads-a0-ff9e1fcd",
+      "scope": "heads",
+      "tier": "efficient",
+      "wall_seconds": 52.0
+    },
+    {
+      "cpus": "12",
+      "outcome": "rejected:guard_rejected",
+      "request_id": "v3r-c0-efficient-full_encoder-a0-1dde317c",
+      "scope": "full_encoder",
+      "tier": "efficient",
+      "wall_seconds": 86.6
+    }
+  ],
+  "controls": [
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 2
+      },
+      "control": "publisher commit applied",
+      "met": true,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": "applied"
+      },
+      "request_id": "v3r-c0-efficient-heads-a0-ff9e1fcd"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "control": "rollback to the pin applied",
+      "met": true,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "rollback",
+        "receipt_status": "applied"
+      },
+      "request_id": "s13c2-rollback-r2"
+    }
+  ],
+  "real_leg": {
+    "genuine": {
+      "manifest_sha": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+      "request_id": "v3r-c0-efficient-heads-a0-ff9e1fcd",
+      "scope": "heads"
+    },
+    "pin": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+    "original": "a60ab3c01592dd3d759950f35fad1a291aa94e57c954cf6beffa4e97d66a686e",
+    "allowance": 7,
+    "update_bound": 4.2,
+    "search_seconds": 165.3,
+    "search_evaluations": 50,
+    "first_search_evaluations": 36,
+    "chosen": {
+      "C11b": {
+        "retention_violations": 0,
+        "retention_eligible": 0,
+        "guard_passes": false,
+        "candidate_joint": 5,
+        "base_joint": 6,
+        "l2_from_pin": 0.9989
+      },
+      "C11f": {
+        "retention_violations": 11,
+        "retention_eligible": 155,
+        "guard_passes": true,
+        "candidate_joint": 11,
+        "base_joint": 6,
+        "l2_from_pin": 4.0624
+      },
+      "C11g": {
+        "retention_violations": 7,
+        "retention_eligible": 155,
+        "guard_passes": true,
+        "candidate_joint": 11,
+        "base_joint": 6,
+        "l2_from_pin": 3.4886
+      }
+    }
+  },
+  "not_established": [
+    "C8b (the cumulative drift cap) on real weights or in the containers: CI only.",
+    "C1b (a real race of two genuine candidates) and C1d (a deployment without the Publisher) in the containers: CI-only rows.",
+    "Balanced and quality tiers: every real and container row is on the efficient tier.",
+    "The client side on real weights: the client rows are the CI rows of s13c_client_admission.",
+    "That an exactly-at-allowance candidate arises from a routine fit: C11g's candidate was found by a scorer search.",
+    "The production publication key: every signature here uses a disposable test key."
+  ],
+  "user_actions": [],
+  "rows": [
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "store_current": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "store_current": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "versions_count": 3
+      },
+      "attack_class": 1,
+      "attempted": {
+        "candidate_sha": "b7b8557c8b9c0592aede5b007e3437876ceedeba41c8efe1f82750a8822ba625",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a second candidate on the pin after the first was applied",
+        "request_id": "s13c-a2"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C1a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "stale_base",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "stale_base",
+        "symbol": "commit compare-and-swap"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the candidate's parent was current, then another candidate on the same base was applied"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "attack_class": 1,
+      "attempted": {
+        "candidate_sha": "a616b2f968cc086ca17a46e0f4b2a3b41efc362db0a8550562f2e178d1c57d19",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine blob re-staged with evidence naming another request, on the pin, after the genuine candidate was applied",
+        "request_id": "s13c2-c1a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C1a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "stale_base",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 14,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "stale_base",
+        "symbol": "commit compare-and-swap"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the candidate's parent was current, then another candidate on the same base was applied"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 4,
+        "publications_count": 4,
+        "served_manifest": "b735fe5d39d7fe71da48816ec0019343a62727c0f6d93e87f57c27e69599965a",
+        "store_current": "b735fe5d39d7fe71da48816ec0019343a62727c0f6d93e87f57c27e69599965a",
+        "versions_count": 6
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 3,
+        "publications_count": 3,
+        "served_manifest": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "store_current": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "versions_count": 5
+      },
+      "attack_class": 1,
+      "attempted": {
+        "candidate_sha": "e6fdcf46a6cb6da1b7838538a55c015aed93657e7d43307ded6551526a4ad0cc",
+        "expected_base": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "two concurrent commits on one base; the row records the loser",
+        "request_id": "s13c-y"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C1b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "stale_base",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 7,
+      "property_met": true,
+      "race": {
+        "applied": 1,
+        "loser_request": "s13c-y",
+        "winner_request": "s13c-x"
+      },
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "stale_base",
+        "symbol": "commit compare-and-swap"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "two distinct candidates race on one base"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 3,
+        "publications_count": 3,
+        "served_manifest": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "store_current": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "versions_count": 5
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 3,
+        "publications_count": 3,
+        "served_manifest": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "store_current": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "versions_count": 5
+      },
+      "attack_class": 1,
+      "attempted": {
+        "candidate_sha": "2826a1169b221319f6deb55547d9a27e4641809029e0cc8de9be1c511a52ae44",
+        "expected_base": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "RollbackModel to a staged, never committed manifest",
+        "request_id": "s13c-d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C1c",
+      "identity": "publisher-s13c (publisher)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Rollback target is not in the history of this model.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 5,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Rollback target is not in the history of this model.",
+        "symbol": "rollback"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "rollback",
+      "variant": "a rollback to a manifest that was never committed for the model"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "attack_class": 1,
+      "attempted": {
+        "candidate_sha": "a616b2f968cc086ca17a46e0f4b2a3b41efc362db0a8550562f2e178d1c57d19",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "RollbackModel to a staged, never applied manifest",
+        "request_id": "s13c2-rollback-r2-c1c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C1c",
+      "identity": "s13c2-publisher (publisher)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Rollback target is not in the history of this model.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 14,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Rollback target is not in the history of this model.",
+        "symbol": "rollback"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "rollback",
+      "variant": "a rollback to a manifest that was never committed for the model"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "e4f264d90beae52b9c33a21457182dfd64211222f1f7e29f0f2c41c47ee11d01",
+        "versions_count": 4
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "e4f264d90beae52b9c33a21457182dfd64211222f1f7e29f0f2c41c47ee11d01",
+        "versions_count": 4
+      },
+      "attack_class": 1,
+      "attempted": {
+        "candidate_sha": "1225e750c832f2bbfe45a71d1894a4158f4ec219eb5f758d69916f64d499c345",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "RollbackModel to a version applied without a publication",
+        "request_id": "s13c-c1d-a"
+      },
+      "chain": "no_publisher",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C1d",
+      "identity": "publisher-s13c (publisher)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Rollback target was never published.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Rollback target was never published.",
+        "symbol": "rollback"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "rollback",
+      "variant": "a rollback to a version that went live unsigned (chain no_publisher)"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "attack_class": 2,
+      "attempted": {
+        "candidate_sha": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the exact first commit, resent after the second version was applied",
+        "request_id": "s13c-a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "noop_unchanged",
+      "id": "C2a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": "applied"
+      },
+      "orphan_blobs": 2,
+      "property_met": true,
+      "receipt_status_stored": "applied",
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "returns the stored receipt (receipt_status applied)",
+        "symbol": "replay / replayed"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the same request id and content after a later update"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 2,
+      "attempted": {
+        "candidate_sha": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the exact genuine commit, resent after the rollback to the pin",
+        "request_id": "v3r-c0-efficient-heads-a0-ff9e1fcd"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "noop_unchanged",
+      "id": "C2a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": "applied"
+      },
+      "orphan_blobs": 14,
+      "property_met": true,
+      "receipt_status_stored": "applied",
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "returns the stored receipt (receipt_status applied)",
+        "symbol": "replay / replayed"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the same request id and content after a later update"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "attack_class": 2,
+      "attempted": {
+        "candidate_sha": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the first request id naming another candidate and evidence",
+        "request_id": "s13c-a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C2b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Request ID reused with different commit content.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 2,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Request ID reused with different commit content.",
+        "symbol": "replayed"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the same request id with different content"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "attack_class": 2,
+      "attempted": {
+        "candidate_sha": "a616b2f968cc086ca17a46e0f4b2a3b41efc362db0a8550562f2e178d1c57d19",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine request id naming another candidate and evidence",
+        "request_id": "v3r-c0-efficient-heads-a0-ff9e1fcd"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C2b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Request ID reused with different commit content.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 14,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Request ID reused with different commit content.",
+        "symbol": "replayed"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the same request id with different content"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "a193f36c2c8ce6b81546a7cfad27b804c5a20603095cfb4f09f0cd6569ddee19",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "a193f36c2c8ce6b81546a7cfad27b804c5a20603095cfb4f09f0cd6569ddee19",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": 2,
+      "attempted": {
+        "candidate_sha": "a193f36c2c8ce6b81546a7cfad27b804c5a20603095cfb4f09f0cd6569ddee19",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the sequence-1 statement after sequence 2",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C2c",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "publication sequence 1 is below the accepted high-water mark 2",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/v3.rs",
+        "reason": "LineageError::Replay",
+        "symbol": "admit_lineage"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "the client is served an older signed statement"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "2ec1f359aa4857491e82ada14be116e7bd59cc8efa6207a062127b1f977617a6",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "2ec1f359aa4857491e82ada14be116e7bd59cc8efa6207a062127b1f977617a6",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": 2,
+      "attempted": {
+        "candidate_sha": "2ec1f359aa4857491e82ada14be116e7bd59cc8efa6207a062127b1f977617a6",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the unsigned pinned ORIGINAL after a signed version",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C2d",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "unsigned ORIGINAL refused: a signed version was already accepted for this model",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/v3.rs",
+        "reason": "LineageError::Downgrade",
+        "symbol": "admit_lineage"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "the client is served the unsigned pin after a signed version"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "attack_class": 3,
+      "attempted": {
+        "candidate_sha": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "expected_base": "dd39fc4d5e6f08b57e5cbb860566a393caa99186f29c7122b6f8488b98b4d570",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the current candidate under request id s13c-b-again",
+        "request_id": "s13c-b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C3a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Commit identity differs from candidate/fit evidence.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 2,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Commit identity differs from candidate/fit evidence.",
+        "symbol": "commit identity check"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a candidate that is already current is committed again under a new request id"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "attack_class": 3,
+      "attempted": {
+        "candidate_sha": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the current genuine candidate under a new request id",
+        "request_id": "s13c2-c3a-r4"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C3a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Commit identity differs from candidate/fit evidence.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 12,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Commit identity differs from candidate/fit evidence.",
+        "symbol": "commit identity check"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a candidate that is already current is committed again under a new request id"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "store_current": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "versions_count": 4
+      },
+      "attack_class": 3,
+      "attempted": {
+        "candidate_sha": "e076e092c2e8a63b8b074544501692b25f84fa0b261ca059376df68531d11292",
+        "expected_base": "d23769af15d887148892344a465d1cdf861373ede0acabe488154538a28bff5b",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the same blob and manifest uploaded again",
+        "request_id": "s13c-c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "noop_unchanged",
+      "id": "C3b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 5,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "the second stage is idempotent",
+        "symbol": "put (content addressed)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the same candidate is staged twice"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "store_current": "81743be0a19835bf78b477ce0b698fef10d37e57cfd3363bfc3d3569566858fa",
+        "versions_count": 3
+      },
+      "attack_class": 3,
+      "attempted": {
+        "candidate_sha": "a616b2f968cc086ca17a46e0f4b2a3b41efc362db0a8550562f2e178d1c57d19",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the same blob and manifest uploaded again",
+        "request_id": "s13c2-c1a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "noop_unchanged",
+      "id": "C3b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 14,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "the second stage is idempotent",
+        "symbol": "put (content addressed)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the same candidate is staged twice"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "ed8e5d4175ce8a65e07dd5eeee95c12535fc04bf1fa73298b12d2e84c7a50cda",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the commit names privoke-v3-balanced",
+        "request_id": "s13c-c4a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Commit identity differs from candidate/fit evidence.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 5,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Commit identity differs from candidate/fit evidence.",
+        "symbol": "commit identity check"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "Commit.model_id differs from the manifest"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "332872e5a98a720d68247b9721ef173122861fb9b25b1068af3d1f7469861986",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the commit names privoke-v3-balanced",
+        "request_id": "s13c2-c4a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Commit identity differs from candidate/fit evidence.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 32,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Commit identity differs from candidate/fit evidence.",
+        "symbol": "commit identity check"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "Commit.model_id differs from the manifest"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "55be1aa5a32f03b9023bad1280dd6fcb60170076044d6eba353919305a39da02",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a valid balanced-tier manifest whose parent is an efficient version",
+        "request_id": "s13c-c4b-1"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate changed immutable model provenance/config.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 2,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate changed immutable model provenance/config.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the manifest model_id, tier, config or vocab differs from the parent"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "5bad8195a6bb9d3f9ef1c5fb773a524ffbe9a2c5a74dfaf199a1cdea4e4b5ee1",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a balanced-tier manifest whose parent is the efficient pin",
+        "request_id": "s13c2-c4b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate changed immutable model provenance/config.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 15,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate changed immutable model provenance/config.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the manifest model_id, tier, config or vocab differs from the parent"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "175446198cbe6bce46d0be8e1810ab20234de4baaa76cda34ab4e22bfbbb6b14",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the original field names another manifest",
+        "request_id": "s13c-c4c-2"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4c",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate ORIGINAL binding mismatch.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate ORIGINAL binding mismatch.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a wrong original"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "1c023e7e0c66dba996244bd71290287a64f319d53536ebe71669c0491d2c3b8f",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the original field names another manifest",
+        "request_id": "s13c2-c4c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4c",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate ORIGINAL binding mismatch.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 16,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate ORIGINAL binding mismatch.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a wrong original"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "5b37115a71e051df2ed757fc3ba66c3456373627cf33f1d4180c5c807afdf2b9",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the commit's expected base is the ORIGINAL",
+        "request_id": "s13c-c4d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4d",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Commit identity differs from candidate/fit evidence.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 7,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Commit identity differs from candidate/fit evidence.",
+        "symbol": "commit identity check"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "expected_base differs from the manifest's parent"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "1b1a6d171d3cf516576a8018800548c521bd6f4462e5f368361fdf3ba6ec1470",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the commit's expected base is the ORIGINAL",
+        "request_id": "s13c2-c4d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4d",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Commit identity differs from candidate/fit evidence.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 34,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Commit identity differs from candidate/fit evidence.",
+        "symbol": "commit identity check"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "expected_base differs from the manifest's parent"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "9fd3275a2176f06e35c7a6efe7706b5109864303b6af4256b6ba236e8bdf1348",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the ORIGINAL manifest staged as a candidate",
+        "request_id": "s13c-c4e"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4e",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidates cannot claim ORIGINAL scope.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidates cannot claim ORIGINAL scope.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "scope original"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "a60ab3c01592dd3d759950f35fad1a291aa94e57c954cf6beffa4e97d66a686e",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the ORIGINAL manifest staged as a candidate",
+        "request_id": "s13c2-c4e"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4e",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidates cannot claim ORIGINAL scope.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidates cannot claim ORIGINAL scope.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "scope original"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": 4,
+      "attempted": {
+        "candidate_sha": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a signed statement that names another manifest",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C4f",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "publication statement names another manifest",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/v3.rs",
+        "reason": "StatementManifest; StatementModel and WrongOriginal were refused too",
+        "symbol": "LineageError::StatementModel / StatementManifest / WrongOriginal"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "the client receives a statement for another model or manifest"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 5,
+      "attempted": {
+        "candidate_sha": "821944795094533d62bd6c033723287bd1d3043ac62f58f5fa6df09a74689d44",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the heads tensor renamed everywhere",
+        "request_id": "s13c-c5a-3"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C5a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate changed admitted tensor inventory.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 9,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate changed admitted tensor inventory.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a tensor renamed in both the manifest and the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 5,
+      "attempted": {
+        "candidate_sha": "87d62e99f5c5a8a231abd08895a144481ac1567d71202d518ae984c335af6a96",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a heads tensor renamed everywhere",
+        "request_id": "s13c2-c5a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C5a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate changed admitted tensor inventory.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 18,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate changed admitted tensor inventory.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a tensor renamed in both the manifest and the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 5,
+      "attempted": {
+        "candidate_sha": "e4ad7ce43f70a0fd6434d70085186f6ff4730700596d10604f62b28635b76678",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the heads tensor renamed in the blob only",
+        "request_id": "s13c-c5b-4"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C5b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Safetensors inventory differs from manifest.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 10,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Safetensors inventory differs from manifest.",
+        "symbol": "verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the manifest inventory differs from the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 5,
+      "attempted": {
+        "candidate_sha": "433e81b0f86487199e24ae0f1ae4b8eaa79b1f01e7c3d14ffc16d081ccbeccbc",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a heads tensor renamed in the blob only",
+        "request_id": "s13c2-c5b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C5b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Safetensors inventory differs from manifest.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 19,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Safetensors inventory differs from manifest.",
+        "symbol": "verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the manifest inventory differs from the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 6,
+      "attempted": {
+        "candidate_sha": "5e0aff6b39d682d39018ebe3ebffc7b4874db471c3d4501bce969eb4fcb12eb1",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the heads tensor reshaped to 20 by 129 everywhere",
+        "request_id": "s13c-c6a-5"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C6a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate changed admitted tensor inventory.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 12,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate changed admitted tensor inventory.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the shape changed in both the manifest and the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 6,
+      "attempted": {
+        "candidate_sha": "d2e508fec3959badf32bbdf037f56d375fcd7e44f47ff2be840841a4a27ecd2d",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a heads tensor flattened everywhere",
+        "request_id": "s13c2-c6a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C6a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate changed admitted tensor inventory.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 21,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate changed admitted tensor inventory.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the shape changed in both the manifest and the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 6,
+      "attempted": {
+        "candidate_sha": "8797b6089dde5498129cd48d445fa9d7095a4a0d9f0444300812af5b7720cac6",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the heads tensor reshaped in the blob only",
+        "request_id": "s13c-c6b-6"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C6b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Safetensors inventory differs from manifest.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 13,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Safetensors inventory differs from manifest.",
+        "symbol": "verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the shape changed only in the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 6,
+      "attempted": {
+        "candidate_sha": "1840d454e75d1a981817dbb082ce4d57b455a62d15d54cc4b6034d627a23dc14",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a heads tensor flattened in the blob only",
+        "request_id": "s13c2-c6b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C6b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Safetensors inventory differs from manifest.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 22,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Safetensors inventory differs from manifest.",
+        "symbol": "verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the shape changed only in the blob"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 7,
+      "attempted": {
+        "candidate_sha": "c5ecc1b0e3d7f20d195f79ed9165b62574cde01c4d31f39387a78566c1d35526",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "NaN in one heads coordinate",
+        "request_id": "s13c-c7a-7"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C7a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Snapshot tensors must be finite float32.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 15,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-semantic/src/safetensors.rs",
+        "reason": "Snapshot tensors must be finite float32.",
+        "symbol": "finite check, called from verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "NaN in one heads coordinate"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 7,
+      "attempted": {
+        "candidate_sha": "8466ae0b34cb83f59419b3ccf2feca9844d58aea3fdaca0aedfe839226812310",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "NaN in one heads coordinate",
+        "request_id": "s13c2-c7a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C7a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Snapshot tensors must be finite float32.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 24,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-semantic/src/safetensors.rs",
+        "reason": "Snapshot tensors must be finite float32.",
+        "symbol": "finite check, called from verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "NaN in one heads coordinate"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 7,
+      "attempted": {
+        "candidate_sha": "a41425a11741d0d19f1b669a77e33d13d91eb9f3a8bb301e959ba736def227e4",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "+Inf in one heads coordinate",
+        "request_id": "s13c-c7b-8"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C7b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Snapshot tensors must be finite float32.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 17,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-semantic/src/safetensors.rs",
+        "reason": "Snapshot tensors must be finite float32.",
+        "symbol": "finite check, called from verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "+Inf in one heads coordinate"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 7,
+      "attempted": {
+        "candidate_sha": "3754a38d3c82fe9b3a19ab4885ecf4a7e0193d01aa7afffe9a52cf9b79f2466a",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "+Inf in one heads coordinate",
+        "request_id": "s13c2-c7b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C7b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Snapshot tensors must be finite float32.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 26,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-semantic/src/safetensors.rs",
+        "reason": "Snapshot tensors must be finite float32.",
+        "symbol": "finite check, called from verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "+Inf in one heads coordinate"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 7,
+      "attempted": {
+        "candidate_sha": "452147502f1e5b09e5935183d2f7c7a779466286fb07854c1e10c6cc21362e46",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "-Inf in one heads coordinate",
+        "request_id": "s13c-c7c-9"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C7c",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Snapshot tensors must be finite float32.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 19,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-semantic/src/safetensors.rs",
+        "reason": "Snapshot tensors must be finite float32.",
+        "symbol": "finite check, called from verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "-Inf in one heads coordinate"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 7,
+      "attempted": {
+        "candidate_sha": "e7e556fe967f579b3c2b5846b34d9108f46e2e16e31f8add95c5676a94f1caa7",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "-Inf in one heads coordinate",
+        "request_id": "s13c2-c7c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C7c",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Snapshot tensors must be finite float32.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 28,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-semantic/src/safetensors.rs",
+        "reason": "Snapshot tensors must be finite float32.",
+        "symbol": "finite check, called from verify_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "-Inf in one heads coordinate"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "71ef8bdec022abf4d7cde62b98389b71d7171eb6ba2c3eaecb1a940cc23a9c4c",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the heads move by 5.0 against a bound of 4.2",
+        "request_id": "s13c-c8a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "drift_exceeded",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_policy.rs",
+        "reason": "drift_exceeded",
+        "symbol": "DriftGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "one update above max_update_l2"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "95c627dceed2310fd50b35ff007bd481ebe1b8830a2e4e2b8619f595223bc60b",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine candidate moved beyond the bound on its heads",
+        "request_id": "s13c2-c8a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "drift_exceeded",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 37,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_policy.rs",
+        "reason": "drift_exceeded",
+        "symbol": "DriftGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "one update above max_update_l2"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 23,
+        "publications_count": 23,
+        "served_manifest": "7c30497699ea504551852070418a7113ee8fc5b09ce0ebcb4b1f3891e8dc07c3",
+        "store_current": "7c30497699ea504551852070418a7113ee8fc5b09ce0ebcb4b1f3891e8dc07c3",
+        "versions_count": 25
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 23,
+        "publications_count": 23,
+        "served_manifest": "7c30497699ea504551852070418a7113ee8fc5b09ce0ebcb4b1f3891e8dc07c3",
+        "store_current": "7c30497699ea504551852070418a7113ee8fc5b09ce0ebcb4b1f3891e8dc07c3",
+        "versions_count": 25
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "e4e28e03d62a5e12b3083f82eb1e84130823b84631092ceb69e43d9fb6c6c9c7",
+        "expected_base": "7c30497699ea504551852070418a7113ee8fc5b09ce0ebcb4b1f3891e8dc07c3",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "24 updates of 4.19 each on the heads; the row records the last",
+        "request_id": "s13c-c8b-24"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "drift_exceeded",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 3,
+      "per_update_l2": 4.190000057220459,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_policy.rs",
+        "reason": "drift_exceeded",
+        "symbol": "DriftGate::prepare (cumulative from DriftGate::root)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "updates_applied": 23,
+      "variant": "a run of updates each under the per-update bound until the cumulative cap of 100"
+    },
+    {
+      "active_after": null,
+      "active_before": null,
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "",
+        "expected_base": "",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "",
+        "request_id": ""
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8b",
+      "identity": "",
+      "leg": "real",
+      "not_run_reason": "C8b needs about 25 consecutive in-bound updates to reach the cumulative cap of 100; it runs synthetically in CI only (stand-in weights and test scorers), and the real-weight and container legs build one genuine candidate",
+      "observed": {
+        "grpc_code": "",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": null,
+      "rejecting_check": null,
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a run of updates each under the per-update bound until the cumulative cap of 100"
+    },
+    {
+      "active_after": null,
+      "active_before": null,
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "",
+        "expected_base": "",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "",
+        "request_id": ""
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8b",
+      "identity": "",
+      "leg": "container",
+      "not_run_reason": "C8b needs about 25 consecutive in-bound updates to reach the cumulative cap of 100; it runs synthetically in CI only (stand-in weights and test scorers), and the real-weight and container legs build one genuine candidate",
+      "observed": {
+        "grpc_code": "",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": null,
+      "rejecting_check": null,
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a run of updates each under the per-update bound until the cumulative cap of 100"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "00436b2facd05303ac036d3972ed0e7ff094763826eae34042207326e5748c93",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "scope heads, the encoder tensors changed, the evidence reports it",
+        "request_id": "s13c-c8c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8c",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "HEADS changed pretrained encoder.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/v3.rs",
+        "reason": "HEADS changed pretrained encoder.",
+        "symbol": "validate_execution"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a HEADS candidate that changes encoder bytes, with honest evidence"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "eee0819332387d1e531d96ed6db00cd03525ee0e1f330fc2dd53987c4b4df976",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "scope heads, encoder tensors changed, the evidence reports it",
+        "request_id": "s13c2-c8c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8c",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "HEADS changed pretrained encoder.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/v3.rs",
+        "reason": "HEADS changed pretrained encoder.",
+        "symbol": "validate_execution"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a HEADS candidate that changes encoder bytes, with honest evidence"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "4aea4647529a14bc5e2bb6f8020a9db50eb29790a122932564212db10a352c52",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "scope heads, the encoder tensors changed, the evidence reports heads only",
+        "request_id": "s13c-c8d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8d",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Reported changes differ from actual checkpoint tensors.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 5,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Reported changes differ from actual checkpoint tensors.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the same with dishonest changed_tensors and changes"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 8,
+      "attempted": {
+        "candidate_sha": "b88d2c65c960512ffc9cd68ffa52b71dab8ad41cc6a52442e1ead7f85e85c84b",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "scope heads, encoder tensors changed, the evidence reports heads only",
+        "request_id": "s13c2-c8d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C8d",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Reported changes differ from actual checkpoint tensors.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Reported changes differ from actual checkpoint tensors.",
+        "symbol": "admit_candidate"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the same with dishonest changed_tensors and changes"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "58f99c7986f732d8b631ecac5c95eb666ff137db6defb02d2cd636a6fcb6cf19",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "one chunk of a longer declared blob",
+        "request_id": "s13c-c9"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Incomplete/corrupt checkpoint upload.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/service.rs",
+        "reason": "Incomplete/corrupt checkpoint upload.",
+        "symbol": "stage_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the stream ends early"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "332872e5a98a720d68247b9721ef173122861fb9b25b1068af3d1f7469861986",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "one chunk of a longer declared blob",
+        "request_id": "s13c2-c4a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Incomplete/corrupt checkpoint upload.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/service.rs",
+        "reason": "Incomplete/corrupt checkpoint upload.",
+        "symbol": "stage_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the stream ends early"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "58f99c7986f732d8b631ecac5c95eb666ff137db6defb02d2cd636a6fcb6cf19",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the second chunk starts one chunk too late",
+        "request_id": "s13c-c9"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Invalid bounded ordered checkpoint upload.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/service.rs",
+        "reason": "Invalid bounded ordered checkpoint upload.",
+        "symbol": "stage_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "an offset gap"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "332872e5a98a720d68247b9721ef173122861fb9b25b1068af3d1f7469861986",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the second chunk starts one chunk too late",
+        "request_id": "s13c2-c4a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Invalid bounded ordered checkpoint upload.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/service.rs",
+        "reason": "Invalid bounded ordered checkpoint upload.",
+        "symbol": "stage_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "an offset gap"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "58f99c7986f732d8b631ecac5c95eb666ff137db6defb02d2cd636a6fcb6cf19",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the declared digest names other bytes",
+        "request_id": "s13c-c9"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9c",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Incomplete/corrupt checkpoint upload.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/service.rs",
+        "reason": "Incomplete/corrupt checkpoint upload.",
+        "symbol": "stage_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the declared sha256 differs from the bytes"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "332872e5a98a720d68247b9721ef173122861fb9b25b1068af3d1f7469861986",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the declared digest names other bytes",
+        "request_id": "s13c2-c4a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9c",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Incomplete/corrupt checkpoint upload.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/service.rs",
+        "reason": "Incomplete/corrupt checkpoint upload.",
+        "symbol": "stage_checkpoint"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the declared sha256 differs from the bytes"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "58f99c7986f732d8b631ecac5c95eb666ff137db6defb02d2cd636a6fcb6cf19",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the manifest of one candidate with the checkpoint of another",
+        "request_id": "s13c-c9"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9d",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate snapshot identity mismatch.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate snapshot identity mismatch.",
+        "symbol": "stage"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the manifest blob differs from the uploaded bytes"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "332872e5a98a720d68247b9721ef173122861fb9b25b1068af3d1f7469861986",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the manifest of one candidate with the checkpoint of another",
+        "request_id": "s13c2-c4a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9d",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Candidate snapshot identity mismatch.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 30,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Candidate snapshot identity mismatch.",
+        "symbol": "stage"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "the manifest blob differs from the uploaded bytes"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "929cfc308d4087c521a6c1b1e13b07af1b6c612c5a546d19eb8d8f410cb4c6da",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the first byte of the staged checkpoint flipped in the store",
+        "request_id": "s13c-c9e"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9e",
+      "identity": "trainer-s13c (trainer)",
+      "label": "at-rest defence in depth",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Immutable blob hash mismatch.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "Immutable blob hash mismatch.",
+        "symbol": "read"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a store blob is corrupted at rest before commit"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "refused:DATA_LOSS",
+        "store_current": "2674c2c840a73a5be86a5a0d646795267b1b6f657e1790a420c7fb0450085005",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "2674c2c840a73a5be86a5a0d646795267b1b6f657e1790a420c7fb0450085005",
+        "store_current": "2674c2c840a73a5be86a5a0d646795267b1b6f657e1790a420c7fb0450085005",
+        "versions_count": 3
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "2674c2c840a73a5be86a5a0d646795267b1b6f657e1790a420c7fb0450085005",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the first byte of the published checkpoint flipped",
+        "request_id": "s13c-c9f"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9f-serve",
+      "identity": "trainer-s13c (trainer)",
+      "label": "at-rest defence in depth",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "DATA_LOSS",
+        "message": "model asset hash mismatch",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/model-streaming/src/published.rs",
+        "reason": "model asset hash mismatch",
+        "symbol": "package / stream_asset re-hash"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "serve",
+      "variant": "a published asset is corrupted at rest before serving"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": 9,
+      "attempted": {
+        "candidate_sha": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the checkpoint is streamed with its first byte flipped",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C9f-client",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "Model asset stream is incomplete or corrupted",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/runtime-supervisor/src/fetch.rs",
+        "reason": "Model asset stream is incomplete or corrupted",
+        "symbol": "download / verify_package"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "a published asset is corrupted at rest before serving, seen by the client"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 10,
+      "attempted": {
+        "candidate_sha": "84a1c53fb539820d0e1fcc147411b2e6bdbde9b3044f0c419a3f4738ba3b8dfb",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "crash at staged",
+        "request_id": "s13c-c10a"
+      },
+      "chain": "main",
+      "combined": false,
+      "crash": {
+        "authority_applied_before_restart": false,
+        "phase": "staged",
+        "pointer_before_restart": null,
+        "reconciled": {
+          "cleaned": 0,
+          "pointers": 0,
+          "promoted": 0,
+          "quarantined": 1,
+          "rebuilt": 0
+        },
+        "served_before_restart": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae"
+      },
+      "expected": "rejected_unchanged",
+      "id": "C10a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INTERNAL",
+        "message": "injected failure at staged: simulated crash at staged",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_publish.rs",
+        "reason": "the commit errors and rolls back",
+        "symbol": "Publisher::prepare (CrashHook staged)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a CrashHook failure at staged, then a restart and Publisher::reconcile"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 10,
+      "attempted": {
+        "candidate_sha": "7bd6707ccf0b42a74c0447c71e45b4e351e6b1435234ff0750088a4234bb4839",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "crash at signed",
+        "request_id": "s13c-c10b"
+      },
+      "chain": "main",
+      "combined": false,
+      "crash": {
+        "authority_applied_before_restart": false,
+        "phase": "signed",
+        "pointer_before_restart": null,
+        "reconciled": {
+          "cleaned": 0,
+          "pointers": 0,
+          "promoted": 0,
+          "quarantined": 1,
+          "rebuilt": 0
+        },
+        "served_before_restart": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae"
+      },
+      "expected": "rejected_unchanged",
+      "id": "C10b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INTERNAL",
+        "message": "injected failure at signed: simulated crash at signed",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_publish.rs",
+        "reason": "the commit errors and rolls back",
+        "symbol": "Publisher::before_swap (CrashHook signed)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a CrashHook failure at signed, then a restart and Publisher::reconcile"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "8230ea30d63f108592bdf3bf87616de2da5ae55ee373fbad5966de8bda6647a8",
+        "store_current": "8230ea30d63f108592bdf3bf87616de2da5ae55ee373fbad5966de8bda6647a8",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 10,
+      "attempted": {
+        "candidate_sha": "8230ea30d63f108592bdf3bf87616de2da5ae55ee373fbad5966de8bda6647a8",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "crash at committed",
+        "request_id": "s13c-c10c"
+      },
+      "chain": "main",
+      "combined": false,
+      "crash": {
+        "authority_applied_before_restart": true,
+        "phase": "committed",
+        "pointer_before_restart": null,
+        "reconciled": {
+          "cleaned": 0,
+          "pointers": 1,
+          "promoted": 1,
+          "quarantined": 0,
+          "rebuilt": 0
+        },
+        "served_before_restart": "refused:UNAVAILABLE"
+      },
+      "expected": "applied_recovered",
+      "id": "C10c",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INTERNAL",
+        "message": "injected failure at committed: simulated crash at committed",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_publish.rs",
+        "reason": "applied before the crash; recovered by reconcile",
+        "symbol": "Publisher::after_commit (CrashHook committed); reconcile promotes the staged directory"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a CrashHook failure at committed, then a restart and Publisher::reconcile"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "5b338a8a9b06ca39dd13bd578384789d5385305d4c6387abac51828663d59913",
+        "store_current": "5b338a8a9b06ca39dd13bd578384789d5385305d4c6387abac51828663d59913",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 10,
+      "attempted": {
+        "candidate_sha": "5b338a8a9b06ca39dd13bd578384789d5385305d4c6387abac51828663d59913",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "crash at renamed",
+        "request_id": "s13c-c10d"
+      },
+      "chain": "main",
+      "combined": false,
+      "crash": {
+        "authority_applied_before_restart": true,
+        "phase": "renamed",
+        "pointer_before_restart": null,
+        "reconciled": {
+          "cleaned": 0,
+          "pointers": 1,
+          "promoted": 0,
+          "quarantined": 0,
+          "rebuilt": 0
+        },
+        "served_before_restart": "5b338a8a9b06ca39dd13bd578384789d5385305d4c6387abac51828663d59913"
+      },
+      "expected": "applied_recovered",
+      "id": "C10d",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INTERNAL",
+        "message": "injected failure at renamed: simulated crash at renamed",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_publish.rs",
+        "reason": "applied before the crash; recovered by reconcile",
+        "symbol": "Publisher::publish (CrashHook renamed); reconcile repairs the pointer"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a CrashHook failure at renamed, then a restart and Publisher::reconcile"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "bb89b485c325f7edc2d0b33d987bff9238a0ccb5ecd104cdc817f3d7ffa1ab98",
+        "store_current": "bb89b485c325f7edc2d0b33d987bff9238a0ccb5ecd104cdc817f3d7ffa1ab98",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 10,
+      "attempted": {
+        "candidate_sha": "bb89b485c325f7edc2d0b33d987bff9238a0ccb5ecd104cdc817f3d7ffa1ab98",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "crash at pointer",
+        "request_id": "s13c-c10e"
+      },
+      "chain": "main",
+      "combined": false,
+      "crash": {
+        "authority_applied_before_restart": true,
+        "phase": "pointer",
+        "pointer_before_restart": "bb89b485c325f7edc2d0b33d987bff9238a0ccb5ecd104cdc817f3d7ffa1ab98",
+        "reconciled": {
+          "cleaned": 0,
+          "pointers": 0,
+          "promoted": 0,
+          "quarantined": 0,
+          "rebuilt": 0
+        },
+        "served_before_restart": "bb89b485c325f7edc2d0b33d987bff9238a0ccb5ecd104cdc817f3d7ffa1ab98"
+      },
+      "expected": "applied_recovered",
+      "id": "C10e",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INTERNAL",
+        "message": "injected failure at pointer: simulated crash at pointer",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_publish.rs",
+        "reason": "applied before the crash; recovered by reconcile",
+        "symbol": "Publisher::publish (CrashHook pointer); reconcile cleans up"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a CrashHook failure at pointer, then a restart and Publisher::reconcile"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "7539fa0331e7fae55acb76998e1d239c539bc4857981580e7d93bbe479598e08",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "evidence whose candidate guard blocks a row that should allow",
+        "request_id": "s13c-c11a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11a",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "guard_rejected",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "guard_rejected",
+        "symbol": "commit via v3::publication_passes"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "honest evidence of a guard harm"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "a665cad74e60a3f98d9bcaed6066da65ea2a1f2851cc1bef8973cee42cfeb67d",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine blob with evidence whose candidate guard blocks a row that should allow",
+        "request_id": "s13c2-c11a"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11a",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "guard_rejected",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 39,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/store.rs",
+        "reason": "guard_rejected",
+        "symbol": "commit via v3::publication_passes"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "honest evidence of a guard harm"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "b8aac3809feaad45ab655d01050ce97e5759d54842d351381e9509ec7822ded6",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the guard scorer reports a failure",
+        "request_id": "s13c-c11b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11b",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "guard_recomputed",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 6,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "guard_recomputed",
+        "symbol": "GuardGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the evidence claims a pass, but the recomputed guard fails"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 2
+      },
+      "allowance": 7,
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "b1a26d880e899f5cd0b6f260824a84f750ee0b815c09d4cb142ee5b59a010009",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine evidence over weights moved back toward the pin",
+        "request_id": "s13c2-c11b-real"
+      },
+      "chain": "main",
+      "combined": false,
+      "eligible_rows": 0,
+      "expected": "rejected_unchanged",
+      "id": "C11b",
+      "identity": "in-process store (trainer path; real scorers)",
+      "leg": "real",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "guard_recomputed",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 52,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "guard_recomputed",
+        "symbol": "GuardGate::prepare (V3Scorer, Rust V3 encoder)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the evidence claims a pass, but the recomputed guard fails"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "cadcb0fc27a7dc8096fd67ef9d0717f416b5ac2948910f592711672395f18959",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine evidence over weights moved back toward the pin",
+        "request_id": "s13c2-c11b"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11b",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "guard_recomputed",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 42,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "guard_recomputed",
+        "symbol": "GuardGate::prepare (V3Scorer, Rust V3 encoder)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the evidence claims a pass, but the recomputed guard fails"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "8d4d4cd250d3fc7fe3977618788aac5350cd9838e353771dfd7a92b76e960119",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the first guard target of the evidence differs from the rebuilt row",
+        "request_id": "s13c-c11c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11c",
+      "identity": "trainer-s13c (trainer)",
+      "label": "defence in depth: admission source validation stubbed in CI (production refuses this at stage)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "guard_rows_differ",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 9,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "guard_rows_differ",
+        "symbol": "GuardGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "substituted guard rows"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "4c877b034dec4d795113a3d96a64dd04535d16dc4415d7fd82bc2a4b4e28e066",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the first guard target of the evidence differs from the dispatched row",
+        "request_id": "s13c2-c11c"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11c",
+      "identity": "s13c2-trainer (trainer)",
+      "label": "defence in depth: production refuses this at stage (admission source validation); the CI row reaches GuardGate",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Execution guard targets differ from dispatched pinned source.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 48,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_store/evidence.rs",
+        "reason": "Execution guard targets differ from dispatched pinned source.",
+        "symbol": "guard_targets (admission source validation)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "substituted guard rows"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "2506d1ad38ba0720c42f2b2fad31b9c95decdeb5b03d173dee576df7aa188903",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the evidence source hashes are tampered",
+        "request_id": "s13c-c11d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11d",
+      "identity": "trainer-s13c (trainer)",
+      "label": "defence in depth: admission source validation stubbed in CI (production refuses this at stage); the seed-only variant is also asserted here, as commitment_mismatch",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "commitment_mismatch",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 12,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "commitment_mismatch",
+        "symbol": "GuardGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "a trainer-chosen source or seed"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "c922098dc5054d1644814ee80aadb7080bcd03d02d72bc2b252407c27532672a",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the evidence source hashes are tampered",
+        "request_id": "s13c2-c11d"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11d",
+      "identity": "s13c2-trainer (trainer)",
+      "label": "defence in depth: production refuses this at stage (admission source validation); the seed-only variant answered INVALID_ARGUMENT Execution source bytes differ from fit commitment.",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "Execution source bytes differ from fit commitment.",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 50,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-curriculum/src/v3.rs",
+        "reason": "Execution source bytes differ from fit commitment.",
+        "symbol": "validate_source_evidence (admission source validation)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "stage",
+      "variant": "a trainer-chosen source or seed"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "3c3d2ae4b094356829b8f3027d3ff231bbec1ab6176c87f9dda9317740a2c626",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "no allocation exists for the request",
+        "request_id": "s13c-c11e"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11e",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "request_not_allocated",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 18,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "request_not_allocated",
+        "symbol": "GuardGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "an unallocated request id"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "13bda37d5110c8e8facac81742e70a71c13f58bbb5375dcd84dcce9c2bc29b3f",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "no allocation exists for the request",
+        "request_id": "s13c2-c11e"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11e",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "request_not_allocated",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 44,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_guard.rs",
+        "reason": "request_not_allocated",
+        "symbol": "GuardGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "an unallocated request id"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "fde1a5bfd03e654ab534464396da6b5036c86406600a5424f437a514e0020aae",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "8 regressed reference rows against an allowance of 7",
+        "request_id": "s13c-c11f"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11f",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "retention_regressed",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 24,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_retention.rs",
+        "reason": "retention_regressed",
+        "symbol": "RetentionGate::prepare"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "reference rows regress beyond the 5% allowance"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 2
+      },
+      "allowance": 7,
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "059e48dbcd0914df0c0f3fb258786bda9286f1a8db6f129f30b2f7c31fe91694",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine candidate with heads noise; real retention violations above the allowance",
+        "request_id": "s13c2-c11f-real"
+      },
+      "chain": "main",
+      "combined": false,
+      "eligible_rows": 155,
+      "expected": "rejected_unchanged",
+      "id": "C11f",
+      "identity": "in-process store (trainer path; real scorers)",
+      "leg": "real",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "retention_regressed",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 54,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_retention.rs",
+        "reason": "retention_regressed",
+        "symbol": "RetentionGate::prepare (V3RetentionScorer, Rust V3 encoder)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "reference rows regress beyond the 5% allowance"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "fc10e8e32835d10ab4b7d7a7a1c2fc6f2f217839e449c98ae0224cebf68be5f2",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine candidate with heads noise; real retention violations above the allowance",
+        "request_id": "s13c2-c11f"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "C11f",
+      "identity": "s13c2-trainer (trainer)",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "retention_regressed",
+        "receipt_status": "rejected"
+      },
+      "orphan_blobs": 47,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_retention.rs",
+        "reason": "retention_regressed",
+        "symbol": "RetentionGate::prepare (V3RetentionScorer, Rust V3 encoder)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "reference rows regress beyond the 5% allowance"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "44efc51b5d286ce234fa4967474fac1fd406b8a61b8ce31c05f4060ccbf9de99",
+        "store_current": "44efc51b5d286ce234fa4967474fac1fd406b8a61b8ce31c05f4060ccbf9de99",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "allowance": 7,
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "44efc51b5d286ce234fa4967474fac1fd406b8a61b8ce31c05f4060ccbf9de99",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "7 regressed reference rows against an allowance of 7",
+        "request_id": "s13c-c11g"
+      },
+      "chain": "main",
+      "combined": false,
+      "eligible_rows": 155,
+      "expected": "accepted_by_design",
+      "id": "C11g",
+      "identity": "trainer-s13c (trainer)",
+      "label": "documented limit",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": "applied"
+      },
+      "orphan_blobs": 24,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_retention.rs",
+        "reason": "accepted by design: a documented limit",
+        "symbol": "RetentionGate::prepare (violations <= max_violations)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the boundary: exactly the allowance"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 1,
+        "publications_count": 1,
+        "served_manifest": "9eb965debfdcaf1f57caebbcfe1a8824a07aec93cf26c1b04cdcd2f64e859cf7",
+        "store_current": "9eb965debfdcaf1f57caebbcfe1a8824a07aec93cf26c1b04cdcd2f64e859cf7",
+        "versions_count": 3
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 2
+      },
+      "allowance": 7,
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "9eb965debfdcaf1f57caebbcfe1a8824a07aec93cf26c1b04cdcd2f64e859cf7",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine candidate with heads noise; real retention violations equal to the allowance",
+        "request_id": "s13c2-c11g-real"
+      },
+      "chain": "main",
+      "combined": false,
+      "eligible_rows": 155,
+      "expected": "accepted_by_design",
+      "id": "C11g",
+      "identity": "in-process store (trainer path; real scorers)",
+      "label": "documented limit",
+      "leg": "real",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": "applied"
+      },
+      "orphan_blobs": 53,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_retention.rs",
+        "reason": "accepted by design: a documented limit",
+        "symbol": "RetentionGate::prepare (violations <= max_violations)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the boundary: exactly the allowance"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 3,
+        "publications_count": 3,
+        "served_manifest": "ed5fb19e77df2ea3e8f991ef9c3273aa966255caf643d6f2dadf1bb810747fd3",
+        "store_current": "ed5fb19e77df2ea3e8f991ef9c3273aa966255caf643d6f2dadf1bb810747fd3",
+        "versions_count": 4
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 2,
+        "publications_count": 2,
+        "served_manifest": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "store_current": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "versions_count": 3
+      },
+      "attack_class": 11,
+      "attempted": {
+        "candidate_sha": "ed5fb19e77df2ea3e8f991ef9c3273aa966255caf643d6f2dadf1bb810747fd3",
+        "expected_base": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "the genuine candidate with heads noise; real retention violations equal to the allowance",
+        "request_id": "s13c2-c11g"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "accepted_by_design",
+      "id": "C11g",
+      "identity": "s13c2-trainer (trainer)",
+      "label": "documented limit",
+      "leg": "container",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "OK",
+        "message": "",
+        "receipt_reason": "",
+        "receipt_status": "applied"
+      },
+      "orphan_blobs": 50,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/param-update/src/v3_retention.rs",
+        "reason": "accepted by design: a documented limit",
+        "symbol": "RetentionGate::prepare (violations <= max_violations)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "commit",
+      "variant": "the boundary: exactly the allowance"
+    },
+    {
+      "active_after": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "active_before": {
+        "client_mark": null,
+        "max_sequence": 0,
+        "publications_count": 0,
+        "served_manifest": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "store_current": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "versions_count": 2
+      },
+      "attack_class": "S",
+      "attempted": {
+        "candidate_sha": "7eac3917372621ead026c4c23ebaddbe1fd820ef0399e2c5486fdf87a364d195",
+        "expected_base": "c9c4e846d191a789cba0810107d49537b5b5e9ace6ad078e4475d5f2782f21ae",
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a complete directory and a current pointer, planted by hand",
+        "request_id": "s13c-cs1"
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "CS1",
+      "identity": "trainer-s13c (trainer)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": "INVALID_ARGUMENT",
+        "message": "explicit standard model and manifest pin required",
+        "receipt_reason": "",
+        "receipt_status": ""
+      },
+      "orphan_blobs": 3,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/services/model-streaming/src/published.rs",
+        "reason": "explicit standard model and manifest pin required",
+        "symbol": "is_published (authority only)"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "serve",
+      "variant": "a version directory placed in the publish root with no authority row"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": "S",
+      "attempted": {
+        "candidate_sha": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "a statement signed by a key the client does not compile",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "CS2",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "publication statement names an unknown key id",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/publication.rs",
+        "reason": "LineageError::Publication (unknown key)",
+        "symbol": "verify"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "an unknown key"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": "S",
+      "attempted": {
+        "candidate_sha": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "one signature digit changed",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "CS3",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "publication statement signature does not verify",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/publication.rs",
+        "reason": "LineageError::Publication (bad signature)",
+        "symbol": "verify"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "a tampered statement"
+    },
+    {
+      "active_after": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "active_before": {
+        "client_mark": {
+          "manifest_sha": "ef856ec72d8bc786cd0c477e1791241886455b87069e60dbc1cad3b410272085",
+          "sequence": 2
+        },
+        "max_sequence": null,
+        "served_manifest": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "store_current": null,
+        "versions_count": null
+      },
+      "attack_class": "S",
+      "attempted": {
+        "candidate_sha": "3206cafd665aa53999c07b619603470d0c0737b758ab9c3f61a271a28c104d6c",
+        "expected_base": null,
+        "model_id": "privoke-v3-efficient",
+        "mutation": "an unsigned manifest that is not the pin",
+        "request_id": null
+      },
+      "chain": "main",
+      "combined": false,
+      "expected": "rejected_unchanged",
+      "id": "CS4",
+      "identity": "installation client (LineageAdmission)",
+      "leg": "ci",
+      "not_run_reason": null,
+      "observed": {
+        "grpc_code": null,
+        "message": "an unsigned manifest is admitted only as the pinned ORIGINAL",
+        "receipt_reason": null,
+        "receipt_status": null
+      },
+      "orphan_blobs": 0,
+      "property_met": true,
+      "rejecting_check": {
+        "file": "rust/crates/privoke-contracts/src/v3.rs",
+        "reason": "LineageError::Unsigned",
+        "symbol": "admit_lineage"
+      },
+      "scope_label": "update path (Rust V3)",
+      "surface": "client",
+      "variant": "an unsigned manifest that is not the pin"
+    }
+  ],
+  "aggregates": {
+    "rows": 87,
+    "rows_run": 85,
+    "rows_not_run": 2,
+    "by_leg": {
+      "ci": 50,
+      "container": 33,
+      "real": 4
+    },
+    "by_attack_class": {
+      "1": 6,
+      "10": 5,
+      "11": 17,
+      "2": 6,
+      "3": 4,
+      "4": 11,
+      "5": 4,
+      "6": 4,
+      "7": 6,
+      "8": 9,
+      "9": 11,
+      "S": 4
+    },
+    "by_expected": {
+      "accepted_by_design": 3,
+      "applied_recovered": 3,
+      "noop_unchanged": 4,
+      "rejected_unchanged": 77
+    },
+    "by_leg_expected": {
+      "ci": {
+        "accepted_by_design": 1,
+        "applied_recovered": 3,
+        "noop_unchanged": 2,
+        "rejected_unchanged": 44
+      },
+      "container": {
+        "accepted_by_design": 1,
+        "noop_unchanged": 2,
+        "rejected_unchanged": 30
+      },
+      "real": {
+        "accepted_by_design": 1,
+        "rejected_unchanged": 3
+      }
+    },
+    "by_leg_observed": {
+      "ci": {
+        "applied": 2,
+        "client_refused": 7,
+        "ok": 1,
+        "refused:DATA_LOSS": 1,
+        "refused:INTERNAL": 5,
+        "refused:INVALID_ARGUMENT": 24,
+        "rejected:commitment_mismatch": 1,
+        "rejected:drift_exceeded": 2,
+        "rejected:guard_recomputed": 1,
+        "rejected:guard_rejected": 1,
+        "rejected:guard_rows_differ": 1,
+        "rejected:request_not_allocated": 1,
+        "rejected:retention_regressed": 1,
+        "rejected:stale_base": 2
+      },
+      "container": {
+        "applied": 2,
+        "not_run": 1,
+        "ok": 1,
+        "refused:INVALID_ARGUMENT": 23,
+        "rejected:drift_exceeded": 1,
+        "rejected:guard_recomputed": 1,
+        "rejected:guard_rejected": 1,
+        "rejected:request_not_allocated": 1,
+        "rejected:retention_regressed": 1,
+        "rejected:stale_base": 1
+      },
+      "real": {
+        "applied": 1,
+        "not_run": 1,
+        "rejected:guard_recomputed": 1,
+        "rejected:retention_regressed": 1
+      }
+    },
+    "property_met": 85,
+    "property_not_met": 0,
+    "property_by_leg": {
+      "ci": {
+        "met": 50,
+        "not_met": 0,
+        "not_run": 0
+      },
+      "container": {
+        "met": 32,
+        "not_met": 0,
+        "not_run": 1
+      },
+      "real": {
+        "met": 3,
+        "not_met": 0,
+        "not_run": 1
+      }
+    },
+    "orphan_blobs": 1329
+  }
+}
