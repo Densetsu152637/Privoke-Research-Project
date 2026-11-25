@@ -998,7 +998,7 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
   - **S13-G4 holds.** This includes `$PY evaluation/update_security_report.py --record <json> --check-s13d-coverage`, which must exit 0.
   - **The record cross-references UPDSEC-20261116 and UPDSEC-20261117:** `--check` verifies that both IDs appear in its gap table.
 - **User dependency:** none.
-- **Status:** pending.
+- **Status:** done. Outcome: `b690c17`, `310c9fd` (root: hash-only outputs moved to models/experiments/s13d-20261126/runs/ to stop G8 self-matches), `cf78eee` (gate prose), merged into `feat/rust-rewrite` at `2cfee07`; record imported into `feat/nick-branch` at `519ad7c` (byte-identical). AUTHZ-20261126: 96 rows, all met, none not_run; all 10 attacks covered. The 9 rows that UPDSEC-20261117 left not_run all ran. TL2: records 2–4 each abort under the rule. No product defect. --check and --check-s13d-coverage pass; G8 0 violations. Gate: 1 round, 0 acceptance-changing findings, 3 prose improvements adopted. Open (harness, follow-up): gap_table links rows by family only, so 21 gap-tagged rows are not listed under their gap, including GAP-NO-PUBLISHER-AUTH (disclosed in the record). Heavy window 18:27–18:40 UTC on 25 Nov.
 - **Handoff notes:** the record reaches `feat/nick-branch` through the import.
 
 ---
