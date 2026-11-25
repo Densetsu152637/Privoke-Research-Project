@@ -40,6 +40,8 @@ const PAGE_PROBE = String.raw`(async (spec) => {
   }
   const log = window[key];
   const mark = log.length;
+  // The page's own "analysis unavailable" notice persists between sends; clear it so a send sees only its own.
+  document.getElementById("privoke-inspection-unavailable")?.remove();
   const out = { transport: spec.transport, pageUrl: location.href };
   const started = performance.now();
   if (spec.transport === "fetch") {
@@ -76,6 +78,7 @@ const PAGE_PROBE = String.raw`(async (spec) => {
   out.elapsedMs = performance.now() - started;
   await new Promise((resolve) => setTimeout(resolve, spec.settleMs ?? 80));
   out.messages = log.slice(mark);
+  out.unavailableNotice = Boolean(document.getElementById("privoke-inspection-unavailable"));
   return out;
 })`;
 

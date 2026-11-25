@@ -110,7 +110,7 @@ EXPECTED_ROW_FIELDS = (
     "receiver_got", "payload_intact", "warn_shown", "decision", "layers_requested",
     "layers_executed", "error", "detector_level", "e2e_outcome", "scope_label",
 )
-EXTRA_ROW_FIELDS = ("failed_closed", "elapsed_ms", "inspection_unavailable", "request_disposition")
+EXTRA_ROW_FIELDS = ("failed_closed", "elapsed_ms", "inspection_unavailable", "request_disposition", "page_timeout")
 DISPOSITION_HANDED_OFF = ("ORIGINAL_REQUEST_HANDED_OFF", "MASKED_REQUEST_HANDED_OFF")
 SEMANTIC_CHECKSUM_KEY = "privoke.semantic.artifact_checksum"
 # The local Docker server stack that serves V3 balanced to the client runtime (model streaming on loopback).
@@ -865,7 +865,9 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
             if page_action and page_action != expected_page_action:
                 errors.append("page_bridge_decision_mismatch")
     if page_timeout:
-        warn_shown, failed_closed, unavailable = True, True, True
+        # warn_shown is what the driver found in the DOM (#privoke-inspection-unavailable), not an assumption;
+        # without the notice the request went out unwarned: an ALLOW, and an evasion for a protected baseline.
+        warn_shown, failed_closed, unavailable = outcome.get("unavailableNotice") is True, True, True
     if (disposition == "BLOCKED_LOCALLY" and receiver_got) or (disposition in DISPOSITION_HANDED_OFF and not receiver_got):
         errors.append("disposition_receiver_mismatch")
     page_error = outcome.get("errorName")
@@ -877,7 +879,7 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
         "attended": attended, "receiver_got": receiver_got, "payload_intact": intact, "warn_shown": warn_shown,
         "decision": decision, "layers_requested": requested, "layers_executed": executed,
         "error": ";".join(errors) if errors else None, "failed_closed": failed_closed,
-        "inspection_unavailable": unavailable, "request_disposition": disposition,
+        "inspection_unavailable": unavailable, "request_disposition": disposition, "page_timeout": bool(page_timeout),
         "elapsed_ms": elapsed_ms, "detector_level": None, "e2e_outcome": None, "scope_label": SCOPE_LABEL,
     }
 
@@ -1051,12 +1053,18 @@ def score_group(rows: list[dict], groups: dict[str, str] | None = None) -> dict:
         arms[label] = arm_result
     e2e_pairs, det_pairs = pair_lists[("e2e", "action_level")], pair_lists[("det", "action_level")]
     outcomes = Counter(r["e2e_outcome"] for r in rows if r["e2e_outcome"])
+    family_outcomes: dict[str, Counter] = defaultdict(Counter)
+    for r in rows:
+        if r["e2e_outcome"]:
+            family_outcomes[r["family"]][r["e2e_outcome"]] += 1
+        if r["page_timeout"]:
+            family_outcomes[r["family"]]["page_timeout_fail_open"] += 1
     anomalies = {
         "delivered_despite_block": sum(1 for r in rows if r["decision"] == "BLOCK" and r["receiver_got"]
                                        and not r["failed_closed"]),
         "delivered_without_analysis": sum(1 for r in rows if delivered_without_analysis(r)),
-        "page_timeout_fail_open": sum(1 for r in rows if r["failed_closed"] and r["inspection_unavailable"]
-                                      and r["decision"] is None and r["receiver_got"]),
+        "page_timeout_fail_open": sum(1 for r in rows if r["page_timeout"]),
+        "page_timeout_without_notice": sum(1 for r in rows if r["page_timeout"] and not r["warn_shown"]),
         "masked_request_handed_off": sum(1 for r in rows if r["request_disposition"] == "MASKED_REQUEST_HANDED_OFF"),
         "warn_decision_notice_not_shown": sum(1 for r in rows if r["decision"] == "WARN" and r["receiver_got"]
                                               and not r["warn_shown"]),
@@ -1073,6 +1081,8 @@ def score_group(rows: list[dict], groups: dict[str, str] | None = None) -> dict:
         "paired_conditional": {"all_families": paired_conditional(e2e_pairs, det_pairs),
                                "excluding_value_removing": paired_conditional(e2e_pairs, det_pairs, removing)},
         "e2e_outcomes": {name: outcomes.get(name, 0) for name in E2E_OUTCOMES},
+        "outcomes_by_family": {f: {name: family_outcomes[f].get(name, 0) for name in E2E_OUTCOMES + ("page_timeout_fail_open",)}
+                               for f in sorted(family_outcomes)},
         "anomalies": anomalies})
 
 

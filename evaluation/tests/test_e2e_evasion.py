@@ -104,7 +104,8 @@ class FakeDriver:
         disposition = spec.get("disposition", "ORIGINAL_REQUEST_HANDED_OFF" if spec.get("deliver", True) else "BLOCKED_LOCALLY")
         if disposition:
             messages.append({"type": "ANALYZE_OUTCOME", "disposition": disposition})
-        return {"outcome": {"messages": messages, "status": 200, "elapsedMs": 4.0},
+        return {"outcome": {"messages": messages, "status": 200, "elapsedMs": 4.0,
+                            "unavailableNotice": spec.get("unavailable_notice", True)},
                 "url": spec.get("url", "https://chatgpt.com/backend-api/conversation?xp=" + send_id),
                 "expectedBodySha256": hashlib.sha256(body).hexdigest()}
 
@@ -122,7 +123,7 @@ def row_with(seed, variant, action, family=None, removing=False, failed_closed=F
            "applicable": applicable, "browser": browser, "attended": attended, "receiver_got": got,
            "payload_intact": got, "warn_shown": action == "WARN", "decision": action, "layers_requested": list(FULL),
            "layers_executed": {n: "ok" for n in FULL}, "error": error, "failed_closed": failed_closed, "elapsed_ms": 10.0,
-           "inspection_unavailable": inspection_unavailable, "request_disposition": None, "detector_level": None, "e2e_outcome": None, "scope_label": e2e.SCOPE_LABEL}
+           "inspection_unavailable": inspection_unavailable, "request_disposition": None, "page_timeout": False, "detector_level": None, "e2e_outcome": None, "scope_label": e2e.SCOPE_LABEL}
     if detector is not None:
         row["detector_level"] = {"action": detector, "failed_closed": False, "layers_executed": {n: "ok" for n in FULL}}
     return row
@@ -340,6 +341,40 @@ class RowConstructionTests(unittest.TestCase):
         silent = self.send(lambda t: {"result": False, "tap": False})
         self.assertIsNone(silent["decision"])
         self.assertEqual(e2e.score_group([base, dict(silent, seed_id="a", variant="v1")])["anomalies"]["page_timeout_fail_open"], 1)
+
+    def test_a_page_timeout_without_the_unavailable_notice_is_an_unwarned_allow_and_an_evasion(self):
+        row = self.send(lambda t: {"result": False, "tap": False, "unavailable_notice": False})
+        self.assertIsNone(row["error"])
+        self.assertEqual((row["page_timeout"], row["warn_shown"], row["failed_closed"]), (True, False, True))
+        self.assertEqual(e2e.e2e_action(row), "ALLOW")
+        base = row_with("a", "baseline", "BLOCK", detector="BLOCK")
+        variant = dict(row, seed_id="a", variant="v1")
+        self.assertEqual(e2e.annotate_outcomes([base, variant])[1]["e2e_outcome"], "evaded")
+        self.assertEqual(e2e.score_group([base, variant])["anomalies"]["page_timeout_without_notice"], 1)
+
+    def test_the_notice_is_read_from_the_dom_result_not_assumed(self):
+        shown = self.send(lambda t: {"result": False, "tap": False, "unavailable_notice": True})
+        self.assertTrue(shown["warn_shown"])
+        self.assertEqual(e2e.e2e_action(shown), "WARN")
+
+    def test_a_missing_dom_finding_counts_as_no_notice(self):
+        driver, receiver, tap = make_world(lambda t: {"result": False, "tap": False})
+        reply = driver.request("send", prompt="synthetic prompt one", sendId="s0")
+        del reply["outcome"]["unavailableNotice"]
+        row = e2e.build_row(item(), "chrome", False, FULL, reply, receiver.captures_for("s0"), [])
+        self.assertFalse(row["warn_shown"])
+        self.assertEqual(e2e.e2e_action(row), "ALLOW")
+
+    def test_only_page_timeout_rows_use_the_dom_finding(self):
+        row = self.send(lambda t: {"unavailable_notice": True, "warn": False})
+        self.assertFalse(row["page_timeout"])
+        self.assertFalse(row["warn_shown"])
+
+    def test_the_driver_clears_and_reads_the_unavailable_notice_for_each_send(self):
+        source = e2e.E2E_DRIVER.read_text(encoding="utf-8")
+        self.assertIn('getElementById("privoke-inspection-unavailable")?.remove()', source)
+        self.assertIn('out.unavailableNotice = Boolean(document.getElementById("privoke-inspection-unavailable"))', source)
+        self.assertLess(source.index("?.remove()"), source.index("out.unavailableNotice"))
 
     def test_a_timeout_without_delivery_stays_an_error_row(self):
         row = self.send(lambda t: {"result": False, "tap": False, "deliver": False, "disposition": None})

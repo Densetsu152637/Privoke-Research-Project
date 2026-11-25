@@ -222,6 +222,12 @@ def render_markdown(record: dict) -> str:
         lines += ["", "By family, detector level (action level):", "", TABLE_HEAD]
         for family, summary in sorted(result["arms"]["detector_level"]["action_level"]["by_family"].items()):
             lines.append(_summary_line(family, summary))
+        names = e2e.E2E_OUTCOMES + ("page_timeout_fail_open",)
+        lines += ["", "Row outcomes by family (page_timeout_fail_open counts page-side analysis timeouts forwarded behind a "
+                  "fail-open WARN; they also appear under fail_closed or evaded):", "",
+                  "| Family | " + " | ".join(names) + " |", "| --- |" + " --- |" * len(names)]
+        for family, counts in sorted(result["outcomes_by_family"].items()):
+            lines.append(f"| {family} | " + " | ".join(str(counts[n]) for n in names) + " |")
         lines += ["", "Value-removing families (indirect_pointer) are reported separately above; a delivery of one is not a "
                   "leak of the original value.", "",
                   "Excluded pairs by reason: " + (", ".join(f"{k} {v}" for k, v in sorted(result["excluded_by_reason"].items())) or "none")

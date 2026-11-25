@@ -112,6 +112,21 @@ class RecordTests(unittest.TestCase):
         changed = markdown.replace("Conditional ASR", "Conditional  ASR", 1)
         self.assertTrue(any("Markdown" in p for p in rep.check_record(record, changed)))
 
+    def test_page_timeouts_are_reported_per_family_beside_the_fail_closed_counts(self):
+        rows = [row_with("s0", "baseline", "BLOCK", detector="BLOCK"), row_with("s0", "v1", "WARN", "unicode", detector="BLOCK",
+                                                                               failed_closed=True, inspection_unavailable=True),
+                row_with("s1", "baseline", "BLOCK", detector="BLOCK"), row_with("s1", "v1", "ALLOW", "unicode", detector="BLOCK",
+                                                                               failed_closed=True, inspection_unavailable=True)]
+        rows[1]["page_timeout"] = True
+        rows[3]["page_timeout"] = True
+        record = rep.build_record(rows, {}, make_plan(rows), make_meta(), "20261201", detector_meta=DETECTOR_META)
+        counts = record["results"]["chrome|headless"]["outcomes_by_family"]["unicode"]
+        self.assertEqual((counts["fail_closed"], counts["evaded"], counts["page_timeout_fail_open"]), (1, 1, 2))
+        markdown = rep.render_markdown(record)
+        self.assertIn("| Family | protected | evaded | downgraded | fail_closed | not_delivered_other | page_timeout_fail_open |", markdown)
+        self.assertIn("| unicode | 0 | 1 | 0 | 1 | 0 | 2 |", markdown)
+        self.assertEqual(rep.check_record(record, markdown), [])
+
     def test_the_markdown_reports_both_denominators_and_the_value_removing_split(self):
         record, _ = make_record()
         markdown = rep.render_markdown(record)
