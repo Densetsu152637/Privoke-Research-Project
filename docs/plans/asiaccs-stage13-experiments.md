@@ -258,6 +258,8 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
 - The stage worktrees were removed. Recreate them from their branches under `F:/Git-Worktrees/Privoke-Research-Project`.
 - Long-lived worktrees `wt-asiaccs-s9` and `wt-rust-integrate` are kept. `wt-rust-integrate` holds the local goldens.
 
+**Cross-session hardware rule (workflow change, 25 Nov 2026).** Before any host-lock run, which is a heavy timing, container or browser run, root asks the other active Claude sessions whether they plan to use the host. If any does, root waits for its permission. The rule is in the workflow guide validation.md, section Shared hardware tests. The host lock file still serializes runs within this project.
+
 **Agent queue, in order:**
 1. **13c-2.** Branch from `feat/rust-rewrite`; host lock.
 2. **13b-1.** Branch `feat/asiaccs-s13b` from `feat/nick-branch`; no host lock. It can run in parallel with 13c-2 (2-worker cap).
