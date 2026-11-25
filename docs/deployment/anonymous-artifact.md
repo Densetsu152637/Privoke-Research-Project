@@ -26,9 +26,14 @@ python evaluation/export_anonymous_artifact.py --revision <commit> --dest <direc
    outputs of `paper/main`, `paper/old/` (pre-anonymization submissions), third-party source PDFs
    under `paper/sources/`, and the exporter, its test and the pattern file, because those must name
    the identity strings in order to find them. Every excluded path is listed in the manifest.
-2. **Rewrites** of text files: author names, institution names, e-mail addresses, account handles
-   and URLs under the author accounts are replaced by neutral placeholders (`Anonymous Author`,
-   `Anonymous Institution`, `anonymous@example.invalid`, `https://anonymous.invalid/repository`).
+2. **Rewrites** of text files, applied in a fixed rule order (longer, more specific forms first):
+   author names, institution names, e-mail addresses, account handles and URLs under the author
+   accounts become neutral placeholders (`Anonymous Author`, `Anonymous Institution`,
+   `anonymous@example.invalid`, `https://anonymous.invalid/repository`); the account segment of a
+   user-home path (Windows, Git Bash/WSL and macOS forms, including JSON-escaped backslashes)
+   becomes `<user>`; local checkout paths up to the repository folder, including worktree folders,
+   become `<repo>`; the project name becomes `privoke-artifact` and the Go module path becomes
+   `anonymous.invalid/research-project` consistently across `go.mod`, imports and Compose names.
    Copyright lines in `LICENSE`, `LICENCE`, `COPYING` and `NOTICE` files become
    `Copyright (c) Anonymous Authors`. Binary files are copied unchanged.
 3. **Verification** of the whole exported tree, file names included, with the shared pattern file
@@ -45,7 +50,10 @@ python evaluation/export_anonymous_artifact.py --revision <commit> --dest <direc
 sorted `<file sha256>  <path>` list (the manifest itself excluded); the exclusion globs and excluded
 files; redaction counts per file; the pattern-file hash and count; verification results (files
 scanned, text matches as file and line numbers, name matches, binary files, byte-scan matches); and a
-SHA-256 commitment to the source commit. It records neither the source path nor the commit hash,
+SHA-256 commitment to the source commit; a `hash_note` stating that hashes quoted in research
+records refer to the source commit and that files listed under `redactions.per_file` differ in
+bytes from it; and `residual_name_warnings`, a report-only scan for the exporting account's own
+name tokens that does not change the exit status. It records neither the source path nor the commit hash,
 because a commit hash could be used to look the repository up. The manifest is scanned with the same
 patterns.
 
