@@ -1,206 +1,86 @@
 # param-update-service
 
-> Source area: `services/param-update-service`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+> Source area: `rust/services/param-update` (the Python `services/param-update-service` is the retired parity oracle). Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-`param-update-service` accepts bounded tensor updates, atomically applies them to the persistent PriVoke model artifact, and appends an audit record to JSONL. It can also request training cycles from `privoke-fuzzer` after startup.
+`param-update-service` is the Rust service that owns the V3 checkpoint store and the routine-training scheduler. Once per round it asks `v3-fuzzer` for one HEADS fit and one FULL_ENCODER fit of each of the three V3 tiers. Each candidate passes the DriftGate, the GuardGate and the RetentionGate and is then published under an Ed25519-signed statement. The gates, the publication tree, key custody and rollback are specified in [V3 publication](../runtime/v3-publication.md).
 
-It is experiment infrastructure, not part of the hosted prompt classification path.
+It is experiment infrastructure, not part of the hosted prompt classification path. V1 models are served for detection only and are no longer trained: the V1 gradient update RPCs were removed in stage V3-R8b and answer `UNIMPLEMENTED` (`rust/services/param-update/src/lib.rs`, `server.rs`, `service.rs`).
 
 ## API
 
-Defined in `shared/proto/privoke/v1/parameters.proto`:
+Defined in `shared/proto/privoke/v1/parameters.proto` and `shared/proto/privoke/experimental/v3.proto`:
 
-- `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
-- `GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`
-- `Health(HealthRequest) -> HealthResponse`
+- `ParamUpdateService.SubmitParameterUpdate`: answers `UNIMPLEMENTED` for every caller. It is not in the transport policy.
+- `ParamUpdateService.GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`: looks up a recorded V1 receipt; `publisher` and `trainer` services only. A non-empty `source_id` must equal the caller's service name.
+- `ParamUpdateService.Health(HealthRequest) -> HealthResponse`: `publisher`, `trainer` and `runtime` services (the container probe and the operator).
+- `CheckpointService` (when `V3_STORE` is set): `CommitCandidate` for `publisher` and `trainer` services only; `StageCheckpoint`, `ResolveCurrent`, `FetchBlob`, `GetCommitStatus` and `Health` also for `runtime` services (`v3-runtime` stages the candidates it fits and never commits them); `RollbackModel` for `publisher` services only.
 
-`SubmitParameterUpdate`:
+The remaining V1 pieces are the receipt store, the model bootstrap and the engine shell that serve the status lookup and health.
 
-- validates required identifiers, the configured model ID, metadata sizes, unique gradient names, value counts, finite values, and the maximum absolute gradient,
-- loads and validates `MODEL_ARTIFACT_PATH`,
-- rejects stale `base_version` values and updates to frozen, unknown, or misshaped tensors,
-- applies deltas and atomically replaces the Git-storable JSON artifact,
-- increments the artifact version as `<release>+train.<revision>`,
-- attempts a mode-`0600` audit line at `PARAM_UPDATE_STORAGE_PATH`; audit failure is logged after committed publication and does not undo the weights,
-- logs source, model, and gradient count,
-- returns `accepted=true`,
-- returns the actually committed artifact version.
+## Gates and publication
 
-Stored JSONL shape:
+A commit is admitted by the store and then checked in this order (`rust/services/param-update/src/main.rs` installs the chain; the gates are in `v3_guard.rs` and `v3_retention.rs`, publication is `v3_publish.rs`):
 
-```json
-{
-  "source_id": "server-fuzzer",
-  "model_id": "privoke-baseline",
-  "base_version": "v0.2.0",
-  "applied_version": "v0.2.0+train.1",
-  "gradients": [
-    {
-      "name": "head.sensitivity.bias",
-      "shape": [4],
-      "values": [0.0, 0.0, 0.0, 0.01]
-    }
-  ],
-  "metadata": {
-    "request_id": "param-update-service-..."
-  }
-}
-```
+1. `DriftGate` (always on when the store is on; `V3_DRIFT_BOUNDS` is required with `V3_STORE`): the candidate may not move farther than the calibrated bounds from its parent or from its routine root.
+2. `GuardGate` over the scheduler's journal: the commit must be one the scheduler allocated, with the allocated base, sampler, scope and source commitment, and the guard rows and the recomputed guard result must hold.
+3. `RetentionGate` (when `V3_RETENTION_ROOT` and `V3_RETENTION_BANK` are set): the candidate is scored on the approved ORIGINAL TRAIN bank against the tier's reference release.
+4. The publisher (when `V3_PUBLISH_ROOT` is set): stage the files, then sign and record the statement inside the compare-and-swap transaction, then publish the directory and move the pointer last.
 
-Identified updates support idempotency. The receipt key includes updater source, original training-request source, and request ID; its payload digest rejects conflicting reuse. An identical retry returns its original committed version without another weight update. `GetParameterUpdateStatus` retrieves that outcome using the training-request fingerprint, allowing a restarted fuzzer to recover a lost acknowledgment without training again.
+Each refusal is a durable `rejected` receipt with a reason. `V3_PUBLICATION_KEY_FILE` (a mounted secret holding the Ed25519 seed) and `V3_PUBLICATION_KEY_ID` select the signing key.
 
-Receipts persist in `<PARAM_UPDATE_STORAGE_PATH>.receipts.sqlite3` with SQLite writer serialization and full synchronization. The artifact also stores its latest receipt in the same atomic replacement as the weights. Before a later publication replaces that marker, recovery checkpoints the older outcome into SQLite. This closes the publication/receipt crash window without accumulating history in streamed artifacts. Back up the model and receipt database together. Updates without a request ID retain ordinary base-version checks but have no replay identity.
+## Access control
 
-Retention enforcement and general metadata privacy filtering remain outside this contract; bounded metadata must exclude raw prompt text. There is no dedicated raw-prompt field.
-
-## Guards and access control (current properties)
-
-This service is the only model-update path. The standard V3 path is read-only: a
-V3 `model_id` is rejected because every update must name the configured `MODEL_ID`
-(`app/validation.py`), and the updater writes only the legacy JSON artifact.
-
-Update guards, in force on every `SubmitParameterUpdate`:
-
-- Compare-and-swap on `base_version`: a request whose base differs from the artifact's
-  current version is rejected as stale (`shared/python/privoke_model/artifact.py`,
-  `apply_parameter_update`), checked under the writer lock in `app/server.py`.
-- Publication writes a temporary file, fsyncs it and calls `os.replace`, then fsyncs the
-  directory where the platform supports it (`write_artifact_atomic`); an update touching
-  several tensors is applied whole or not at all.
-- With a `request_id`, a durable receipt keyed by updater source, request source and
-  request ID makes an identical replay return the original version, and a different
-  payload under the same key is rejected (`app/receipts.py`, `app/server.py`). Without a
-  `request_id`, an identical replay is rejected as stale rather than recognised.
-- Each gradient value must be finite with `abs(value) <= PARAM_UPDATE_MAX_ABS_GRADIENT`
-  (default `1.0`). Frozen, unknown and misshaped tensors, and value counts above the
-  limits, are rejected.
-
-Not present, as current properties:
-
-- No cumulative or aggregate bound. The magnitude limit is per coordinate per update,
-  so repeated updates at the limit are each accepted, and one update may move up to
-  65,536 coordinates by the limit (`MAX_UPDATE_VALUES`). Nothing limits update rate or L2 norm.
-- Authentication is in the service. The deployed update service is the Rust `param-update-service`
-  (`rust/services/param-update`): one mutual-TLS listener (`50052`, never published) that admits only registered
-  `publisher` services for `SubmitParameterUpdate` and `publisher` and `trainer` services for
-  `GetParameterUpdateStatus`, and refuses to start without a client CA, a CRL and a registry. A non-empty
-  `source_id` must equal the caller's service name, so the fuzzer publishes as `fuzzer`, the name of its certificate.
-  Per-update (16.0) and cumulative (512.0 per release) L2 bounds are enforced by default
-  (`PARAM_UPDATE_DRIFT_POLICY`). It runs only in the `legacy-training` profile, behind the same placement controls as
-  before (`expose` only, no host port), and no public listener routes any `ParamUpdateService` method. The Python
-  service described by the earlier behaviour list (plaintext port, no peer identity, no bound) is retired from
-  deployment and kept as the parity oracle.
-- No startup cleanup of stray temporary files left by an interrupted write; the active
-  artifact stays valid.
-
-These behaviours were exercised by negative tests on synthetic inputs and a synthetic
-model state, recorded in
-[UPDSEC-20261116](../../paper/research/update-security-20261116.md): stale, replayed,
-duplicate (eight concurrent submissions applied once), malformed, NaN/Inf, wrong-shape
-and interrupted updates were rejected or applied exactly once, and the model was
-unchanged after each rejection. Over-bound values were rejected, 25 successive
-maximum-magnitude updates were all accepted, and unauthenticated updates with a forged
-`source_id` were accepted. That record states its scope and limitations; it is not a
-penetration test.
+The service is one mutual-TLS listener (`50052`, never published) built from the fail-closed `privoke-transport` configuration. It refuses to start without a client CA, a CRL and a registry, and no public listener routes any `ParamUpdateService` or `CheckpointService` method. It runs only in the `v3-training` profile. Roles are as listed under [API](#api); the scheduler's own client identity is `param-update`, registered `publisher`.
 
 ## Runtime
 
 Default port: `50052`
 
-Environment variables:
+Environment variables of the listener:
 
-- `PARAM_UPDATE_PORT`, default `50052`
-- `PARAM_UPDATE_STORAGE_PATH`, default `/data/updates.jsonl`
-- `MODEL_ARTIFACT_PATH`, default `/models/privoke-baseline.json`
-- `PARAM_UPDATE_MAX_ABS_GRADIENT`, default `1.0`
+- `PARAM_UPDATE_PORT`, default `50052`; `PARAM_UPDATE_BIND`, default `0.0.0.0`
+- `PARAM_UPDATE_STORAGE_PATH`, default `/data/updates.jsonl`; the receipt database is its sibling
 - `PARAM_UPDATE_MAX_MESSAGE_BYTES`, default `1048576`
-- `MODEL_ID`, default `privoke-baseline`; updates for other model IDs are rejected
+- `PARAM_UPDATE_RATE_PER_SECOND` and `PARAM_UPDATE_RATE_BURST`, per-identity request rate
 
-Base, development and Compute Engine Compose persist audit/receipt/scheduler data in `param-update-data` and mutable weights in `model-data`. The updater mounts weights read-write and streaming mounts them read-only. Development no longer writes training updates into the tracked `./models` files. Standalone defaults above retain the legacy baseline ID; Compose explicitly selects `privoke-balanced`.
+`PARAM_UPDATE_MAX_ABS_GRADIENT`, `PARAM_UPDATE_DRIFT_POLICY`, `PARAM_UPDATE_MAX_UPDATE_L2` and `PARAM_UPDATE_MAX_CUMULATIVE_L2` are no longer read.
 
-Before serving, the storage bootstrap validates the selected model ID under the receipt writer lock, checkpoints/reloads committed receipt state, and prepares the current learned artifact for full Tiny training. It preserves every existing tensor coordinate, extends position rows to at least `MODEL_TRAINING_MAX_TOKENS=256`, and binds a distinct release version/checksum to the previous committed artifact. A valid full-capability artifact with sufficient context is reused byte-for-byte. Initialization markers do not skip this capability migration. Do not delete the model volume to obtain a new capability; that would lose learned weights.
+V3 store, publication and gates (`rust/services/param-update/src/config.rs`): `V3_STORE` enables the checkpoint store and requires `V3_SOURCE_ROOT` and `V3_DRIFT_BOUNDS`; `V3_INITIAL` and `V3_PINNED` admit ORIGINAL packages and pinned routine roots at startup; `V3_PUBLISH_ROOT` with `V3_PUBLICATION_KEY_FILE` and `V3_PUBLICATION_KEY_ID` enables signed publication; `V3_RETENTION_ROOT` and `V3_RETENTION_BANK` enable the RetentionGate and are set together or not at all; `V3_AUDIENCE_MANIFEST_PATH` and `V3_AUDIENCE_MANIFEST_SHA256` (both or neither) select a custom AU3 release.
 
-Full-strategy updates require the complete validated shape contract, at most 24,576 values per tensor and 65,536 in total; legacy tensor limits remain 4,096. Larger tensors are admitted only for the explicit validated artifact strategy, including revalidation under the writer lock. An underlying update is one atomic artifact publication, not independently committed embedding fragments.
-
-The `Health` RPC returns `SERVING` only when the audit path is writable and the model artifact is valid and replaceable.
+The Compose stacks persist the audit, receipt and scheduler data in `param-update-data` and the store and published tree in `v3-store` and `v3-published`. The deployment values are listed in [V3 publication](../runtime/v3-publication.md#deployment-stage-v3-r7).
 
 ## Fuzzer Requests
 
-Automatic training is enabled by default: the service starts a daemon requester
-thread after gRPC startup, requests 32 prompts for each stage, and requests another
-cycle one hour after the previous cycle finishes. By default it calls head training
-then underlying Tiny training on the same model ID. The second stage uses the
-acknowledged first stage version as its expected base. These are independent
-compare-and-swap publications, not one atomic two-stage transaction. Set `FUZZER_PROMPT_COUNT=0` to disable
-the requester, or `FUZZER_REQUEST_INTERVAL_SECONDS=0` for one startup cycle.
-Controlled quality-study and general product-smoke overrides disable background
-training. The dedicated semantic-training CI job deliberately enables one cycle
-on isolated fixed-fixture state; it does not update a quality study's model. Accepted cycles publish persistent model
-updates; existing fuzzer quality gates still decide whether a candidate qualifies.
+The scheduler runs when `V3_STORE` is set and `FUZZER_PROMPT_COUNT` is positive (`main.rs`; with a positive count and no store the service logs that routine training is off). It is the single allocator of each request's id, seed and expected base: it journals the allocation durably before it calls `v3-fuzzer` (`scheduler.rs`, `journal.rs`), computes the source commitment itself, and after a restart asks the store (`GetCommitStatus`) what became of an in-flight request before it asks the fuzzer again. A lost fit is replaced by a new allocation with a new request id and seed. HEADS and FULL_ENCODER commits are independent publications, not one atomic transaction.
 
-SQLite retains each cycle's seed, stage request IDs, committed versions and serialized responses. After restart, accepted stages are not repeated and an uncertain stage reuses its original identity. Changing training settings while a cycle is pending fails closed. Transport retries are bounded per pass; transient exhaustion retains the pending stage for the next interval or restart. A definite rejection records `rejected` or `partial` and a later periodic cycle advances the seed; an accepted head remains published. A completed one-shot (`FUZZER_REQUEST_INTERVAL_SECONDS=0`) does not run again on restart with unchanged settings. Back up this journal with model weights and update receipts.
+Environment variables (defaults from `FuzzerRequestConfig::defaults`):
 
-Environment variables:
-
-- `FUZZER_TRAIN_UNDERLYING`, default `true`; `false` selects only the head stage
-- `FUZZER_CYCLE_STATE_PATH`, default `/data/training-cycles.sqlite3`; durable automatic-cycle journal
-- `FUZZER_TARGET`, default `privoke-fuzzer:50053`
-- `FUZZER_PROMPT_COUNT`, default `32`; `0` disables automatic training
-- `MODEL_ID`, default `privoke-baseline`
-- `PARAM_UPDATE_SOURCE_ID`, default `param-update-service`
-- `FUZZER_REQUEST_TIMEOUT_SECONDS`, default `30.0`
-- `FUZZER_REQUEST_INTERVAL_SECONDS`, default `3600.0`; `0` selects one cycle
-- `FUZZER_REQUEST_INITIAL_DELAY_SECONDS`, default `2.0`
-- `FUZZER_REQUEST_RETRY_SECONDS`, default `2.0`
-- `FUZZER_REQUEST_MAX_ATTEMPTS`, default `3`
+- `FUZZER_TARGET`, default `v3-fuzzer:50053` in the binary; the Compose files set `v3-fuzzer:50172`
+- `FUZZER_PROMPT_COUNT`, default `256`, the frozen original-prompt budget of the 64-step policy (the fuzzer refuses any other value); `0` disables the scheduler
+- `FUZZER_REQUEST_INTERVAL_SECONDS`, default `10800`; `0` requests one round and stops
+- `FUZZER_REQUEST_TIMEOUT_SECONDS`, default `3600`
+- `FUZZER_REQUEST_INITIAL_DELAY_SECONDS`, default `2`; `FUZZER_REQUEST_RETRY_SECONDS`, default `30`; `FUZZER_REQUEST_MAX_ATTEMPTS`, default `3`
+- `PARAM_UPDATE_SOURCE_ID`, default `param-update-service`: the `source_id` the scheduler puts in each request to the fuzzer (`scheduler.rs`)
 - `FUZZER_REQUEST_SEED`, default `1337`, unsigned 32-bit initial seed
-- `FUZZER_CURRICULUM_SAMPLER_POLICY`, default `deterministic_v1`; explicitly opt into `seeded_family_v1` for a configured curriculum
-- `FUZZER_CURRICULUM_SAMPLER_SEED`, default `0`, unsigned 32-bit stable allocation seed; deterministic policy requires zero
+- `FUZZER_CYCLE_STATE_PATH`, default `/data/training-cycles.sqlite3`, the durable allocation journal
+- `V3_POLICY_FILE`, default `/config/v3-policy.json`, the canonical 64-step policy
+- `V3_TIERS`, default `efficient,balanced,quality`
+- `FUZZER_TLS_SERVER_NAME`, default the host of `FUZZER_TARGET`
 
-For the default dual-stage path, the first request has this shape (the persisted
-cycle ID replaces the placeholder):
-
-```protobuf
-FuzzerTrainingRequest {
-  request_id: "<cycle-id>-heads"
-  source_id: "param-update-service"
-  model_id: "privoke-baseline"
-  prompt_count: 32
-  seed: 1337
-  metadata: {
-    "initiator": "param-update-service"
-    "require_full_capability": "true"
-  }
-}
-```
-
-Each cycle has at most `FUZZER_REQUEST_MAX_ATTEMPTS` attempts, with retries after
-`FUZZER_REQUEST_RETRY_SECONDS`. A rejected response counts as a failure. Retries
-retain the same request ID and seed for durable replay. After success or exhausted
-attempts, a positive interval schedules a new cycle with a new ID and the next
-seed. The seed wraps from `4294967295` to `1`, avoiding the fuzzer's omitted-seed
-sentinel. Interval `0` stops after the cycle. A process restart begins again at
-the configured seed; this sequence is reproducible, not a durable curriculum or
-a guarantee that every rendered prompt is new.
-
-Compose wires count, interval and initial seed through the matching environment
-variables. Existing explicit values take precedence, including count `0`.
-Configuration changes require recreation; Python code copied into images also
-requires a rebuild. The development stack writes accepted updates into `./models`.
+Back up the journal with the store and the published tree. The V1 receipt store is reachable only through `GetParameterUpdateStatus`.
 
 ## Relationship to Other Services
 
-- Receives updates from `privoke-fuzzer` through `SubmitParameterUpdate`.
-- May initiate `FuzzerService.RunTrainingCycle`.
-- Does not call `client-runtime`.
-- Publishes into the shared artifact path; `model-streaming-service` reloads it on the next request.
+- Calls `v3-fuzzer` (`V3FuzzerService.RunTrainingCycle`) as a `publisher` client.
+- Receives `CommitCandidate` from `v3-fuzzer` (role `trainer`) and `StageCheckpoint` from `v3-runtime` (role `runtime`).
+- Publishes a signed tree under `V3_PUBLISH_ROOT`; `model-streaming-service` reads the store and the tree and serves the current version through `GetModelPackage`.
+- Does not call `client-runtime` and no longer writes the V1 model artifacts.
 
 ## Subagent Tasks
 
 Subagents working here should:
 
-- preserve and extend validation for required identifiers, metadata, and gradient bounds,
-- preserve replay identity, receipt recovery, and conflicting-payload rejection across repeated requests,
-- add a storage abstraction if JSONL is no longer enough,
-- document retention and privacy constraints,
-- keep raw prompt text out of update metadata unless an experiment explicitly approves it.
+- keep the gate order and the durable rejection receipts intact,
+- keep the scheduler the only allocator of request ids, seeds and expected bases,
+- keep the key out of images, logs and repositories (see [V3 publication](../runtime/v3-publication.md#key-custody)),
+- keep raw prompt text out of receipts and metadata.

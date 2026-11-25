@@ -11,8 +11,8 @@
 #   MODEL_PUBLISH, TELEMETRY_PUBLISH  where the public listeners are published. Default 127.0.0.1:50443 and
 #                                     127.0.0.1:58443 (staging, never reachable from the network). deploy.sh switches them to
 #                                     0.0.0.0:443 and 0.0.0.0:8443 only after the loopback smoke test passes.
-# The training profile (`legacy-training`) is selected with COMPOSE_PROFILES in release.env. The internal listeners
-# (50051, 50052, 50053, 50055) are never published. Every container exits before binding if a certificate, key, client CA,
+# The training profile (`v3-training`: param-update, v3-fuzzer and v3-runtime) is selected with COMPOSE_PROFILES in release.env. The internal listeners
+# (50051, 50052, 50055, 50171, 50172) are never published. Every container exits before binding if a certificate, key, client CA,
 # CRL or registry is missing or invalid.
 
 name: privoke

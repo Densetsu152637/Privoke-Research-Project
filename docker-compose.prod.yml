@@ -6,7 +6,7 @@
 #   docker build -f extension/client-runtime/Dockerfile --target runtime -t privoke-client-runtime-base:local .
 #   docker compose -f docker-compose.prod.yml build
 #   docker compose -f docker-compose.prod.yml up -d                                    # model and telemetry only
-#   docker compose -f docker-compose.prod.yml --profile legacy-training up -d          # plus training
+#   docker compose -f docker-compose.prod.yml --profile v3-training up -d           # plus V3 routine training
 #
 # PRIVOKE_PKI_DIR layout (all of it is made by `privoke-pki`; nothing here is committed; see docs/deployment/google-cloud.md):
 #   server-ca.pem  client-ca.pem                 public trust anchors
@@ -21,7 +21,7 @@
 #   * The two public listeners are published on 127.0.0.1 unless MODEL_PUBLISH and TELEMETRY_PUBLISH say otherwise, so a
 #     bare `up` never opens a port to the network. deploy/gce/deploy.sh switches them to 0.0.0.0:443 and 0.0.0.0:8443 only
 #     after the loopback smoke test passes.
-#   * The internal listeners (50051, 50052, 50053, 50055) are never published here.
+#   * The internal listeners (50051, 50052, 50055, 50171, 50172) are never published here.
 
 x-pki-server: &pki-server
   type: bind

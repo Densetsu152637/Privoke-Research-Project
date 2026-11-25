@@ -2,27 +2,28 @@
 
 > Source area: `services/privoke-fuzzer`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned head-only or full-Tiny encoder-and-head deltas to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
+The deployed fuzzer is the Rust `v3-fuzzer` (`rust/services/v3-fuzzer`), run in routine mode (`V3_MODE=routine`) under the opt-in `v3-training` Compose profile. It runs one frozen-schedule fit per request, always semantic-only (layer list exactly `[SEMANTIC]`, never empty), asks `v3-runtime` to fit the candidate and sends it to the checkpoint service in `param-update-service` as a `trainer`. `param-update-service` is the only caller of its routine cycle and the only allocator of request ids, seeds and expected bases; see [parameter updates](parameter-updates.md#fuzzer-requests) for the scheduler and [V3 publication](../runtime/v3-publication.md) for the gates and signed publication. Its gRPC surface is `V3FuzzerService` (`RunTrainingCycle`, `RunUnderlyingTrainingCycle`, `Health`) in `shared/proto/privoke/experimental/v3.proto`.
 
-It is not in the hosted prompt decision path. Its automatic training cycles target explicit legacy V1 model IDs; the standard V3 packages are inference-only and the runtime's legacy gradient APIs reject them (see [client runtime](../runtime/client-runtime.md#standard-pretrained-v3-runtime)). Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
+The rest of this document describes the frozen Python worker in `services/privoke-fuzzer`. It is not deployed. It is kept as the parity oracle for the Rust fuzzer and for reproducing the historical studies, and the Rust update service no longer accepts its updates: `SubmitParameterUpdate` answers `UNIMPLEMENTED` (stage V3-R8b). The text below is retained for those studies.
+
+`privoke-fuzzer` (Python) is a gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submitted the returned head-only or full-Tiny encoder-and-head deltas to the V1 `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
+
+It was never in the hosted prompt decision path. Its training cycles targeted explicit legacy V1 model IDs; the standard V3 packages are inference-only and the Python runtime's legacy gradient APIs reject them (see [client runtime](../runtime/client-runtime.md#standard-pretrained-v3-runtime)). Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
 For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../../evaluation/README.md).
 
-Deployments that enable the opt-in `legacy-training` Compose profile run the updater's automatic requester by default: 32
+The retired Python updater's automatic requester asked for 32
 prompts per stage at startup and another cycle every hour after completion.
-Its default random source now uses the shipped, pinned AU3 audience coverage
+The Python fuzzer's default random source used the shipped, pinned AU3 audience coverage
 release, with all six audiences and all ten primary categories represented in
 each 32-original cycle. Explicit legacy datasets and fixed named study protocols
 retain their selected source. See [audience coverage](../audience-v3-data.md) for
 quotas, source pins, deployment controls and evidence boundaries.
-Each cycle runs head training followed by full Tiny encoder-and-head training on
+Each Python cycle ran head training followed by full Tiny encoder-and-head training on
 the same model ID, with a different seed for each new cycle and the same seed
-and stage IDs on retries. The stages publish independently; a full-stage
-rejection does not roll back an accepted head update. Set `FUZZER_PROMPT_COUNT=0` on the updater
-to disable it. Controlled quality studies and general product smoke overrides
-do this explicitly. The dedicated semantic-training CI job instead enables one
-automatic cycle on an isolated fixed fixture. See
-[requester configuration](parameter-updates.md#fuzzer-requests).
+and stage IDs on retries. The stages published independently; a full-stage
+rejection did not roll back an accepted head update. The Rust scheduler's
+configuration is in [parameter updates](parameter-updates.md#fuzzer-requests).
 
 ## gRPC Worker
 
@@ -49,7 +50,7 @@ On `RunTrainingCycle`, the service:
 4. reserves distinct labeled clean and sensitive held-out examples, then samples training prompts excluding their normalized texts and any declared held-out source groups,
 5. sends bounded training and held-out batches through `ComputeSemanticGradients`,
 6. receives deltas and before/candidate metrics tied to the exact model version; rejects missing, non-finite, invalid or regressing quality evidence,
-7. submits accepted deltas through `SubmitParameterUpdate` with replay identity and request fingerprint,
+7. submitted accepted deltas through the V1 update RPC with replay identity and request fingerprint (the Rust update service now answers that RPC `UNIMPLEMENTED`),
 8. returns the committed acknowledgment and training metadata to the requester.
 
 The fuzzer does not connect to `model-streaming-service`. Fetching, validation, caching, model execution, and gradient descent all occur inside `client-runtime`.

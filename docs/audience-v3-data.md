@@ -1,6 +1,6 @@
 # Audience coverage data and automatic training
 
-Automatic contextual requests exist only under the opt-in `legacy-training` Compose profile (the updater and fuzzer do not start by default). They use the pinned `audience_coverage_v1`
+Automatic routine requests exist only under the opt-in `v3-training` Compose profile (the update service, V3 fuzzer and V3 runtime do not start by default). They use the pinned `audience_coverage_v1`
 release shipped in `services/privoke-fuzzer/data`. The updater still requests its
 existing head stage followed by its full Tiny stage. With no custom legacy
 dataset/curriculum or explicit strategy, `FuzzerConfig.from_env` selects AU3;

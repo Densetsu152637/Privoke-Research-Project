@@ -2,9 +2,9 @@
 
 > Source area: `.`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python runtime that can run as a workstation-local extension companion or as the server-side detector used by the fuzzer. It inspects prompt text, produces structured `ClassificationResult` evidence, and derives a `PriVokeAction`; the extension uses that decision before an intercepted browser request is sent onward.
+PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python runtime that can run as a workstation-local extension companion or as a separate workstation detector deployment; no server container runs it. It inspects prompt text, produces structured `ClassificationResult` evidence, and derives a `PriVokeAction`; the extension uses that decision before an intercepted browser request is sent onward.
 
-Docker Compose runs an always-on server `client-runtime` alongside model streaming and telemetry. The parameter-update service and the fuzzer (fuzzer-driven adaptive experiments and update capture) run only under the opt-in `legacy-training` Compose profile and train only explicit legacy V1 model IDs; standard V3 packages are inference-only. The fuzzer queries that runtime for all detector execution; it does not install or import runtime implementation code.
+Docker Compose runs the Rust `model-streaming-service` and `telemetry-service`. The opt-in `v3-training` profile adds `param-update-service`, `v3-fuzzer` and `v3-runtime`, which retrain all three standard V3 tiers (drift, guard and retention gates, then Ed25519-signed publication; see [parameter updates](../services/parameter-updates.md)). V1 models are served for detection only: V1 training and the `SubmitParameterUpdate` RPC were removed in stage V3-R8b. The server runs no detector pipeline; `v3-fuzzer` requests semantic-only fits from `v3-runtime`.
 
 Reference context: https://arxiv.org/abs/2408.07004
 
@@ -14,10 +14,9 @@ Reference context: https://arxiv.org/abs/2408.07004
 
 | Deployment | Process owner | Runtime endpoint | Consumer |
 | --- | --- | --- | --- |
-| Server simulation | Docker Compose | `client-runtime:50054` inside the Compose network | `privoke-fuzzer`, evaluation tooling, and server services |
 | Browser extension | Workstation supervisor | `127.0.0.1:50057`, reached by the extension through the supervisor-owned bridge on `127.0.0.1:8080` | The local WebExtension only |
 
-The workstation supervisor exposes its lifecycle control service on `127.0.0.1:50056`. Docker Compose never starts that supervisor or bridge, and the extension never uses the Compose `client-runtime` as a fallback.
+The workstation supervisor exposes its lifecycle control service on `127.0.0.1:50056`. Docker Compose never starts that supervisor or bridge, and the extension has no server-side detector to fall back on.
 
 ```text
 gRPC request or local HTTP POST /analyze
@@ -59,34 +58,33 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 ## Repository Layout
 
 - `extension`: Manifest V3 browser client, the supervisor-hosted loopback gRPC-Web bridge, the Python prompt inspection runtime under `extension/client-runtime`, and its separate workstation control process under `extension/runtime-supervisor`.
-- `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
-- `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
-- `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, runtime-delegated semantic training, and update submission.
-- `services/telemetry-service`: Python gRPC metadata collector backed by SQLite.
+- `rust/services`: the deployed Rust services: `model-streaming`, `telemetry`, `param-update` (V3 checkpoint store and routine scheduler), `v3-fuzzer`, `v3-runtime`, plus the workstation `runtime-supervisor` and the not-deployed `analysis`. `rust/crates/privoke-transport` provides their in-service mutual TLS and role policy.
+- `services/model-streaming-service`, `services/param-update-service`, `services/telemetry-service`: the retired Go and Python implementations, kept as parity oracles.
+- `services/privoke-fuzzer`: the frozen Python fuzzer and CLI, used by the historical studies and not deployed.
 - `shared/proto`: Shared protobuf contracts used by the gRPC services and streamed semantic backend.
 - `paper`: Research figures and experiment artifacts.
 
 ## Server Compose Service Ports
 
 - `model-streaming-service`: gRPC on `50051`.
-- `param-update-service`: gRPC on `50052` (`legacy-training` profile only).
-- `privoke-fuzzer`: gRPC on `50053` (`legacy-training` profile only).
-- `client-runtime`: always-on server detector gRPC on `50054`.
+- `param-update-service`: gRPC on `50052` (`v3-training` profile only).
 - `telemetry-service`: gRPC on `50055`.
+- `v3-runtime`: gRPC on `50171` (`v3-training` profile only).
+- `v3-fuzzer`: gRPC on `50172` (`v3-training` profile only).
 
-Production Compose (the Rust stack) keeps every internal listener (`50051` to `50055`) inside its service network and publishes only the two mutual-TLS public listeners of the model and telemetry services, on loopback unless the deployment says otherwise. The default stack publishes the internal listeners on host loopback (`127.0.0.1`) for Python evaluation and integration scripts; every listener is mutual TLS, so those clients present a test certificate. The earlier Python and Go stack that the historical studies layer over is `docker-compose.legacy.yml`. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../../evaluation/README.md). A real external endpoint is a service's own mutual-TLS listener, never a published plaintext gRPC port.
+Production Compose (the Rust stack) keeps every internal listener (`50051`, `50052`, `50055`, `50171`, `50172`) inside its service network and publishes only the two mutual-TLS public listeners of the model and telemetry services, on loopback unless the deployment says otherwise. The default stack publishes the internal listeners on host loopback (`127.0.0.1`) for Python evaluation and integration scripts; every listener is mutual TLS, so those clients present a test certificate. The earlier Python and Go stack that the historical studies layer over is `docker-compose.legacy.yml`. See [host test setup](../../evaluation/README.md). A real external endpoint is a service's own mutual-TLS listener, never a published plaintext gRPC port.
 
 The extension-local ports `8080`, `50056`, and `50057` are not Compose service ports. They are owned by the workstation supervisor and remain bound to loopback.
 
 ## Development Commands
 
-Run the development server simulation with bind-mounted sources and generated stubs. Without profiles it starts `model-streaming-service`, `client-runtime` and `telemetry-service` (plus the `storage-permissions` initializer); add `--profile legacy-training` for `param-update-service` and `privoke-fuzzer`, which `docker-compose.prod.yml` gates the same way. It has the same topology as the production deployment; it does not run the WebExtension or its local supervisor/bridge:
+Run the default host-test stack (the production Rust images with the internal listeners published on loopback). Without profiles it starts `model-seed`, `model-streaming-service` and `telemetry-service`; add `--profile v3-training` for `param-update-service`, `v3-fuzzer` and `v3-runtime`, which `docker-compose.prod.yml` gates the same way. It has the same topology as the production deployment; it does not run the WebExtension or its local supervisor/bridge:
 
 ```bash
 docker compose up --build
 ```
 
-The default file extends the shared service definitions in `docker-compose.prod.yml` and assigns separate development image tags, so a later `up -d` cannot accidentally reuse a production runtime image that omits protobuf build tooling. All service healthchecks call their public gRPC `Health` methods. The former `docker-compose.dev.yml` override has been removed; use the default file directly.
+The default file extends the shared service definitions in `docker-compose.prod.yml`; there is no separate development image. All service healthchecks call their public gRPC `Health` methods. The former `docker-compose.dev.yml` override has been removed; use the default file directly.
 
 Run the production-style server deployment:
 
@@ -110,15 +108,9 @@ deployment calls it for pushes to `main` before publishing images. It:
 - verifies non-root/read-only container controls and loopback-only test port mappings,
 - runs host Python scripts to simulate a client-runtime request and verify parameter streaming and
   telemetry persistence,
-- runs a small fuzzer cycle across the model, runtime, and parameter-update
-  services, and
 - restarts the model service and confirms that the stack recovers.
 
-The workflow sets `FUZZER_PROMPT_COUNT=0` to disable the normal background
-startup cycle and make its explicit integration cycle deterministic. Local,
-production and GCE Compose files default `FUZZER_PROMPT_COUNT` to 32, but the
-updater and fuzzer run only under the opt-in `legacy-training` profile; set it to
-`0` there to disable automatic cycles.
+Its deployment-configuration job renders every Compose file, including the `v3-training` profile, and the Compose files default `FUZZER_PROMPT_COUNT` to the 256-prompt routine budget, active only under the `v3-training` profile; set it to `0` to disable the scheduler. The semantic-training jobs run the retired Python stack from `docker-compose.legacy.yml`.
 
 Run the optional standalone HTTP harness (this is neither managed runtime deployment):
 
@@ -128,7 +120,7 @@ pip install -r requirements.txt
 python src/main.py --port 8765 --llm-choice streamed
 ```
 
-For streamed classification outside Docker, install `shared/python` and generate Python bindings for `parameters.proto`, `runtime.proto`, and `telemetry.proto` into `extension/client-runtime/generated`. The runtime and fuzzer Docker images generate their service-local bindings during image builds.
+For streamed classification outside Docker, install `shared/python` and generate Python bindings for `parameters.proto`, `runtime.proto`, and `telemetry.proto` into `extension/client-runtime/generated`. The Rust services use their generated contracts from `shared/proto`.
 
 Build the unpacked browser extension:
 
@@ -138,7 +130,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](../runtime/browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
+Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](../runtime/browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. No server Compose detector exists, so there is no port conflict with the stack. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 
@@ -163,10 +155,10 @@ curl -X POST http://127.0.0.1:8765/config/llm \
   -d '{"choice":"openai","openai":{"api_key":"sk-...","model":"gpt-4o-mini"}}'
 ```
 
-Run prompt tests through the deployed runtime gRPC service (these `privoke-fuzzer` commands need the `legacy-training` profile):
+Run prompt tests through the frozen Python fuzzer (it is not deployed; these commands need the retired stack of `docker-compose.legacy.yml` and its `legacy-training` profile):
 
 ```bash
-docker compose exec privoke-fuzzer \
+docker compose -f docker-compose.legacy.yml exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer runtime \
   --prompt "My email is alex@example.com"
@@ -175,7 +167,7 @@ docker compose exec privoke-fuzzer \
 Run layer probes:
 
 ```bash
-docker compose exec privoke-fuzzer \
+docker compose -f docker-compose.legacy.yml exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer regex \
   --layer ner \
@@ -184,29 +176,30 @@ docker compose exec privoke-fuzzer \
   --generated-count 8
 ```
 
-In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`. The production stack persists them in the `fuzzer-dumps` named volume.
+In the legacy stack, fuzzer prompt-test dumps live in its `fuzzer-dumps` volume (`docker-compose.legacy.yml`). The Rust Compose files have no such volume.
 
 ## Current Prototype Boundaries
 
-- `model-streaming-service` streams the configured, versioned transformer artifact from `models/` to `client-runtime`; the runtime can fine-tune its heads on a fuzzer-supplied batch and `param-update-service` atomically publishes the returned Git-storable update.
-- `param-update-service` validates and applies bounded trainable-head deltas to the persistent artifact. Durable receipts recover committed outcomes after lost acknowledgments and prevent the same identified payload from applying twice.
+- `model-streaming-service` serves the configured, versioned model artifacts and the signed V3 packages to registered installations.
+- `param-update-service` stores V3 checkpoints and publishes a candidate only after the drift, guard and retention gates, under an Ed25519-signed statement; commits are durable, idempotent receipts. The V1 gradient update path no longer exists.
 - Training reserves distinct labeled clean/sensitive held-out examples before sampling training data. Runtime evaluation checks the exact clipped candidate; publication requires finite quality metrics and no held-out regression. This is an experiment guard, not a public accuracy guarantee.
-- Compose files default `FUZZER_PROMPT_COUNT` to `32`, active only under the opt-in `legacy-training` profile (legacy V1 model IDs); set `0` to disable automatic training. Production/GCE weights persist in `model-data`, with the streaming service reading and the updater writing. Development overrides bind-mount `./models` instead.
-- Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A network-disabled one-shot `storage-permissions` initializer seeds missing artifacts into the `model-data` volume and fixes ownership of persistent model, update, telemetry, client-state, and fuzzer data without deleting existing contents.
+- Compose files default `FUZZER_PROMPT_COUNT` to `256`, active only under the opt-in `v3-training` profile (V3 tiers); set `0` to disable the scheduler. The store and signed tree persist in `v3-store` and `v3-published`; seeded V1 artifacts sit in `model-data`.
+- Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A one-shot `model-seed` copies the shipped artifacts into an empty `model-data` volume.
 - The unpacked extension requires the workstation supervisor, which owns both the local detector process and its loopback gRPC-Web bridge. The repository does not ship a separate extension Compose deployment.
 - The optional HTTP harness on `127.0.0.1:8765` exists for evaluation and local integration; server Compose and the browser extension use gRPC paths instead.
-- Service-to-service gRPC is currently plaintext and unauthenticated. Production Compose therefore does not publish it. An actual multi-host deployment must keep it on a trusted private network and add authenticated TLS at the deployment boundary.
+- Every service listener is mutual TLS with a per-RPC role policy (`rust/crates/privoke-transport`). Internal listeners are never published by the production files, and the training services sit on an `internal: true` network.
 
 ## Cross-Service Contract
 
 `shared/proto/privoke/v1/parameters.proto` defines:
 
 - `ModelStreamingService.StreamModelParameters` and unary `GetModelParameters`
-- `ParamUpdateService.SubmitParameterUpdate` and `GetParameterUpdateStatus`
-- `FuzzerService.RunTrainingCycle`
-- `Health` RPCs for the parameter, update, and fuzzer services
+- `ParamUpdateService.GetParameterUpdateStatus` and `Health`; `SubmitParameterUpdate` stays in the proto and answers `UNIMPLEMENTED`
+- the V1 `FuzzerService`, implemented only by the frozen Python fuzzer
 
-`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, including prompt analysis and bounded semantic-gradient calls, plus the workstation-local `PrivokeRuntimeControlService` and its on-demand model-streaming health proxy. Server Compose runs only the runtime service; `extension/runtime-supervisor` hosts the control service.
+`shared/proto/privoke/experimental/v3.proto` defines `CheckpointService`, `TrainingService` and `V3FuzzerService`, the routine-training contracts.
+
+`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, including prompt analysis and bounded semantic-gradient calls, plus the workstation-local `PrivokeRuntimeControlService` and its on-demand model-streaming health proxy. Server Compose runs no detector runtime (`v3-runtime` serves only semantic-only `AnalyzePrompt`, and the gradient calls were removed in stage V3-R8a); `extension/runtime-supervisor` hosts the control service.
 
 `shared/proto/privoke/v1/telemetry.proto` defines bounded randomized event recording and aggregate summary retrieval. Compose persists epsilon-stratified marginal counts in the `telemetry-data` SQLite volume; the client privacy ledger persists separately.
 
@@ -216,8 +209,8 @@ The default development Compose file regenerates Python and Go protobuf bindings
 
 - Browser integration and detection behavior belong in `extension`; the Python detector implementation remains isolated in `extension/client-runtime`.
 - gRPC contract changes start in `shared/proto`, followed by regenerated bindings and README updates.
-- Prompt generation, prompt tests, and streamed semantic training experiments belong in `services/privoke-fuzzer`.
-- Fuzzer request initiation and update persistence belong in `services/param-update-service`.
+- V3 curriculum sampling and fit orchestration belong in `rust/services/v3-fuzzer`, and candidate fitting in `rust/services/v3-runtime`.
+- The checkpoint store, gates, signed publication and the routine scheduler belong in `rust/services/param-update`.
 - Snapshot serving belongs in `services/model-streaming-service`.
 
 Avoid reintroducing string-only severity/category flow. Preserve `Classification`, `ClassificationResult`, `PriVokeAction`, and protobuf boundaries where they are already used.
