@@ -28,7 +28,8 @@ UPDSEC-20261116 and UPDSEC-20261117 in the gap table. `--check-s13d-coverage` ve
 - **Positive controls.** The publisher commit was applied and served, the rollback to the pin was applied, and the runtime stage was
   accepted.
 - **TLS level.** The captured bytes of an authenticated commit, replayed (TL1 and TL1-candidate), got no receipt. Every
-  request-bearing record with one bit flipped aborted the connection under the 13d-1a rule (TL2). A man-in-the-middle server
+  request-bearing record with one bit flipped aborted the connection under the 13d-1a rule (TL2). A bit flipped in the client's
+  handshake flight also aborted the connection (TL2-handshake, reported separately). A man-in-the-middle server
   certificate was refused (TL3).
 
 ## Not established

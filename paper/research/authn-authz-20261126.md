@@ -80,7 +80,21 @@ The PKI and keys were disposable, made in the harness's scratch directory and de
 - Application-level replay and tamper are the 13c rows C2a, C2b and C9, cross-referenced and not repeated.
 - The store-unchanged half of TL1, TL2 and CK1–CK7 is vacuous, because their store is empty. CK8 and TL1-candidate carry the check
   on a store that holds the pin and an admissible candidate.
-- The candidate rows use the test PKI of the 13c-2 helper (the `privoke_pki` crate), not the `privoke-pki` CLI PKI of the other rows.
+- The five candidate rows (CK8, TL1-candidate, CK-positive-publisher-commit, CK-positive-publisher-rollback and
+  CK-positive-runtime-stage) record `credential_issuer` "privoke-pki". Their PKI did not come from the `privoke-pki` CLI, as the other
+  rows' PKI did; it came from the `privoke_pki` crate through the 13c-2 helper `s13c_compose_pki`.
+- **How the gap table links rows.** The stage 9 gaps in the gap table list their rows by family, through `STACK_GAPS` and
+  `row_family` (`evaluation/update_security.py`, `gap_table`). A row whose own `gap` field names a gap is therefore listed under
+  that gap only if its family is linked to it. In this record, 21 tagged rows are not listed under their gap, among them:
+  - CK1, CK2, CK5, CK9 and CK9-submit-update, which carry GAP-NO-PUBLISHER-AUTH: that gap has no linked family, so it has no entry in
+    the gap table;
+  - TL1, TL2, TL2-handshake and TL3, under GAP-NO-CREDENTIAL-MECHANISM;
+  - CK6, CK7 and CK-no-restart, under GAP-NO-REVOCATION.
+
+  The other nine are X1, X1b, X1c and X1d (GAP-NO-RETRIEVAL-AUTH), R4 (GAP-IDENTITY-SELF-ASSERTED), R4-self-signed
+  (GAP-NO-CREDENTIAL-MECHANISM), and R8-unregistered, CK3 and CK4 (GAP-NO-PER-INSTALLATION-AUTHZ). `summary.gap_ids_exercised` does
+  list GAP-NO-PUBLISHER-AUTH. No row is hidden: every one of these rows is in the Rows table below, and in the JSON with its `gap`
+  field, and every one met its property.
 - The 13d-1a family containers are named `updsec-rust-*` by the harness; only the candidate stack and its helpers carry the `s13d2-`
   prefix. Every container was removed after the run.
 - One run on one host, over loopback. The rows are deterministic denials, not samples, and no repeat run was made.
