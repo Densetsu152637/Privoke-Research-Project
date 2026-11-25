@@ -176,7 +176,7 @@ docker compose -f docker-compose.legacy.yml exec privoke-fuzzer \
   --generated-count 8
 ```
 
-In the legacy stack, fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer` or kept in its `fuzzer-dumps` volume (`docker-compose.legacy.yml`). The Rust Compose files have no such volume.
+In the legacy stack, fuzzer prompt-test dumps live in its `fuzzer-dumps` volume (`docker-compose.legacy.yml`). The Rust Compose files have no such volume.
 
 ## Current Prototype Boundaries
 
