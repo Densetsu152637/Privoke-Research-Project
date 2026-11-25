@@ -117,7 +117,7 @@ class FakeStack:
                 if identity == "runtime" and stack.refuse_runtime_stage:
                     raise FakeRpcError("PERMISSION_DENIED", "role may not call this method")
                 stack.staged.add(sha(data))
-                return sha(data)
+                return sha(manifest) if manifest else sha(data)  # `store.rs` `stage`: the manifest's digest when one is given
 
             def commit(self, commit):
                 return stack.commit(commit)
@@ -203,6 +203,15 @@ class CandidateRowTests(unittest.TestCase):
         self.assertEqual((rows["TL1-candidate"]["observed"], rows["TL1-candidate"]["code"]), ("not_run", "HARNESS_ERROR"))
         self.assertIsNone(rows["TL1-candidate"]["property_met"])
         self.assertFalse(rows["CK-positive-publisher-commit"]["property_met"])  # the stored receipt is no new publication
+
+    def test_the_stage_reply_must_name_the_evidence_and_the_manifest(self):
+        source = (ROOT / "rust/services/param-update/src/v3_store/store.rs").read_text(encoding="utf-8")
+        stage = source[source.index("pub fn stage("):source.index("/// `status(request_id)`")]
+        self.assertTrue(stage.rstrip().rstrip("}").rstrip().endswith("self.put(manifest_payload)"))
+        stack = FakeStack(self.export)
+        stack.call = lambda identity, fn, original=stack.call: {**original(identity, fn), "message": "0" * 64}
+        rows = {row["id"]: row for row in harness.candidate_rows(stack, [])}
+        self.assertEqual(rows["CK-positive-runtime-stage"]["code"], "HARNESS_ERROR")
 
     def test_a_refused_runtime_stage_is_an_unmet_control(self):
         rows = self.rows(refuse_runtime_stage=True)

@@ -3678,9 +3678,11 @@ def candidate_rows(stack: CandidateStack, rows: list[dict]) -> list[dict]:
               stack.call("runtime", lambda client: client.stage(genuine.read("blob"), genuine.read("manifest")))]
     after = stack.observe()
     references = [item.get("message") for item in staged]
-    accepted = all(item["code"] == "OK" for item in staged) and references == [genuine.evidence_sha, genuine.blob_sha]
-    result = ({"observed": "accepted", "code": "OK", "message": "staged the evidence and the checkpoint"} if accepted
-              else next(item for item in staged if item["code"] != "OK"))
+    # `store.rs` `stage` answers the evidence's digest for the evidence, and the manifest's digest for a checkpoint with its manifest.
+    accepted = all(item["code"] == "OK" for item in staged) and references == [genuine.evidence_sha, genuine.manifest_sha]
+    refused = [item for item in staged if item["code"] != "OK"]
+    result = ({"observed": "accepted", "code": "OK", "message": "staged the evidence and the checkpoint"} if accepted else refused[0] if refused
+              else harness_error(f"the stage replies name other objects: {references}"))
     add("CK-positive-runtime-stage", "control", "A runtime service stages the genuine 13c candidate: its evidence, then its checkpoint with the manifest (accepted).",
         "positive_control", "runtime", result, authority_unchanged(before, after), accepted and authority_unchanged(before, after),
         [f"stage replies: {references}", f"authority before {before}; after {after}"], started)
