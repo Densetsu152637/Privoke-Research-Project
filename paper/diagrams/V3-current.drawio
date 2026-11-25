@@ -19,7 +19,7 @@
         <mxCell id="fuzzer" value="" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff7e9;strokeColor=#bd8528;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=18;fontStyle=0;spacing=5;rounded=0;">
           <mxGeometry as="geometry" x="860" y="0" width="340" height="470" />
         </mxCell>
-        <mxCell id="fuzzertitle" value="Opt-in legacy training" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=22;fontStyle=1;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
+        <mxCell id="fuzzertitle" value="Opt-in V3 routine training" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=22;fontStyle=1;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
           <mxGeometry as="geometry" x="870" y="5" width="320" height="36" />
         </mxCell>
         <mxCell id="page" value="Page hook&#10;fetch / XHR" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=18;fontStyle=1;spacing=5;">
@@ -31,28 +31,28 @@
         <mxCell id="enforce" value="Request gate&#10;ALLOW / WARN&#10;send original body&#10;BLOCK cancels" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=1;spacing=5;">
           <mxGeometry as="geometry" x="10" y="235" width="150" height="105" />
         </mxCell>
-        <mxCell id="local" value="Local runtime&#10;Rules / NER /&#10;semantic&#10;+ policy" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=1;spacing=5;">
+        <mxCell id="local" value="Rust controller;&#10;sandboxed&#10;analysis&#10;workers" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=1;spacing=5;">
           <mxGeometry as="geometry" x="180" y="235" width="140" height="105" />
         </mxCell>
         <mxCell id="collector" value="Telemetry collector&#10;Randomized coarse fields&#10;Lifetime marginal estimates" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#f3eafa;strokeColor=#8961a8;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
           <mxGeometry as="geometry" x="450" y="50" width="300" height="75" />
         </mxCell>
-        <mxCell id="serverRuntime" value="Server client-runtime&#10;Computes bounded gradient&#10;deltas on its cached model;&#10;also answers fuzzer probes" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff0e8;strokeColor=#c36c3b;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
+        <mxCell id="serverRuntime" value="V3 runtime&#10;Fits HEADS / FULL_ENCODER&#10;candidates from its base;&#10;stages them in the store" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff0e8;strokeColor=#c36c3b;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
           <mxGeometry as="geometry" x="450" y="145" width="300" height="105" />
         </mxCell>
-        <mxCell id="modeldata" value="Model data&#10;(legacy artifacts)" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff0e8;strokeColor=#c36c3b;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=0;spacing=5;dashed=1;dashPattern=6 4;fillColor=#fffaf6;">
+        <mxCell id="modeldata" value="Checkpoint store&#10;(param-update)" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff0e8;strokeColor=#c36c3b;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=0;spacing=5;dashed=1;dashPattern=6 4;fillColor=#fffaf6;">
           <mxGeometry as="geometry" x="600" y="280" width="150" height="60" />
         </mxCell>
-        <mxCell id="packages" value="Model streaming (read-only)&#10;snapshots / verified packages" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e5f3ec;strokeColor=#338568;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=1;spacing=5;">
+        <mxCell id="packages" value="Model streaming&#10;pinned or signed V3; V1 read-only" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e5f3ec;strokeColor=#338568;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=1;spacing=5;">
           <mxGeometry as="geometry" x="450" y="395" width="300" height="60" />
         </mxCell>
-        <mxCell id="fuzzersvc" value="Fuzzer (on request)&#10;Labelled synthetic prompts&#10;+ held-out guard cases;&#10;gates update; loads no weights" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff7e9;strokeColor=#bd8528;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
+        <mxCell id="fuzzersvc" value="V3 fuzzer (on request)&#10;Frozen labelled releases,&#10;fresh seed per cycle;&#10;records guard evidence" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff7e9;strokeColor=#bd8528;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
           <mxGeometry as="geometry" x="880" y="100" width="300" height="120" />
         </mxCell>
-        <mxCell id="updater" value="Updater (param-update)&#10;Auto-requests cycles; checks&#10;exact parent; applies update" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff0e8;strokeColor=#c36c3b;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
+        <mxCell id="updater" value="Scheduler (param-update)&#10;Each V3 tier in turn; drift,&#10;guard, retention gates; signs" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#fff0e8;strokeColor=#c36c3b;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;">
           <mxGeometry as="geometry" x="880" y="285" width="300" height="85" />
         </mxCell>
-        <mxCell id="profilenote" value="Compose profile: legacy-training" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=14;fontStyle=2;spacing=5;fillColor=none;strokeColor=none;fontColor=#8d621c;">
+        <mxCell id="profilenote" value="Compose profile: v3-training" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=14;fontStyle=2;spacing=5;fillColor=none;strokeColor=none;fontColor=#8d621c;">
           <mxGeometry as="geometry" x="870" y="40" width="320" height="25" />
         </mxCell>
         <mxCell id="llm" value="External LLM&#10;endpoint" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#f2f4f7;strokeColor=#637487;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=18;fontStyle=1;spacing=5;">
@@ -88,7 +88,7 @@
             <mxPoint as="targetPoint" x="85" y="520" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="bridge" value="Loopback analysis;&#10;native supervisor" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
+        <mxCell id="bridge" value="Native messaging&#10;to the extension" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=15;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
           <mxGeometry as="geometry" x="175" y="355" width="155" height="50" />
         </mxCell>
         <mxCell id="modelClient" value="" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#338568;strokeWidth=2;fontFamily=Arial;fontSize=15;fontColor=#338568;labelBackgroundColor=#ffffff;">
@@ -104,10 +104,11 @@
         <mxCell id="clientweights" value="Verified&#10;weights" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=13;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#338568;">
           <mxGeometry as="geometry" x="341" y="335" width="58" height="50" />
         </mxCell>
-        <mxCell id="cacheModel" value="Cached model" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#338568;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#338568;labelBackgroundColor=#ffffff;">
+        <mxCell id="cacheModel" value="Base weights" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#338568;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#338568;labelBackgroundColor=#ffffff;">
           <mxGeometry as="geometry" relative="1">
-            <mxPoint as="sourcePoint" x="520" y="395" />
+            <mxPoint as="sourcePoint" x="600" y="310" />
             <mxPoint as="targetPoint" x="520" y="250" />
+            <Array as="points"><mxPoint x="520" y="310" /></Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="reload" value="" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#338568;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#338568;labelBackgroundColor=#ffffff;">
@@ -122,40 +123,40 @@
             <mxPoint as="targetPoint" x="960" y="220" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="gatedUpdate" value="Gated update" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#c36c3b;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#c36c3b;labelBackgroundColor=#ffffff;">
+        <mxCell id="gatedUpdate" value="Commit request" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#c36c3b;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#c36c3b;labelBackgroundColor=#ffffff;">
           <mxGeometry as="geometry" relative="1">
             <mxPoint as="sourcePoint" x="1100" y="220" />
             <mxPoint as="targetPoint" x="1100" y="285" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="batches" value="Labelled batches" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#bd8528;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#bd8528;labelBackgroundColor=#ffffff;">
+        <mxCell id="batches" value="Fit request" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#bd8528;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#bd8528;labelBackgroundColor=#ffffff;">
           <mxGeometry as="geometry" relative="1">
             <mxPoint as="sourcePoint" x="880" y="165" />
             <mxPoint as="targetPoint" x="750" y="165" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="deltas" value="Deltas + metrics" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#bd8528;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#bd8528;labelBackgroundColor=#ffffff;">
+        <mxCell id="deltas" value="Candidate + evidence" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#bd8528;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#bd8528;labelBackgroundColor=#ffffff;">
           <mxGeometry as="geometry" relative="1">
             <mxPoint as="sourcePoint" x="750" y="205" />
             <mxPoint as="targetPoint" x="880" y="205" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="apply" value="Apply" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#c36c3b;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#c36c3b;labelBackgroundColor=#ffffff;dashed=1;dashPattern=6 4;">
+        <mxCell id="apply" value="Gated commit" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#c36c3b;strokeWidth=2;fontFamily=Arial;fontSize=14;fontColor=#c36c3b;labelBackgroundColor=#ffffff;dashed=1;dashPattern=6 4;">
           <mxGeometry as="geometry" relative="1">
             <mxPoint as="sourcePoint" x="880" y="315" />
             <mxPoint as="targetPoint" x="750" y="315" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="standard" value="Standard V3: pinned, read-only&#10;packages; configuration-owned alias" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=1;spacing=5;fillColor=none;strokeColor=none;fontColor=#28694f;">
+        <mxCell id="standard" value="Rust services; mutual TLS on&#10;every listener; V1 detection only" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=1;spacing=5;fillColor=none;strokeColor=none;fontColor=#28694f;">
           <mxGeometry as="geometry" x="440" y="480" width="330" height="60" />
         </mxCell>
-        <mxCell id="fuzzernote" value="Supplied examples are training inputs;&#10;telemetry provides no training labels." vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#8d621c;">
+        <mxCell id="fuzzernote" value="Frozen releases are training inputs;&#10;telemetry provides no training labels." vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#8d621c;">
           <mxGeometry as="geometry" x="865" y="480" width="330" height="60" />
         </mxCell>
         <mxCell id="clientnote" value="Inspect locally;&#10;send original body&#10;only if permitted." vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=17;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#275f8b;">
           <mxGeometry as="geometry" x="175" y="480" width="160" height="60" />
         </mxCell>
-        <mxCell id="legend" value="Blue: prompt path     Purple: reporting     Green: model delivery     Orange: opt-in legacy training (dashed: applied update)" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
+        <mxCell id="legend" value="Blue: prompt path     Purple: reporting     Green: model delivery     Orange: opt-in V3 training (dashed: gated, signed commit)" vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=nowrap;html=0;fillColor=#e1effc;strokeColor=#3374ac;strokeWidth=1.5;fontColor=#192c3b;fontFamily=Arial;fontSize=16;fontStyle=0;spacing=5;fillColor=none;strokeColor=none;fontColor=#384b5a;">
           <mxGeometry as="geometry" x="190" y="552" width="1000" height="28" />
         </mxCell>
       </root>

@@ -88,6 +88,51 @@ Boundaries:
 - **Not representative of real providers.** Fixtures are synthetic or derived from code; they do not establish real-provider compatibility.
 - **Same separation rules** as the other units.
 
+## System description follows the current implementation, 25 November 2026
+
+The user instructed: **"Ensure that the state of the paper is updated to the state of the implementation. Leave a page or so (of the 12) for additional information to be added once stage 13 is done."** Later the same day the user instructed: **"make it reflect the latest changes (including the rewrite), although it paper should avoid saying it was rewritten and should just say it was written in rust."**
+
+The implementation (feat/rust-rewrite) no longer contains components that several retained measurements used, including the V1 update service and the gRPC-Web bridge. Root therefore put a choice to the user, and the user chose option (a), **"Describe Rust, relabel old"**. Root relayed the decision as follows:
+
+- The system sections describe the Rust build.
+- The earlier security, latency and probe numbers stay, labelled as measured on the earlier prototype.
+- G2, G6 and G7 become pending re-measurement, which Stage 13 fills.
+- Detection results are unchanged.
+
+The user accepted that this implies a prior build existed. The approved label is "earlier prototype build"; the paper must not say "rewritten", "ported" or "migrated".
+
+What this entry records:
+
+- **System description.** Sections 4 and 6, Figure 1, Definition 1, Algorithm 2 and the table of model families now follow the Rust implementation, without describing a rewrite. They cover:
+  - the V3 guarded update: admission, drift bounds with the cumulative cap, the recomputed guard, the retention gate, Ed25519-signed publication, compare-and-swap and receipts;
+  - routine training of all three V3 tiers, with V1 models kept for detection only;
+  - in-service mutual TLS with a role policy and no reverse proxy;
+  - the native-messaging controller with sandboxed analysis workers (Python by default, an optional Rust worker for the selections it claims);
+  - the controller-owned telemetry reporter.
+- **No new empirical result.** This entry adds none. Stage 13 records on the Rust branch (13c-1, 13d-1a) and the Rust telemetry audit record are not integrated; the Stage 13-P integration covers them.
+- **Build-dependent numbers.** These are kept unchanged and labelled as measured on the earlier prototype build:
+  - the installed probes (33) and cross-platform probes (73 per browser; Edge 61/73; 166 page-hook tests);
+  - the V1 and V3 installed cost results, including the request accounting and the resource windows;
+  - the telemetry finite audit, ledger checks and operational run, including the report-call timing;
+  - the 91 update and authentication rows, with Tables `tab:updsec` and `tab:gaps`.
+  
+  The root report of 25 November 2026 lists them for review.
+- **Pending markers.** Every statement that waits on re-measurement of the current build is wrapped in the macro `\pendingStageThirteen{...}` (grep `pendingStageThirteen`). The markers are in:
+  - the abstract;
+  - the threat model;
+  - Table `tab:security_goals` rows G1, G2, G6 and G7;
+  - Section 4.3 (update gates);
+  - Section 4.4 (reporter audit);
+  - Section 6 (re-measurement);
+  - the RQ1 answer (transport);
+  - Section 7 (update attacks, authentication, cross-platform);
+  - the discussion and the conclusion;
+  - Table `tab:threat_defense` (three rows);
+  - the security appendix (gaps).
+  
+  Stage 13-P replaces each marker once the current build is measured.
+- **Page budget.** The body ends on page 11, leaving page 12 for Stage 13 results. To make room, environment and artifact details, the finite telemetry equation and some update, authentication and cost details moved to the appendices.
+
 ## RQ1: Detection and enforcement
 
 1. **Full-product contextual package comparison, all three tiers.** Retain historical and updated efficient, balanced and quality packages on the same 1,560 authored provisional cases (810 sensitive, 750 clean). Distinguish label-and-action joint agreement, allowed-action agreement and binary classification. Keep paired gains and losses, the shared 139 unnecessary restrictions, package/configuration confounds and the absence of independently adjudicated contextual truth. This is full-product evidence with actual cascade execution recorded, not a semantic-only result. See [pipeline aggregates](research/pipeline-comparison-20261014.json).
