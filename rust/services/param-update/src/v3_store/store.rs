@@ -437,8 +437,8 @@ impl CheckpointStore {
 
     /// Seed a model with its pinned standard release: the routine root. `original` is the independently prepared ORIGINAL
     /// directory (as for [`bootstrap`](Self::bootstrap)); `release` holds the pinned release (`manifest.json`, `model.safetensors`,
-    /// `config.json`, `vocab.txt`), a `full_encoder`-scope manifest whose bytes hash to the model's pin and whose `original` is
-    /// that ORIGINAL. The ORIGINAL is admitted and kept as the first history entry; the release becomes current (unless the model
+    /// `config.json`, `vocab.txt`, and the `evidence.json` its manifest names), a `full_encoder`-scope manifest whose bytes hash to
+    /// the model's pin and whose `original` is that ORIGINAL. The ORIGINAL is admitted and kept as the first history entry; the release becomes current (unless the model
     /// already has a version) and is recorded in `versions`, where [`rollback`](Self::rollback) serves it as the pin. Candidates
     /// then have the release as their parent and its `original` as their ORIGINAL, which admission already accepts.
     pub fn bootstrap_pinned(&self, original: &Path, release: &Path) -> Result<(), StoreError> {
@@ -468,6 +468,16 @@ impl CheckpointStore {
                 }
             }
             self.verify_checkpoint(document)?;
+        }
+        // The release's evidence is part of the version: the publisher writes it whenever the pin is published again (a rollback
+        // to the pin). It is checked against the manifest before it is stored, so unverified bytes never enter the store.
+        let evidence = text(&document, "evidence");
+        if !evidence.is_empty() {
+            let bytes = std::fs::read(release.join("evidence.json"))?;
+            if digest(&bytes) != evidence {
+                return bad("Pinned release evidence identity mismatch.");
+            }
+            self.put(&bytes)?;
         }
         self.put(&original_payload)?;
         let sha = self.put(&payload)?;

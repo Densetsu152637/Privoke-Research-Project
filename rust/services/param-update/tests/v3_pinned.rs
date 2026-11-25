@@ -12,11 +12,13 @@ use std::sync::Arc;
 
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::json::Value;
-use privoke_contracts::proto::experimental_v3::Commit;
+use privoke_contracts::proto::experimental_v3::{Commit, Rollback};
+use privoke_contracts::publication::test_keys::{self, PRIMARY_ID};
 use privoke_contracts::v3::{self as contract, TIERS, VOCAB_SHA256, action_value, harm_count};
 use privoke_curriculum::v3::Policy;
 use privoke_curriculum::value;
 use privoke_param_update::v3_policy::{DRIFT_EXCEEDED, DriftBounds, DriftGate};
+use privoke_param_update::v3_publish::{Publisher, no_crash};
 use privoke_param_update::v3_store::{Candidate, CheckpointStore, CommitObserver, SourceEvidence, StoreError};
 use serde_json::{Value as Json, json};
 
@@ -157,6 +159,7 @@ fn fixture(release_heads: &[f32]) -> Fixture {
     let (original, release) = (scratch.path().join("original"), scratch.path().join("release"));
     package(&original, &original_weights, &original_manifest);
     package(&release, &release_weights, &release_manifest);
+    std::fs::write(release.join("evidence.json"), b"the evidence of the release").unwrap();
     Fixture { scratch, original_sha, pin_sha, original, release }
 }
 
@@ -220,6 +223,49 @@ fn a_release_that_is_not_the_pin_does_not_descend_from_the_original_or_is_an_ori
         refusal(store.bootstrap_pinned(&fixture.original, &fixture.original).unwrap_err()),
         "Pinned release must be the full-encoder release of the model."
     );
+}
+
+/// Stage 13c-2 regression: in a publishing deployment, a rollback to the pinned release is applied, signed and served. The
+/// publisher writes the release's `evidence.json`, so `bootstrap_pinned` must have stored it (it used not to, and the rollback
+/// failed with "Checkpoint object is not in this private catalog.").
+#[test]
+fn a_publishing_deployment_rolls_back_to_the_pinned_release_and_serves_it() {
+    let fixture = fixture(&[3.0]);
+    let publisher =
+        Arc::new(Publisher::new(fixture.scratch.path().join("published"), PRIMARY_ID, test_keys::seed(PRIMARY_ID), no_crash()).unwrap());
+    let store = store_in(fixture.scratch.path(), &fixture.pin_sha).with_observer(publisher.clone());
+    store.bootstrap_pinned(&fixture.original, &fixture.release).unwrap();
+    let rollback = |request_id: &str, manifest: &str| Rollback {
+        request_id: request_id.to_string(),
+        model_id: MODEL.to_string(),
+        manifest: manifest.to_string(),
+    };
+    // Away from the pin (to the ORIGINAL), then back to the pin: both applied, each signed with the next sequence.
+    assert_eq!(store.rollback(&rollback("rb-original", &fixture.original_sha)).unwrap().status, "applied");
+    let back = store.rollback(&rollback("rb-pin", &fixture.pin_sha)).unwrap();
+    assert_eq!((back.status.as_str(), back.reason.as_str()), ("applied", "rollback"));
+    assert_eq!(store.resolve(MODEL).unwrap(), fixture.pin_sha);
+    let publications = store.publications(MODEL).unwrap();
+    assert_eq!(publications.iter().map(|row| (row.sequence, row.manifest.clone())).next_back(), Some((2, fixture.pin_sha.clone())));
+    let served = publisher.served(MODEL).unwrap().expect("the pin is served");
+    assert_eq!(served.manifest_sha, fixture.pin_sha);
+    assert_eq!(std::fs::read(served.directory.join("evidence.json")).unwrap(), b"the evidence of the release");
+}
+
+#[test]
+fn a_pinned_release_whose_evidence_differs_or_is_missing_is_refused_and_nothing_is_stored() {
+    let fixture = fixture(&[3.0]);
+    std::fs::write(fixture.release.join("evidence.json"), b"other evidence").unwrap();
+    let store = store_in(fixture.scratch.path(), &fixture.pin_sha);
+    assert_eq!(
+        refusal(store.bootstrap_pinned(&fixture.original, &fixture.release).unwrap_err()),
+        "Pinned release evidence identity mismatch."
+    );
+    assert!(store.resolve(MODEL).is_err(), "nothing became current");
+    assert!(store.read(&sha256_hex(b"other evidence")).is_err(), "the unverified bytes were not stored");
+    std::fs::remove_file(fixture.release.join("evidence.json")).unwrap();
+    assert!(matches!(store.bootstrap_pinned(&fixture.original, &fixture.release), Err(StoreError::Missing(_))));
+    assert!(store.resolve(MODEL).is_err());
 }
 
 /// The evidence of a HEADS candidate over `base`: the guard is better and no action is harmed.

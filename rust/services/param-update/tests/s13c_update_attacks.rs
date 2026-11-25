@@ -24,6 +24,8 @@
 
 mod common;
 mod golden_world;
+// The allocation format (`S13C_ALLOCATIONS`), defined once there and read strictly.
+mod s13c_allocations;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -40,15 +42,13 @@ use privoke_contracts::publication::test_keys::{self, PRIMARY_ID};
 use privoke_contracts::v3::{self as contract, CHUNK_BYTES, TIERS, Tier, VOCAB_SHA256, action_value, harm_count};
 use privoke_curriculum::Example;
 use privoke_curriculum::audience::BUNDLED_MANIFEST_SHA256;
-use privoke_curriculum::v3::{
-    self as curriculum, AU3_SAMPLER, BC01_SAMPLER, Policy, RoutineRelease, routine_guard_rows, routine_guard_seed,
-};
+use privoke_curriculum::v3::{self as curriculum, BC01_SAMPLER, Policy, RoutineRelease, routine_guard_rows, routine_guard_seed};
 use privoke_curriculum::value;
 use privoke_model_streaming::published::Published;
 use privoke_model_streaming::releases::{ASSET_KEYS, STANDARD_IDS, StandardReleases, V3_ARCHITECTURE};
 use privoke_param_update::build_observers;
 use privoke_param_update::config::{PublicationConfig, V3Config};
-use privoke_param_update::journal::{AllocationRow, Journal, JournalAllocations, Stage};
+use privoke_param_update::journal::{Journal, JournalAllocations, Stage};
 use privoke_param_update::scheduler::{Commitments, PinnedCommitments};
 use privoke_param_update::server::ServerHandle;
 use privoke_param_update::v3_guard::{Allocation, Allocations, GuardScorer, StaticAllocations};
@@ -59,6 +59,7 @@ use privoke_param_update::v3_store::{
 };
 use privoke_training::retention_v3::{RetentionRelease, Rule};
 use privoke_transport::{Limits, RateLimit};
+use s13c_allocations::parse_allocations;
 use serde_json::{Value as Json, json};
 use tonic::transport::Channel;
 use tonic::{Code, Status};
@@ -184,70 +185,6 @@ impl Outcome {
     fn assert_rejected(&self, reason: &str) {
         assert_eq!((self.code, self.status.as_str(), self.reason.as_str()), (Code::Ok, "rejected", reason), "{self:?}");
     }
-}
-
-// ---------------------------------------------------------------------------------------------------------------------------
-// The allocation format (`S13C_ALLOCATIONS`), defined once here and read strictly.
-// ---------------------------------------------------------------------------------------------------------------------------
-
-const ALLOCATION_KEYS: [&str; 10] =
-    ["request_id", "cycle", "model_id", "stage", "attempt", "sampler", "seed", "expected_base", "source_commitment", "state"];
-
-fn is_sha(text: &str) -> bool {
-    text.len() == 64 && text.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-/// `S13C_ALLOCATIONS`: a JSON array of objects that mirror the `v3_allocations` columns, without `candidate` and `reason` (they are
-/// written only when a request is settled). Unknown and missing fields are refused.
-fn parse_allocations(text: &str) -> Result<Vec<AllocationRow>, String> {
-    let items: Vec<Json> = serde_json::from_str(text).map_err(|error| format!("not a JSON array: {error}"))?;
-    let mut rows = Vec::new();
-    for (index, item) in items.iter().enumerate() {
-        let Some(map) = item.as_object() else { return Err(format!("item {index} is not an object")) };
-        let keys: BTreeSet<&str> = map.keys().map(String::as_str).collect();
-        if keys != ALLOCATION_KEYS.iter().copied().collect::<BTreeSet<_>>() {
-            return Err(format!("item {index} has unknown or missing fields"));
-        }
-        let string = |key: &str| item[key].as_str().map(str::to_string).ok_or_else(|| format!("item {index}: {key} is not a string"));
-        let integer =
-            |key: &str| item[key].as_i64().filter(|number| *number >= 0).ok_or_else(|| format!("item {index}: {key} is not a count"));
-        let request_id = string("request_id")?;
-        if request_id.is_empty() || request_id.chars().count() > 200 {
-            return Err(format!("item {index}: request_id is not bounded"));
-        }
-        let model_id = string("model_id")?;
-        if !STANDARD_IDS.contains(&model_id.as_str()) {
-            return Err(format!("item {index}: model_id is not a V3 tier"));
-        }
-        let stage = Stage::of(&string("stage")?).ok_or_else(|| format!("item {index}: stage is not heads or full_encoder"))?;
-        let sampler = string("sampler")?;
-        if ![AU3_SAMPLER, BC01_SAMPLER].contains(&sampler.as_str()) {
-            return Err(format!("item {index}: sampler is not a frozen release"));
-        }
-        let seed = u32::try_from(integer("seed")?).map_err(|_| format!("item {index}: seed exceeds 32 bits"))?;
-        let (expected_base, source_commitment) = (string("expected_base")?, string("source_commitment")?);
-        if !is_sha(&expected_base) || !is_sha(&source_commitment) {
-            return Err(format!("item {index}: a digest is not 64 lowercase hexadecimal characters"));
-        }
-        if string("state")? != "allocated" {
-            return Err(format!("item {index}: state must be allocated"));
-        }
-        rows.push(AllocationRow {
-            request_id,
-            cycle: integer("cycle")?,
-            model_id,
-            stage,
-            attempt: integer("attempt")?,
-            sampler,
-            seed,
-            expected_base,
-            source_commitment,
-            state: "allocated".to_string(),
-            candidate: None,
-            reason: None,
-        });
-    }
-    Ok(rows)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
@@ -884,6 +821,7 @@ impl World {
         let pin = sha256_hex(&release_manifest);
         package(&layout.original, &original_entries, &original_manifest);
         package(&layout.release, &release_entries, &release_manifest);
+        std::fs::write(layout.release.join("evidence.json"), b"the evidence of the release").unwrap();
         // The release store of model-streaming: the pinned release, with the evidence file its manifest names, and two tiny tiers.
         let served_pin = layout.releases.join(MODEL);
         package(&served_pin, &release_entries, &release_manifest);
