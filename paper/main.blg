@@ -9,7 +9,7 @@ Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'wiz_functions' (item size: 4) to 6000 items.
 Database file #1: sample-base.bib
 Warning--entry type for "Luhn1960Patent" isn't style-file defined
---line 759 of file sample-base.bib
+--line 1517 of file sample-base.bib
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'wiz_functions' (item size: 4) to 9000 items.
 Warning--no key, author in PIIMBPinned2026
