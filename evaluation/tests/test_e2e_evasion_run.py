@@ -125,6 +125,7 @@ def install(world):
 
     def fake_start(supervisor, xp_module, env):
         supervisor.process = FakeProcess()
+        world.env = env
         world.started.append("supervisor")
 
     return xp, receiver_module, Tap, Driver, fake_start
@@ -150,23 +151,33 @@ class RunOrchestrationTests(unittest.TestCase):
         self.args = SimpleNamespace(run_set=str(self.run_set), out=str(self.out), runtime_python=sys.executable,
                                     browsers="chrome,edge,firefox", layers="regex,ner,semantic", pilot=False, stage="13b-2",
                                     runtime_env=[], receiver_port=443, openssl="openssl", workdir=str(self.tmp / "work"),
-                                    max_consecutive_errors=10)
+                                    max_consecutive_errors=10, stack=True, stack_target="127.0.0.1:50051",
+                                    release_root=str(self.tmp / "releases"), expected_checksum=None, lock_held=False,
+                                    keep_workdir=False)
 
-    def do_run(self, plan=None, args=None, preflight_seconds=None):
+    def do_run(self, plan=None, args=None, preflight_seconds=None, probe_error=None):
         world = World(plan or (lambda text: {}), self.lock_path)
+
+        def probe(target, identity):
+            world.probed = target
+            if probe_error:
+                raise probe_error
+            return {"target": target, "model_id": identity["model_id"], "artifact_checksum": identity["artifact_checksum"]}
         xp, receiver_module, tap, driver, fake_start = install(world)
         original = e2e.preflight
         patches = [
             mock.patch.dict(os.environ, {"S13_LOCAL_INPUTS_ROOT": str(self.local)}),
             mock.patch.dict(sys.modules, {"cross_platform_study": xp, "cross_platform_receiver": receiver_module}),
             mock.patch.object(e2e, "BridgeTap", tap), mock.patch.object(e2e, "E2EDriver", driver),
-            mock.patch.object(e2e, "start_supervisor", fake_start), mock.patch.object(e2e, "_port_open", return_value=False),
+            mock.patch.object(e2e, "start_supervisor", fake_start),
+            mock.patch.object(e2e, "release_identity", return_value={"model_id": e2e.STACK_MODEL_ID, "artifact_checksum": "good"}),
+            mock.patch.object(e2e, "probe_stack", side_effect=probe), mock.patch.object(e2e, "_port_open", return_value=False),
             mock.patch.object(e2e, "ROOT", self.fake_root),
             mock.patch.object(e2e.subprocess, "run", return_value=SimpleNamespace(stdout="v0")),
             mock.patch.object(e2e.time, "sleep", lambda s: None),
         ]
         if preflight_seconds is not None:
-            patches.append(mock.patch.object(e2e, "preflight", lambda d, t, e: original(d, t, e, seconds=preflight_seconds, pause=0)))
+            patches.append(mock.patch.object(e2e, "preflight", lambda d, t, e, **kw: original(d, t, e, seconds=preflight_seconds, pause=0, **kw)))
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
@@ -206,11 +217,66 @@ class RunOrchestrationTests(unittest.TestCase):
             for forbidden in ("text", "prompt", "body", "notes"):
                 self.assertNotIn(forbidden, row)
         self.assertFalse(self.lock_path.exists(), "the host lock is released")
+        self.assertFalse((self.tmp / "work").exists(), "the temporary workdir (log, certificate, key) is removed")
+        self.assertEqual(meta["stack"]["artifact_checksum"], "good")
+        self.assertEqual(meta["expected_checksum"], "good")
+        self.assertIs(meta["settings"]["warn_masking"], False)
         self.assertTrue(world.lock_seen_during_sends and all(world.lock_seen_during_sends), "the lock is held while sending")
         for started in ("receiver", "tap", "supervisor"):
             self.assertIn(started, world.started)
         for stopped in ("receiver", "tap", "supervisor", "decoy", "driver"):
             self.assertIn(stopped, world.stopped)
+
+    def test_the_default_runtime_environment_points_the_supervisor_at_the_local_stack(self):
+        world, code, error = self.do_run()
+        self.assertIsNone(error)
+        self.assertEqual(world.probed, "127.0.0.1:50051")
+        self.assertEqual(world.env["PRIVOKE_USE_LOCAL_STACK"], "true")
+        self.assertEqual(world.env["PRIVOKE_LOCAL_MODEL_STREAMING_TARGET"], "127.0.0.1:50051")
+        self.assertEqual(world.env["PRIVOKE_LLM_CHOICE"], "streamed")
+        self.assertEqual(self.meta()["runtime_env_keys"], ["PRIVOKE_LLM_CHOICE", "PRIVOKE_LOCAL_MODEL_STREAMING_TARGET",
+                                                           "PRIVOKE_USE_LOCAL_STACK"])
+
+    def test_a_stack_that_is_down_or_serves_another_model_stops_before_anything_starts(self):
+        world, code, error = self.do_run(probe_error=e2e.HarnessError("model streaming at 127.0.0.1:50051 is not reachable"))
+        self.assertIsInstance(error, e2e.HarnessError)
+        self.assertEqual(world.started, [])
+        self.assertFalse(self.lock_path.exists())
+        self.assertFalse((self.out / "rows_chrome.jsonl").exists())
+
+    def test_a_response_from_a_different_model_aborts_the_run(self):
+        args = SimpleNamespace(**dict(vars(self.args), stack=False, expected_checksum="different"))
+        world, code, error = self.do_run(args=args, preflight_seconds=0.0)
+        self.assertIsInstance(error, e2e.RunAborted)
+        self.assertIn("unexpected model identity", str(error))
+
+    def test_no_stack_needs_an_explicit_checksum(self):
+        args = SimpleNamespace(**dict(vars(self.args), stack=False))
+        world, code, error = self.do_run(args=args)
+        self.assertIsInstance(error, e2e.HarnessError)
+        self.assertEqual(world.started, [])
+
+    def test_a_caller_held_lock_is_verified_and_left_in_place(self):
+        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self.lock_path.write_text('{"stage": "13b-2", "pid": 1}', encoding="utf-8")
+        args = SimpleNamespace(**dict(vars(self.args), lock_held=True))
+        world, code, error = self.do_run(args=args)
+        self.assertIsNone(error)
+        self.assertTrue(self.lock_path.exists(), "the caller releases the lock after stopping the stack")
+        self.lock_path.write_text('{"stage": "13e", "pid": 1}', encoding="utf-8")
+        world, code, error = self.do_run(args=args)
+        self.assertIsInstance(error, e2e.HostLockHeld)
+
+    def test_an_aborted_run_keeps_the_supervisor_log_under_the_local_root_and_removes_the_workdir(self):
+        def plan(text):
+            return {"requested": (2, 3)} if "variant one a" in text else {}
+        work = self.tmp / "work"
+        work.mkdir()
+        (work / "supervisor.log").write_text("log", encoding="utf-8")
+        world, code, error = self.do_run(plan=plan)
+        self.assertIsInstance(error, e2e.RunAborted)
+        self.assertTrue((self.out / "supervisor.log").is_file())
+        self.assertFalse(work.exists())
 
     def test_an_empty_layer_list_is_refused_before_anything_starts(self):
         args = SimpleNamespace(**dict(vars(self.args), layers=""))

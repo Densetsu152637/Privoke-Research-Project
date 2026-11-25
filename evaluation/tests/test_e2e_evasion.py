@@ -5,8 +5,10 @@ value-removing split, refusal of an empty layer list, refusal of a host that is 
 the stop on a layer mismatch. No prompt, dataset row or model output is used.
 """
 
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -46,7 +48,8 @@ def tap_entry(text: str, action="ALLOW", requested=(2, 3, 4), layers=None, error
     return {"path": "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt", "http_status": 200, "grpc_status": 0, "error": None,
             "request": {"request_id": "r", "layer_values": list(requested), "layers": [e2e.ENUM_LAYER[v] for v in requested],
                         "text_sha256": sha(text), "text_chars": len(text)},
-            "response": {"request_id": "r", "action": action, "metadata": {}, "layers": layers, "error": error}}
+            "response": {"request_id": "r", "action": action, "metadata": {e2e.SEMANTIC_CHECKSUM_KEY: "good"}, "layers": layers,
+                         "error": error, "evidence": None}}
 
 
 def item(seed="s1", variant="baseline", text="synthetic prompt one", family=None, removing=False, applicable=True):
@@ -92,9 +95,14 @@ class FakeDriver:
         if spec.get("deliver", True):
             self.receiver.by_id[send_id] = [Capture(send_id, "chatgpt.com", "POST", "/backend-api/conversation",
                                                     "application/json", body)]
-        messages = [{"type": "ANALYZE_PROMPT", "text": text},
-                    {"type": "ANALYZE_RESULT", "action": spec.get("action", "ALLOW"),
-                     "noticeStatus": "RENDERED" if spec.get("warn") else None}]
+        messages = []
+        if spec.get("page", True):
+            messages = [{"type": "ANALYZE_PROMPT", "text": text},
+                        {"type": "ANALYZE_RESULT", "action": spec.get("page_action", spec.get("action", "ALLOW")),
+                         "noticeStatus": "RENDERED" if spec.get("warn") else None}]
+        disposition = spec.get("disposition", "ORIGINAL_REQUEST_HANDED_OFF" if spec.get("deliver", True) else "BLOCKED_LOCALLY")
+        if disposition:
+            messages.append({"type": "ANALYZE_OUTCOME", "disposition": disposition})
         return {"outcome": {"messages": messages, "status": 200, "elapsedMs": 4.0},
                 "url": spec.get("url", "https://chatgpt.com/backend-api/conversation?xp=" + send_id),
                 "expectedBodySha256": hashlib.sha256(body).hexdigest()}
@@ -106,14 +114,14 @@ def make_world(plan):
 
 
 def row_with(seed, variant, action, family=None, removing=False, failed_closed=False, error=None, applicable=True,
-             detector=None, browser="chrome", attended=False):
+             detector=None, browser="chrome", attended=False, inspection_unavailable=False):
     """A row whose observed end-to-end action is ``action`` (BLOCK, WARN, ALLOW) or None (not delivered)."""
     got = action in ("WARN", "ALLOW")
     row = {"seed_id": seed, "variant": variant, "family": family or variant, "value_removing": removing,
            "applicable": applicable, "browser": browser, "attended": attended, "receiver_got": got,
            "payload_intact": got, "warn_shown": action == "WARN", "decision": action, "layers_requested": list(FULL),
            "layers_executed": {n: "ok" for n in FULL}, "error": error, "failed_closed": failed_closed, "elapsed_ms": 10.0,
-           "detector_level": None, "e2e_outcome": None, "scope_label": e2e.SCOPE_LABEL}
+           "inspection_unavailable": inspection_unavailable, "request_disposition": None, "detector_level": None, "e2e_outcome": None, "scope_label": e2e.SCOPE_LABEL}
     if detector is not None:
         row["detector_level"] = {"action": detector, "failed_closed": False, "layers_executed": {n: "ok" for n in FULL}}
     return row
@@ -245,10 +253,48 @@ class RowConstructionTests(unittest.TestCase):
         self.assertFalse(row["payload_intact"])
         self.assertIsNone(e2e.e2e_action(row))
 
-    def test_a_missing_analysis_is_an_error_row_not_a_protection(self):
+    def test_a_variant_delivered_intact_without_any_analysis_is_an_allow(self):
+        """page-interceptor forwards with no analysis when no prompt is extracted or inspection fails."""
+        row = self.send(lambda t: {"tap": False, "page": False})
+        self.assertIsNone(row["error"])
+        self.assertEqual((row["receiver_got"], row["payload_intact"], row["decision"], row["layers_requested"]),
+                         (True, True, None, []))
+        self.assertTrue(e2e.delivered_without_analysis(row))
+        self.assertEqual(e2e.e2e_action(row), "ALLOW")
+        rows = [dict(row, variant="baseline", seed_id="a", receiver_got=False, payload_intact=False, decision="BLOCK",
+                     error=None, layers_requested=list(FULL), layers_executed={n: "ok" for n in FULL}),
+                dict(row, variant="v1", seed_id="a")]
+        self.assertEqual(e2e.annotate_outcomes(rows)[1]["e2e_outcome"], "evaded")
+
+    def test_no_analysis_without_delivery_or_with_driver_error_stays_an_error_row(self):
+        undelivered = self.send(lambda t: {"tap": False, "page": False, "deliver": False, "disposition": None})
+        self.assertIn("no_bridge_request", undelivered["error"])
+        self.assertIsNone(e2e.e2e_action(undelivered))
+        driver, receiver, tap = make_world(lambda t: {"tap": False, "page": False})
+        reply = driver.request("send", prompt="x", sendId="s0")
+        reply["error"] = "driver failed"
+        row = e2e.build_row(item(text="x"), "chrome", False, FULL, reply, receiver.captures_for("s0"), [])
+        self.assertIn("driver_error", row["error"])
+
+    def test_a_page_result_without_a_bridge_request_is_still_an_error(self):
         row = self.send(lambda t: {"tap": False})
         self.assertIn("no_bridge_request", row["error"])
-        self.assertIsNone(e2e.e2e_action(row))
+        self.assertFalse(e2e.delivered_without_analysis(row))
+
+    def test_delivered_without_analysis_rows_do_not_count_toward_consecutive_errors(self):
+        driver, receiver, tap = make_world(lambda t: {"tap": False, "page": False})
+        items = [item(f"s{i}", "baseline", f"prompt {i}") for i in range(6)]
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = e2e.run_items(driver, receiver, tap, items, "chrome", False, FULL, "https://chatgpt.com/x",
+                                 Path(tmp) / "rows.jsonl", max_consecutive_errors=3)
+        self.assertEqual(len(rows), 6)
+        self.assertTrue(all(e2e.delivered_without_analysis(r) for r in rows))
+
+    def test_the_count_of_rows_delivered_without_analysis_is_an_anomaly(self):
+        rows = [row_with("a", "baseline", "BLOCK", detector="BLOCK"), row_with("a", "v1", "ALLOW", detector="BLOCK")]
+        rows[1].update(decision=None, layers_requested=[], layers_executed={})
+        result = e2e.score_group(rows)
+        self.assertEqual(result["anomalies"]["delivered_without_analysis"], 1)
 
     def test_the_bridge_and_page_decisions_must_agree(self):
         driver, receiver, tap = make_world(lambda t: {"action": "ALLOW"})
@@ -258,10 +304,93 @@ class RowConstructionTests(unittest.TestCase):
         self.assertIn("page_bridge_decision_mismatch", row["error"])
 
     def test_fail_closed_is_recorded_from_the_executed_layers(self):
+        """A layer error with nothing found: the bridge says BLOCK, the page acts on a fail-open WARN."""
         layers = layers_payload(("ok", "ok", "error"), ("ALLOW", "ALLOW", "ALLOW"))
-        row = self.send(lambda t: {"action": "BLOCK", "deliver": False, "layers": layers})
+        row = self.send(lambda t: {"action": "BLOCK", "page_action": "WARN", "warn": True, "layers": layers})
         self.assertTrue(row["failed_closed"])
+        self.assertTrue(row["inspection_unavailable"])
+        self.assertIsNone(row["error"], "page WARN with bridge BLOCK and failed_closed is the expected path")
         self.assertEqual(row["layers_executed"]["semantic"], "error")
+        self.assertEqual((row["receiver_got"], row["decision"]), (True, "BLOCK"))
+        self.assertEqual(e2e.e2e_action(row), "BLOCK")
+        self.assertEqual(e2e.score_group([dict(row, seed_id="a", variant="baseline", detector_level=None)])["anomalies"]
+                         ["delivered_despite_block"], 0)
+
+    def test_a_fail_closed_block_shown_as_block_by_the_page_is_a_mismatch(self):
+        layers = layers_payload(("ok", "ok", "error"), ("ALLOW", "ALLOW", "ALLOW"))
+        row = self.send(lambda t: {"action": "BLOCK", "page_action": "BLOCK", "deliver": False, "layers": layers})
+        self.assertIn("page_bridge_decision_mismatch", row["error"])
+
+    def test_a_working_layers_block_stays_authoritative_when_another_layer_errored(self):
+        layers = layers_payload(("ok", "ok", "error"), ("BLOCK", "ALLOW", "ALLOW"))
+        row = self.send(lambda t: {"action": "BLOCK", "page_action": "BLOCK", "deliver": False, "layers": layers})
+        self.assertIsNone(row["error"])
+        self.assertFalse(row["failed_closed"])
+        self.assertFalse(row["inspection_unavailable"])
+
+    def test_the_fail_closed_row_is_classified_fail_closed_not_an_error_or_not_delivered(self):
+        base = row_with("a", "baseline", "BLOCK", detector="BLOCK")
+        variant = row_with("a", "v1", "BLOCK", failed_closed=True, inspection_unavailable=True, detector="BLOCK")
+        variant.update(receiver_got=True, payload_intact=True, warn_shown=True)
+        self.assertEqual(e2e.annotate_outcomes([base, variant])[1]["e2e_outcome"], "fail_closed")
+
+    def test_the_port_agrees_with_the_real_interception_response(self):
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        cases = []
+        for action in ("ALLOW", "WARN", "BLOCK", "", "ODD"):
+            for statuses in (("ok", "ok", "ok"), ("ok", "ok", "error"), ("ok", "error", "ok")):
+                for result_action in ("ALLOW", "BLOCK"):
+                    for error in ("", "boom"):
+                        for evidence in (None, "BLOCK", "WARN"):
+                            layers = [{"layer": n, "status": s, "error": "", "results": [{"action": result_action}]}
+                                      for n, s in zip(FULL, statuses)]
+                            case = {"action": action, "layers": layers, "error": error}
+                            if evidence:
+                                case["evidence"] = {"action": evidence}
+                            cases.append(case)
+        script = ("import { interceptionResponse } from %s; import { readFileSync } from 'node:fs';"
+                  "const cases = JSON.parse(readFileSync(0, 'utf8'));"
+                  "console.log(JSON.stringify(cases.map((c) => { const r = interceptionResponse(c);"
+                  " return [r.action, Boolean(r.inspectionUnavailable)]; })));"
+                  % json.dumps((ROOT / "extension/src/interception-failure.js").as_uri()))
+        done = subprocess.run([node, "--input-type=module", "-e", script], input=json.dumps(cases), capture_output=True,
+                              text=True, check=True, timeout=60)
+        expected = json.loads(done.stdout)
+        ported = [list(e2e.interception_response(case)) for case in cases]
+        self.assertEqual(ported, expected)
+        self.assertGreater(len({tuple(e) for e in expected}), 2)
+
+    def test_every_bridge_request_of_a_send_is_asserted_not_only_the_last(self):
+        driver, receiver, tap = make_world(lambda t: {})
+        reply = driver.request("send", prompt="synthetic prompt one", sendId="s0")
+        bad = tap_entry("synthetic prompt one", requested=(2, 3))
+        with self.assertRaises(e2e.LayerMismatchError):
+            e2e.build_row(item(), "chrome", False, FULL, reply, receiver.captures_for("s0"), [bad, tap.entries[-1]])
+        short = tap_entry("synthetic prompt one", layers=layers_payload(names=FULL)[:2])
+        with self.assertRaises(e2e.LayerMismatchError):
+            e2e.build_row(item(), "chrome", False, FULL, reply, receiver.captures_for("s0"), [short, tap.entries[-1]])
+
+    def test_the_request_disposition_is_recorded_and_must_agree_with_the_receiver(self):
+        row = self.send(lambda t: {})
+        self.assertEqual(row["request_disposition"], "ORIGINAL_REQUEST_HANDED_OFF")
+        blocked = self.send(lambda t: {"action": "BLOCK", "deliver": False})
+        self.assertEqual(blocked["request_disposition"], "BLOCKED_LOCALLY")
+        self.assertIsNone(blocked["error"])
+        self.assertIn("disposition_receiver_mismatch", self.send(lambda t: {"disposition": "BLOCKED_LOCALLY"})["error"])
+        self.assertIn("disposition_receiver_mismatch",
+                      self.send(lambda t: {"deliver": False, "disposition": "ORIGINAL_REQUEST_HANDED_OFF", "action": "BLOCK"})["error"])
+        self.assertIsNone(self.send(lambda t: {"disposition": None})["request_disposition"])
+
+    def test_the_semantic_checksum_is_enforced_per_row(self):
+        driver, receiver, tap = make_world(lambda t: {})
+        reply = driver.request("send", prompt="synthetic prompt one", sendId="s0")
+        tap.entries[-1]["response"]["metadata"] = {e2e.SEMANTIC_CHECKSUM_KEY: "good"}
+        row = e2e.build_row(item(), "chrome", False, FULL, reply, receiver.captures_for("s0"), tap.entries, expected_checksum="good")
+        self.assertIsNone(row["error"])
+        with self.assertRaises(e2e.LayerMismatchError):
+            e2e.build_row(item(), "chrome", False, FULL, reply, receiver.captures_for("s0"), tap.entries, expected_checksum="other")
 
     def test_stage3_score_record_agrees_on_failed_closed(self):
         for statuses, actions, action in ((("ok", "ok", "error"), ("ALLOW",) * 3, "BLOCK"),
@@ -754,6 +883,92 @@ class WireAndTapTests(unittest.TestCase):
         self.assertNotIn("secret looking", logged)
         self.assertEqual(len(seen), 2)
         self.assertEqual(e2e.decode_analyze_request(seen[0][1])["text"], "secret looking synthetic text")
+
+
+class StackTests(unittest.TestCase):
+    IDENTITY = {"model_id": e2e.STACK_MODEL_ID, "artifact_checksum": "abc"}
+
+    def packages(self, **overrides):
+        good = {"model_id": e2e.STACK_MODEL_ID, "manifest_sha256": "abc"}
+        return {e2e.STACK_MODEL_ID: dict(good, **overrides.get("by_id", {})), "": dict(good, **overrides.get("latest", {}))}
+
+    def test_a_serving_stack_with_the_release_checksum_passes(self):
+        result = e2e.check_stack({"status": "SERVING"}, self.packages(), self.IDENTITY)
+        self.assertEqual((result["model_id"], result["artifact_checksum"], result["served_as_latest"]),
+                         (e2e.STACK_MODEL_ID, "abc", True))
+
+    def test_every_deviation_is_refused_before_any_send(self):
+        cases = [({"status": "NOT_SERVING"}, self.packages()), ({}, self.packages()),
+                 ({"status": "SERVING"}, self.packages(by_id={"manifest_sha256": "other"})),
+                 ({"status": "SERVING"}, self.packages(latest={"model_id": "privoke-v3-quality"})),
+                 ({"status": "SERVING"}, self.packages(latest={"manifest_sha256": "other"})),
+                 ({"status": "SERVING"}, {})]
+        for health, packages in cases:
+            with self.assertRaises(e2e.HarnessError):
+                e2e.check_stack(health, packages, self.IDENTITY)
+
+    def test_the_release_identity_is_the_manifest_sha256(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            release = Path(tmp) / e2e.STACK_MODEL_ID
+            release.mkdir()
+            (release / "manifest.json").write_bytes(b'{"model_id": "x"}')
+            identity = e2e.release_identity(Path(tmp))
+            self.assertEqual(identity["artifact_checksum"], hashlib.sha256(b'{"model_id": "x"}').hexdigest())
+            with self.assertRaises(e2e.HarnessError):
+                e2e.release_identity(Path(tmp), "privoke-v3-missing")
+
+    def test_a_non_loopback_stack_target_is_refused(self):
+        e2e.require_loopback_target("127.0.0.1:50051")
+        with self.assertRaises(e2e.HostRefusedError):
+            e2e.require_loopback_target("models.example.org:50051")
+
+    def test_the_compose_override_repoints_only_the_release_mount_and_the_command_is_quoted(self):
+        text = e2e.stack_compose_override(Path("D:/Git Repositories/Privoke-Research-Project/models/standard-releases"))
+        self.assertIn('source: "D:/Git Repositories/Privoke-Research-Project/models/standard-releases"', text)
+        self.assertIn("target: /model-releases", text)
+        self.assertIn("read_only: true", text)
+        self.assertNotIn("ports", text)
+        command = e2e.stack_up_command(Path("D:/with space/out/compose.release.yml"))
+        self.assertIn('-f "D:/with space/out/compose.release.yml"', command)
+        self.assertIn("-p privoke-s13b-e2e", command)
+        self.assertIn("-f docker-compose.prod.yml -f evaluation/compose.localhost.yml", command)
+        self.assertTrue(command.endswith("up -d --build --wait --wait-timeout 240 model-streaming-service"))
+        self.assertIn("stop model-streaming-service", e2e.stack_stop_command(Path("x.yml")))
+
+    def test_the_stack_subcommand_writes_the_override_and_prints_both_commands_without_docker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "local"
+            release = Path(tmp) / "releases" / e2e.STACK_MODEL_ID
+            release.mkdir(parents=True)
+            (release / "manifest.json").write_text("{}", encoding="utf-8")
+            out = io.StringIO()
+            with mock.patch.dict(os.environ, {"S13_LOCAL_INPUTS_ROOT": str(local)}), mock.patch.object(e2e.subprocess, "run") as run, \
+                    contextlib.redirect_stdout(out):
+                code = e2e.main(["stack", "--print-command", "--out", str(local / "s13b" / "stack"),
+                                 "--release-root", str(Path(tmp) / "releases")])
+            self.assertEqual(code, 0)
+            run.assert_not_called()
+            self.assertTrue((local / "s13b" / "stack" / "compose.release.yml").is_file())
+            self.assertEqual(len(out.getvalue().strip().splitlines()), 2)
+
+
+class BuildAndLockTests(unittest.TestCase):
+    def test_build_refuses_to_run_without_the_13a_exclusion(self):
+        with self.assertRaises(e2e.HarnessError):
+            e2e.cmd_build(mock.Mock(exclude_ids=None, allow_no_exclude=False))
+
+    def test_lock_subcommand_round_trip_and_stage_check(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"S13_LOCAL_INPUTS_ROOT": tmp}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(e2e.main(["lock", "acquire", "--stage", "13b-2"]), 0)
+            self.assertTrue((Path(tmp) / "s13-host.lock").exists())
+            with self.assertRaises(e2e.HostLockHeld):
+                e2e.HostLock("13e").verify_held()
+            e2e.HostLock("13b-2").verify_held()
+            self.assertEqual(e2e.main(["lock", "release", "--stage", "13b-2"]), 0)
+            self.assertFalse((Path(tmp) / "s13-host.lock").exists())
+            with self.assertRaises(e2e.HostLockHeld):
+                e2e.HostLock("13b-2").verify_held()
 
 
 class DriverContractTests(unittest.TestCase):

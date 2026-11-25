@@ -17,6 +17,9 @@ import e2e_evasion_report as rep  # noqa: E402
 from test_e2e_evasion import FULL, row_with, stage3_fixture  # noqa: E402
 
 
+DETECTOR_META = {"identity": {"artifact_checksum": "good"}}
+
+
 def make_plan(rows):
     seeds = sorted({r["seed_id"] for r in rows})
     return {"seed_ids": seeds, "seed_group": {s: f"g{int(s[1:]) // 2}" for s in seeds},
@@ -33,7 +36,8 @@ def make_meta(status_edge="not_run", reason_edge="browser not installed on this 
     return {"layers": list(FULL), "commands": ["e2e_evasion.py run ..."], "host": {"platform": "synthetic"},
             "started_utc": "2026-12-01T08:00:00Z", "finished_utc": "2026-12-01T09:00:00Z",
             "branch": "feat/asiaccs-s13b", "revision": "a" * 40, "worktree_dirty": False,
-            "extension_build": None,
+            "extension_build": None, "expected_checksum": "good", "settings": {"warn_masking": False},
+            "stack": {"target": "127.0.0.1:50051", "model_id": "privoke-v3-balanced", "artifact_checksum": "good"},
             "browsers": [{"key": "chrome", "browser": "Google Chrome", "status": "run", "browser_version": "1", "headless": True,
                           "attended": False, "rows_written": 24},
                          {"key": "edge", "browser": "Microsoft Edge", "status": status_edge, "reason": reason_edge,
@@ -53,7 +57,8 @@ def make_record(extra_rows=()):
             detector[f"{row['seed_id']}::{row['variant']}"] = {
                 "action": row["detector_level"]["action"], "failed_closed": False,
                 "layer_status": {n: "ok" for n in FULL}}
-    return rep.build_record(rows, detector, make_plan(rows), make_meta(), "20261201"), rows
+    return rep.build_record(rows, detector, make_plan(rows), make_meta(), "20261201",
+                            detector_meta=DETECTOR_META), rows
 
 
 class RecordTests(unittest.TestCase):
@@ -121,7 +126,7 @@ class RecordTests(unittest.TestCase):
     def test_building_does_not_mutate_the_input_rows(self):
         rows, _, _ = stage3_fixture()
         before = copy.deepcopy(rows)
-        rep.build_record(rows, {}, make_plan(rows), make_meta(), "20261201")
+        rep.build_record(rows, {}, make_plan(rows), make_meta(), "20261201", detector_meta=DETECTOR_META)
         self.assertEqual(rows, before)
 
     def test_the_json_is_valid_with_one_row_per_line_and_no_prompt_keys(self):
@@ -197,6 +202,26 @@ class CheckRulesTests(unittest.TestCase):
         self.assertTrue(any("scope_label" in p for p in self.problems(lambda r: r["rows"][0].__setitem__("scope_label", "x"))))
         self.assertTrue(any("forbidden prompt-bearing key" in p for p in self.problems(lambda r: r["rows"][0].__setitem__("text", "x"))))
 
+    def test_both_arms_must_be_checked_against_one_semantic_artifact(self):
+        def differ(record):
+            record["semantic_model"]["detector_artifact_checksum"] = "other"
+        self.assertTrue(any("semantic_model" in p for p in self.problems(differ)))
+
+        def missing(record):
+            record["semantic_model"]["e2e_artifact_checksum"] = None
+            record["semantic_model"]["detector_artifact_checksum"] = None
+        self.assertTrue(any("semantic_model" in p for p in self.problems(missing)))
+
+    def test_warn_masking_must_be_recorded_off(self):
+        def on(record):
+            record["settings"]["warn_masking"] = True
+        self.assertTrue(any("warn_masking" in p for p in self.problems(on)))
+
+    def test_a_prompt_key_in_a_late_row_is_found(self):
+        def late(record):
+            record["rows"][-1]["text"] = "x"
+        self.assertTrue(any("forbidden prompt-bearing key" in p for p in self.problems(late)))
+
     def test_rows_with_missing_fields_are_reported(self):
         self.assertTrue(any("missing fields" in p for p in self.problems(lambda r: r["rows"][0].pop("payload_intact"))))
 
@@ -253,9 +278,10 @@ class CommandLineTests(unittest.TestCase):
             (tmp / "det.jsonl").write_text("\n".join(json.dumps(dict(v, vid=k)) for k, v in detector.items()) + "\n", encoding="utf-8")
             (tmp / "plan.json").write_text(json.dumps(make_plan(rows)), encoding="utf-8")
             (tmp / "meta.json").write_text(json.dumps(make_meta()), encoding="utf-8")
+            (tmp / "dm.json").write_text(json.dumps(DETECTOR_META), encoding="utf-8")
             code, _, _ = self.run_main(["--build", "--rows", str(tmp / "rows.jsonl"), "--detector", str(tmp / "det.jsonl"),
                                         "--plan", str(tmp / "plan.json"), "--run-meta", str(tmp / "meta.json"), "--date", "20261201",
-                                        "--out-json", str(tmp / "r.json"), "--out-md", str(tmp / "r.md"),
+                                        "--detector-meta", str(tmp / "dm.json"), "--out-json", str(tmp / "r.json"), "--out-md", str(tmp / "r.md"),
                                         "--out-summary", str(tmp / "s.md")])
             self.assertEqual(code, 0)
             code, out, err = self.run_main(["--check", str(tmp / "r.json")])

@@ -14,10 +14,26 @@ configured set; a mismatch aborts the run. Nothing here contacts a real provider
 Sub-commands::
 
     e2e_evasion.py verify-templates --expected-sha256 H
-    e2e_evasion.py build    --out DIR [--n-seed N] [--exclude-ids FILE] [--variants a,b]
+    e2e_evasion.py build    --out DIR [--n-seed N] --exclude-ids FILE [--variants a,b]   # or --allow-no-exclude
     e2e_evasion.py size-seeds --plan PLAN --pilot-rows ROWS [--hours 8] [--floor 200]
     e2e_evasion.py detector --run-set FILE --out DIR --release-dir D --generated D
-    e2e_evasion.py run      --run-set FILE --out DIR --runtime-python P [--browsers a,b] [--pilot]
+    e2e_evasion.py run      --run-set FILE --out DIR --runtime-python P [--browsers a,b] [--pilot] [--lock-held]
+    e2e_evasion.py stack    [--out DIR --print-command]            # probe, or write the compose override
+    e2e_evasion.py lock     acquire|release|show --stage 13b-2
+
+The semantic layer is V3 balanced served by the LOCAL DOCKER SERVER STACK (model streaming on
+127.0.0.1:50051), not a reduced arm. The harness never starts Docker. Stage 13b-2 runs, under the
+host lock (``lock acquire --stage 13b-2``), from the worktree root::
+
+    e2e_evasion.py stack --out <abs s13b dir> --print-command     # writes compose.release.yml and prints:
+    docker compose -p privoke-s13b-e2e -f docker-compose.prod.yml -f evaluation/compose.localhost.yml \\
+        -f <out>/compose.release.yml up -d --build --wait --wait-timeout 240 model-streaming-service
+
+then ``run --lock-held`` (it checks the stack first), then
+``docker compose -p privoke-s13b-e2e ... stop model-streaming-service`` and ``lock release``.
+The override only re-points the release bind mount at the main checkout's
+models/standard-releases. The container name ``model-streaming-service`` is fixed by the compose
+file: stop any other stack that uses it first.
 
 Prompt-bearing outputs (the run set, variants, receiver bodies) are written only under
 ``<local root>/s13b/`` (the Git-ignored ``evaluation/results/s13b`` of the main checkout, or
@@ -28,6 +44,7 @@ reuses the Stage 3 functions of ``adversarial_evasion.py`` on the same applicabl
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import http.client
 import http.server
@@ -93,7 +110,16 @@ EXPECTED_ROW_FIELDS = (
     "receiver_got", "payload_intact", "warn_shown", "decision", "layers_requested",
     "layers_executed", "error", "detector_level", "e2e_outcome", "scope_label",
 )
-EXTRA_ROW_FIELDS = ("failed_closed", "elapsed_ms")
+EXTRA_ROW_FIELDS = ("failed_closed", "elapsed_ms", "inspection_unavailable", "request_disposition")
+DISPOSITION_HANDED_OFF = ("ORIGINAL_REQUEST_HANDED_OFF", "MASKED_REQUEST_HANDED_OFF")
+SEMANTIC_CHECKSUM_KEY = "privoke.semantic.artifact_checksum"
+# The local Docker server stack that serves V3 balanced to the client runtime (model streaming on loopback).
+STACK_TARGET = "127.0.0.1:50051"
+STACK_MODEL_ID = "privoke-v3-balanced"
+STACK_COMPOSE_PROJECT = "privoke-s13b-e2e"
+DEFAULT_RELEASE_ROOT = Path("D:/Git Repositories/Privoke-Research-Project/models/standard-releases")
+SETTINGS_IN_PROFILE = {"warn_masking": False, "model_quality": "LATEST",
+                       "source": "disposable profile: extension DEFAULT_SETTINGS (warnMasking false)"}
 E2E_OUTCOMES = ("protected", "evaded", "downgraded", "fail_closed", "not_delivered_other")
 
 
@@ -173,6 +199,16 @@ class HostLock:
             handle.write(json.dumps({"stage": self.stage, "pid": os.getpid(),
                                      "started": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}))
         self.held = True
+        return self
+
+    def verify_held(self) -> "HostLock":
+        """Accept a lock the caller took with ``lock acquire`` for this stage (not released by this run)."""
+        try:
+            holder = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raise HostLockHeld(f"--lock-held was given but {self.path} is missing or unreadable") from None
+        if holder.get("stage") != self.stage:
+            raise HostLockHeld(f"host lock is held by stage {holder.get('stage')!r}, not {self.stage!r}")
         return self
 
     def release(self) -> None:
@@ -456,7 +492,7 @@ def assert_executed_layers(layers: list[dict], expected: tuple[str, ...], expect
     elif skipped:
         raise LayerMismatchError("a layer was skipped although regex was not requested")
     if statuses.get("semantic") == "ok" and expected_checksum is not None:
-        if (metadata or {}).get("privoke.semantic.artifact_checksum") != expected_checksum:
+        if (metadata or {}).get(SEMANTIC_CHECKSUM_KEY) != expected_checksum:
             raise LayerMismatchError("semantic layer executed with an unexpected model identity")
     return statuses
 
@@ -553,13 +589,15 @@ def _decode_layer(payload: bytes) -> dict:
 
 
 def decode_analyze_response(payload: bytes) -> dict:
-    """request_id (1), action (2), metadata (8), layers (10) and error (12) of ``AnalyzePromptResponse``."""
-    out = {"request_id": "", "action": "", "metadata": {}, "layers": [], "error": ""}
+    """request_id (1), action (2), evidence (7), metadata (8), layers (10), error (12) of ``AnalyzePromptResponse``."""
+    out = {"request_id": "", "action": "", "metadata": {}, "layers": [], "error": "", "evidence": None}
     for field, wire, value in parse_message(payload):
         if field == 1 and wire == 2:
             out["request_id"] = value.decode("utf-8")
         elif field == 2 and wire == 2:
             out["action"] = value.decode("utf-8")
+        elif field == 7 and wire == 2:
+            out["evidence"] = {"action": next((v.decode("utf-8") for f, w, v in parse_message(value) if f == 2 and w == 2), "")}
         elif field == 8 and wire == 2:
             key = val = ""
             for f2, w2, v2 in parse_message(value):
@@ -728,18 +766,47 @@ def extract_prompt(body: bytes) -> str | None:
         return None
 
 
+def interception_response(response: dict) -> tuple[str, bool]:
+    """Port of ``interceptionResponse`` in ``extension/src/interception-failure.js``.
+
+    Returns the action the page acts on and whether inspection is reported unavailable. A runtime
+    fail-closed BLOCK (a layer errored and nothing else found a BLOCK) reaches the page as a
+    fail-open WARN with ``inspectionUnavailable``. ``test_e2e_evasion`` runs the real function.
+    """
+    action = response.get("action", "").upper() if isinstance(response.get("action"), str) else ""
+    if action not in ACTIONS:
+        return "WARN", True
+    layers = response.get("layers") or []
+    failed = bool(response.get("error")) or any(l.get("status") == "error" or l.get("error") for l in layers)
+    if not failed:
+        return action, False
+    evidence = response.get("evidence") or {}
+    detected_block = (isinstance(evidence.get("action"), str) and evidence["action"].upper() == "BLOCK") or any(
+        l.get("status") == "ok" and any(isinstance(r.get("action"), str) and r["action"].upper() == "BLOCK"
+                                        for r in l.get("results") or []) for l in layers)
+    return (action, False) if action == "BLOCK" and detected_block else ("WARN", True)
+
+
 def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...], reply: dict, captures: list,
               tap_entries: list[dict], elapsed_ms: float | None = None, expected_checksum: str | None = None) -> dict:
-    """One row from what the page, the receiver and the tap saw. Raises on any layer mismatch."""
+    """One row from what the page, the receiver and the tap saw. Raises on any layer mismatch.
+
+    A variant that reaches the receiver intact with neither a page result nor a bridge request was
+    forwarded without analysis (no extractable prompt, or an inspection error): it is an ALLOW, not
+    an error row.
+    """
     errors: list[str] = []
     outcome = reply.get("outcome") or {}
-    if reply.get("error") or "harnessError" in outcome or not outcome:
+    driver_error = bool(reply.get("error") or "harnessError" in outcome or not outcome)
+    if driver_error:
         errors.append("driver_error")
     if reply.get("url"):
         require_fixture_host(reply["url"])
     messages = outcome.get("messages", [])
     prompts = [m for m in messages if m.get("type") == "ANALYZE_PROMPT"]
     results = [m for m in messages if m.get("type") == "ANALYZE_RESULT"]
+    outcomes = [m for m in messages if m.get("type") == "ANALYZE_OUTCOME"]
+    disposition = outcomes[-1].get("disposition") if outcomes else None
     receiver_got = len(captures) > 0
     if len(captures) > 1:
         errors.append("multiple_receiver_posts")
@@ -750,25 +817,34 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
         intact = (capture.method == "POST" and reply.get("expectedBodySha256") == capture.sha256
                   and extract_prompt(capture.body) == item["text"])
     warn_shown = bool(results) and results[-1].get("noticeStatus") == NOTICE_RENDERED
-    if len(prompts) != 1:
-        errors.append("page_analysis_count")
-    elif (prompts[0].get("text") or "").strip() != item["text"].strip():
-        errors.append("page_prompt_mismatch")
+    without_analysis = not driver_error and receiver_got and intact and not results and not tap_entries
+    if not without_analysis:
+        if len(prompts) != 1:
+            errors.append("page_analysis_count")
+        elif (prompts[0].get("text") or "").strip() != item["text"].strip():
+            errors.append("page_prompt_mismatch")
 
-    decision, requested, executed, failed_closed = None, [], {}, False
+    decision, requested, executed, failed_closed, unavailable = None, [], {}, False, False
     if not tap_entries:
-        errors.append("no_bridge_request")
+        if not without_analysis:
+            errors.append("no_bridge_request")
     else:
         if len(tap_entries) > 1:
             errors.append("multiple_bridge_requests")
-        entry = tap_entries[-1]
-        if entry.get("request") is None:
-            errors.append(entry.get("error") or "bridge_request_undecoded")
-        else:
-            requested = require_explicit_request_layers(entry["request"]["layer_values"])
-            assert_requested_layers(requested, expected)
+        for entry in tap_entries:  # every request and response of this send is asserted, not only the last
+            if entry.get("request") is None:
+                errors.append(entry.get("error") or "bridge_request_undecoded")
+                continue
+            names = require_explicit_request_layers(entry["request"]["layer_values"])
+            assert_requested_layers(names, expected)
             if entry["request"]["text_sha256"] not in (sha256_text(item["text"]), sha256_text(item["text"].strip())):
                 errors.append("bridge_text_mismatch")
+            response = entry.get("response")
+            if response is not None and not (response["error"] and not response["layers"]):
+                assert_executed_layers(response["layers"], expected, expected_checksum, response.get("metadata"))
+        entry = tap_entries[-1]
+        if entry.get("request") is not None:
+            requested = require_explicit_request_layers(entry["request"]["layer_values"])
         response = entry.get("response")
         if response is None:
             errors.append(entry.get("error") or "no_bridge_response")
@@ -778,9 +854,12 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
             executed = assert_executed_layers(response["layers"], expected, expected_checksum, response.get("metadata"))
             summary = response_summary(response)
             decision, failed_closed = response["action"], summary["failed_closed"]
+            expected_page_action, unavailable = interception_response(response)
             page_action = results[-1].get("action") if results else None
-            if page_action and page_action != decision:
+            if page_action and page_action != expected_page_action:
                 errors.append("page_bridge_decision_mismatch")
+    if (disposition == "BLOCKED_LOCALLY" and receiver_got) or (disposition in DISPOSITION_HANDED_OFF and not receiver_got):
+        errors.append("disposition_receiver_mismatch")
     page_error = outcome.get("errorName")
     if page_error and not (decision == "BLOCK" and not receiver_got):
         errors.append(f"page_error:{page_error}")
@@ -790,19 +869,29 @@ def build_row(item: dict, browser: str, attended: bool, expected: tuple[str, ...
         "attended": attended, "receiver_got": receiver_got, "payload_intact": intact, "warn_shown": warn_shown,
         "decision": decision, "layers_requested": requested, "layers_executed": executed,
         "error": ";".join(errors) if errors else None, "failed_closed": failed_closed,
+        "inspection_unavailable": unavailable, "request_disposition": disposition,
         "elapsed_ms": elapsed_ms, "detector_level": None, "e2e_outcome": None, "scope_label": SCOPE_LABEL,
     }
+
+
+def delivered_without_analysis(row: dict) -> bool:
+    return (not row["error"] and row["receiver_got"] and row["payload_intact"] and row["decision"] is None
+            and not row["layers_requested"])
 
 
 def e2e_action(row: dict) -> str | None:
     """Observed end-to-end action, or None when the row cannot be classified.
 
     BLOCK: the receiver got nothing and the bridge decided BLOCK. WARN: delivered intact after the
-    notice was shown. ALLOW: delivered intact with no notice. Delivered but altered, or not
-    delivered for any other reason, is unclassified (``not_delivered_other``).
+    notice was shown. ALLOW: delivered intact with no notice, including a request forwarded without
+    analysis. A runtime fail-closed decision that the page turned into a fail-open WARN with
+    ``inspectionUnavailable`` keeps the bridge's decision (it is classified ``fail_closed``).
+    Delivered but altered, or not delivered for any other reason, is unclassified.
     """
     if row["error"]:
         return None
+    if row["failed_closed"] and row["inspection_unavailable"] and row["decision"] in ("WARN", "BLOCK"):
+        return row["decision"]
     if not row["receiver_got"]:
         return "BLOCK" if row["decision"] == "BLOCK" else None
     if not row["payload_intact"]:
@@ -956,7 +1045,10 @@ def score_group(rows: list[dict], groups: dict[str, str] | None = None) -> dict:
     e2e_pairs, det_pairs = pair_lists[("e2e", "action_level")], pair_lists[("det", "action_level")]
     outcomes = Counter(r["e2e_outcome"] for r in rows if r["e2e_outcome"])
     anomalies = {
-        "delivered_despite_block": sum(1 for r in rows if r["decision"] == "BLOCK" and r["receiver_got"]),
+        "delivered_despite_block": sum(1 for r in rows if r["decision"] == "BLOCK" and r["receiver_got"]
+                                       and not r["failed_closed"]),
+        "delivered_without_analysis": sum(1 for r in rows if delivered_without_analysis(r)),
+        "masked_request_handed_off": sum(1 for r in rows if r["request_disposition"] == "MASKED_REQUEST_HANDED_OFF"),
         "warn_decision_notice_not_shown": sum(1 for r in rows if r["decision"] == "WARN" and r["receiver_got"]
                                               and not r["warn_shown"]),
         "rows_with_error": sum(1 for r in rows if r["error"]),
@@ -1024,7 +1116,8 @@ def send_item(driver, receiver, tap, item: dict, browser: str, attended: bool, e
 
 
 def run_items(driver, receiver, tap, items: list[dict], browser: str, attended: bool, expected: tuple[str, ...],
-              shape_url: str, rows_path: Path, max_consecutive_errors: int = 10, progress=None) -> list[dict]:
+              shape_url: str, rows_path: Path, max_consecutive_errors: int = 10, progress=None,
+              expected_checksum: str | None = None) -> list[dict]:
     """Send every applicable item once, appending rows; resumes after a stop. Aborts on any layer mismatch."""
     done = set()
     if rows_path.exists():
@@ -1036,7 +1129,8 @@ def run_items(driver, receiver, tap, items: list[dict], browser: str, attended: 
                 continue
             send_id = f"s{index:07d}"
             try:
-                row = send_item(driver, receiver, tap, item, browser, attended, expected, shape_url, send_id)
+                row = send_item(driver, receiver, tap, item, browser, attended, expected, shape_url, send_id,
+                                expected_checksum=expected_checksum)
             except (LayerMismatchError, LayerConfigError, HostRefusedError) as exc:
                 raise RunAborted(f"{type(exc).__name__}: {exc}") from exc
             consecutive = consecutive + 1 if row["error"] else 0
@@ -1054,6 +1148,89 @@ def _pilot_summary(rows: list[dict]) -> dict:
     times = [r["elapsed_ms"] for r in rows if r.get("elapsed_ms") is not None]
     return {"sends": len(rows), "mean_seconds_per_send": (sum(times) / len(times) / 1000.0) if times else None,
             "max_seconds": (max(times) / 1000.0) if times else None}
+
+
+def release_identity(release_root: Path, model_id: str = STACK_MODEL_ID) -> dict:
+    """The semantic artifact checksum (sha256 of the release manifest) the stack must serve."""
+    manifest = Path(release_root) / model_id / "manifest.json"
+    if not manifest.is_file():
+        raise HarnessError(f"release manifest {manifest} is missing")
+    return {"model_id": model_id, "artifact_checksum": ae.file_sha256(manifest), "release_dir": str(manifest.parent)}
+
+
+def check_stack(health: dict, packages: dict[str, dict], identity: dict, target: str = STACK_TARGET) -> dict:
+    """Model streaming must be SERVING and serve ``identity`` both by id and as the ``latest`` alias.
+
+    ``packages`` maps the requested id ("" is the extension's default, the latest alias) to the
+    package response fields ``model_id`` and ``manifest_sha256``.
+    """
+    problems = []
+    if (health or {}).get("status") != "SERVING":
+        problems.append(f"health is {(health or {}).get('status')!r}, not SERVING")
+    for requested in (identity["model_id"], ""):
+        package = packages.get(requested) or {}
+        label = requested or "latest"
+        if package.get("model_id") != identity["model_id"]:
+            problems.append(f"{label} serves model {package.get('model_id')!r}, not {identity['model_id']!r}")
+        if package.get("manifest_sha256") != identity["artifact_checksum"]:
+            problems.append(f"{label} serves manifest {package.get('manifest_sha256')!r}, release has {identity['artifact_checksum']!r}")
+    if problems:
+        raise HarnessError("model streaming stack check failed: " + "; ".join(problems))
+    return {"target": target, "model_id": identity["model_id"], "artifact_checksum": identity["artifact_checksum"],
+            "health": health["status"], "served_as_latest": True}
+
+
+def probe_stack(target: str, identity: dict, timeout: float = 15.0) -> dict:
+    """Ask the running model-streaming service (gRPC, loopback) what it serves. Starts nothing."""
+    import grpc
+    for generated in (ROOT / "extension" / "runtime-supervisor" / "generated", HERE / "generated"):
+        if generated.is_dir() and str(generated) not in sys.path:
+            sys.path.append(str(generated))
+    try:
+        from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+    except ImportError as exc:
+        raise HarnessError(f"generated gRPC clients are missing ({exc}); run evaluation/setup-host.py") from exc
+    require_loopback_target(target)
+    try:
+        with grpc.insecure_channel(target) as channel:
+            stub = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
+            health = stub.Health(parameters_pb2.HealthRequest(), timeout=timeout)
+            packages = {}
+            for requested in (identity["model_id"], ""):
+                reply = stub.GetModelPackage(parameters_pb2.ModelParametersRequest(
+                    consumer_id="e2e-evasion-stack-check", model_id=requested), timeout=timeout)
+                packages[requested] = {"model_id": reply.model_id, "manifest_sha256": reply.manifest_sha256}
+    except grpc.RpcError as exc:
+        raise HarnessError(f"model streaming at {target} is not reachable: {exc.code().name}. Start the local Docker "
+                           "server stack first (see --help).") from exc
+    return check_stack({"status": health.status}, packages, identity, target)
+
+
+def require_loopback_target(target: str) -> None:
+    host = target.rsplit(":", 1)[0].strip("[]")
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        raise HostRefusedError(f"stack target {target!r} is not a loopback address; refusing")
+
+
+def stack_compose_override(release_root: Path) -> str:
+    """Compose override that points the release bind mount at the main checkout's standard releases."""
+    source = str(Path(release_root).as_posix())
+    return ("services:\n  model-streaming-service:\n    volumes:\n      - type: bind\n"
+            f"        source: \"{source}\"\n        target: /model-releases\n        read_only: true\n"
+            "        bind: {create_host_path: false}\n")
+
+
+def stack_compose_prefix(override: Path) -> str:
+    return (f'docker compose -p {STACK_COMPOSE_PROJECT} -f docker-compose.prod.yml -f evaluation/compose.localhost.yml '
+            f'-f "{Path(override).as_posix()}"')
+
+
+def stack_up_command(override: Path) -> str:
+    return f"{stack_compose_prefix(override)} up -d --build --wait --wait-timeout 240 model-streaming-service"
+
+
+def stack_stop_command(override: Path) -> str:
+    return f"{stack_compose_prefix(override)} stop model-streaming-service"
 
 
 E2E_DRIVER = ROOT / "extension" / "test" / "e2e-evasion-driver.mjs"
@@ -1097,7 +1274,8 @@ class E2EDriver:
             self.process.kill()
 
 
-def preflight(driver, tap, expected: tuple[str, ...], seconds: float = WARMUP_SECONDS, pause: float = 3.0) -> dict:
+def preflight(driver, tap, expected: tuple[str, ...], seconds: float = WARMUP_SECONDS, pause: float = 3.0,
+              expected_checksum: str | None = None) -> dict:
     """Warm up and prove that the installed extension requests, and the runtime executes, the configured layers.
 
     The extension silently drops the semantic layer from its request while streaming is unavailable
@@ -1115,7 +1293,7 @@ def preflight(driver, tap, expected: tuple[str, ...], seconds: float = WARMUP_SE
             requested = require_explicit_request_layers(entry["request"]["layer_values"])
             last = f"requested {requested}"
             if set(requested) == set(expected):
-                assert_executed_layers(entry["response"]["layers"], expected, None, entry["response"].get("metadata"))
+                assert_executed_layers(entry["response"]["layers"], expected, expected_checksum, entry["response"].get("metadata"))
                 return {"ready": True, "attempts": attempts, "seconds": round(time.monotonic() - started, 1),
                         "layers_requested": requested}
         if time.monotonic() - started >= seconds:
@@ -1130,6 +1308,17 @@ def _port_open(port: int) -> bool:
     with socket.socket() as sock:
         sock.settimeout(0.5)
         return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+@contextlib.contextmanager
+def lock_scope(args):
+    """Hold the host lock for a run: take it, or accept the caller's (``lock acquire``) without releasing it."""
+    lock = HostLock(args.stage)
+    if args.lock_held:
+        yield lock.verify_held()
+    else:
+        with lock:
+            yield lock
 
 
 def start_supervisor(supervisor, xp, runtime_env: dict[str, str]) -> None:
@@ -1160,7 +1349,10 @@ def execute_run(args) -> int:
     unknown = [b for b in browsers if b not in xp.BROWSERS]
     if unknown:
         raise HarnessError(f"unknown browsers {unknown}")
-    runtime_env = {"PRIVOKE_USE_LOCAL_STACK": "true"}
+    # The local stack setting points the supervisor's runtime at the loopback model-streaming service
+    # (the Docker server stack); the stack check below proves it serves V3 balanced before any send.
+    runtime_env = {"PRIVOKE_USE_LOCAL_STACK": "true", "PRIVOKE_LOCAL_MODEL_STREAMING_TARGET": args.stack_target,
+                   "PRIVOKE_LLM_CHOICE": "streamed"}
     for pair in args.runtime_env:
         name, _, value = pair.partition("=")
         runtime_env[name] = value
@@ -1171,6 +1363,12 @@ def execute_run(args) -> int:
                         args.receiver_port) if _port_open(p)]
     if busy:
         raise HarnessError(f"loopback ports already in use, refusing to touch another runtime: {busy}")
+    stack_identity = None
+    if args.stack:
+        stack_identity = probe_stack(args.stack_target, release_identity(Path(args.release_root)))
+    elif not args.expected_checksum:
+        raise HarnessError("--no-stack needs --expected-checksum: both arms must be checked against one model")
+    expected_checksum = args.expected_checksum or stack_identity["artifact_checksum"]
 
     class Supervisor(xp.Supervisor):
         def start(self) -> None:
@@ -1183,7 +1381,8 @@ def execute_run(args) -> int:
                   "layers": list(expected), "pilot": bool(args.pilot), "commands": [" ".join(sys.argv)],
                   "template_sha256": lf_sha256(e2etx.template_file()), "items_in_run_set": len(all_items),
                   "items_sent_planned": sum(1 for i in items if i["applicable"]), "browsers": [],
-                  "runtime_env_keys": sorted(runtime_env), "aborted": None,
+                  "runtime_env_keys": sorted(runtime_env), "aborted": None, "stack": stack_identity,
+                  "expected_checksum": expected_checksum, "settings": dict(SETTINGS_IN_PROFILE),
                   "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     workdir = Path(args.workdir) if args.workdir else Path(tempfile.mkdtemp(prefix="e2e-evasion-"))
     workdir.mkdir(parents=True, exist_ok=True)
@@ -1196,7 +1395,7 @@ def execute_run(args) -> int:
     outbound: list[str] = []
     foreign_driver: list[str] = []
     abort: Exception | None = None
-    with HostLock(args.stage):
+    with lock_scope(args):
         try:
             receiver.start()
             tap.start()
@@ -1229,11 +1428,12 @@ def execute_run(args) -> int:
                                 entry.update(status="not_run", reason="local runtime did not become ready")
                             else:
                                 driver.request("open", url=page_url)
-                                entry["preflight"] = preflight(driver, tap, expected)
+                                entry["preflight"] = preflight(driver, tap, expected, expected_checksum=expected_checksum)
                                 receiver.captures.clear()
                                 rows_path = out / f"rows_{key_name}.jsonl"
                                 rows = run_items(driver, receiver, tap, items, key_name, False, expected, shape["url"],
-                                                 rows_path, args.max_consecutive_errors)
+                                                 rows_path, args.max_consecutive_errors,
+                                                 expected_checksum=expected_checksum)
                                 entry.update(status="run", rows_written=len(rows), rows_file=rows_path.name,
                                              **_pilot_summary(rows))
                                 answered = driver.request("foreign")
@@ -1284,8 +1484,41 @@ def execute_run(args) -> int:
             if abort:
                 meta["aborted"] = f"{type(abort).__name__}: {abort}"
             write_json(out / ("pilot_meta.json" if args.pilot else "run_meta.json"), meta)
+            log_path = workdir / "supervisor.log"
+            if abort and log_path.is_file():
+                shutil.copy2(log_path, out / "supervisor.log")  # kept under s13b for diagnosis; the workdir goes
+            if not args.keep_workdir:
+                shutil.rmtree(workdir, ignore_errors=True)  # supervisor.log, certificate and key
     if abort:
         raise RunAborted(meta["aborted"])
+    return 0
+
+
+def cmd_stack(args) -> int:
+    identity = release_identity(Path(args.release_root))
+    if args.print_command:
+        out = ensure_out_dir(args.out)
+        override = out / "compose.release.yml"
+        override.write_text(stack_compose_override(Path(args.release_root)), encoding="utf-8", newline="\n")
+        print(stack_up_command(override))
+        print(stack_stop_command(override))
+        return 0
+    print(json.dumps(probe_stack(args.target, identity), indent=1, sort_keys=True))
+    return 0
+
+
+def cmd_lock(args) -> int:
+    lock = HostLock(args.stage)
+    if args.action == "acquire":
+        lock.acquire()
+        lock.held = False  # the file stays after this short process exits; ``lock release`` removes it
+        print(f"host lock taken for {args.stage}: {lock.path}")
+    elif args.action == "release":
+        lock.verify_held()
+        lock.path.unlink()
+        print("host lock released")
+    else:
+        print(lock.path.read_text(encoding="utf-8") if lock.path.is_file() else "free")
     return 0
 
 
@@ -1296,6 +1529,9 @@ def cmd_verify_templates(args) -> int:
 
 
 def cmd_build(args) -> int:
+    if not args.exclude_ids and not args.allow_no_exclude:
+        raise HarnessError("--exclude-ids FILE (the 13a seed ids) is required for disjointness from the 13a set; "
+                           "pass --allow-no-exclude only for a pilot or smoke build")
     exclude = set()
     exclude_source = Path(args.exclude_ids) if args.exclude_ids else None
     if exclude_source:
@@ -1343,7 +1579,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--n-seed", type=int, required=True)
     b.add_argument("--frozen-dir", default=str(DEFAULT_FROZEN_DIR))
     b.add_argument("--seed-file", default=None, help="F4 source file; defaults to the path in the Stage 3 manifest")
-    b.add_argument("--exclude-ids", default=None, help="file of seed ids to exclude (the 13a set)")
+    b.add_argument("--exclude-ids", default=None, help="file of seed ids to exclude (the 13a set); required")
+    b.add_argument("--allow-no-exclude", action="store_true", help="build without the 13a exclusion (pilot or smoke only)")
     b.add_argument("--variants", default=None, help="comma-separated subset; default every variant")
     b.set_defaults(fn=cmd_build)
     s = sub.add_parser("size-seeds")
@@ -1359,6 +1596,16 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--generated", required=True)
     d.add_argument("--layers", default="regex,ner,semantic")
     d.set_defaults(fn=cmd_detector)
+    st = sub.add_parser("stack", help="probe the running model-streaming stack, or write the compose override")
+    st.add_argument("--target", default=STACK_TARGET)
+    st.add_argument("--release-root", default=str(DEFAULT_RELEASE_ROOT))
+    st.add_argument("--out", default=None)
+    st.add_argument("--print-command", action="store_true", help="write compose.release.yml under --out and print the docker commands")
+    st.set_defaults(fn=cmd_stack)
+    lk = sub.add_parser("lock", help="take, show or release the shared host lock")
+    lk.add_argument("action", choices=("acquire", "release", "show"))
+    lk.add_argument("--stage", default="13b-2")
+    lk.set_defaults(fn=cmd_lock)
     r = sub.add_parser("run")
     r.add_argument("--run-set", required=True)
     r.add_argument("--out", required=True)
@@ -1372,6 +1619,13 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--receiver-port", type=int, default=443)
     r.add_argument("--openssl", default="openssl")
     r.add_argument("--workdir", default=None)
+    r.add_argument("--keep-workdir", action="store_true", help="keep the temporary workdir (log, certificate, key)")
+    r.add_argument("--lock-held", action="store_true", help="the caller took the host lock with `lock acquire`")
+    r.add_argument("--stack", action=argparse.BooleanOptionalAction, default=True,
+                   help="check the local Docker model-streaming stack serves V3 balanced before any send (default on)")
+    r.add_argument("--stack-target", default=STACK_TARGET)
+    r.add_argument("--release-root", default=str(DEFAULT_RELEASE_ROOT))
+    r.add_argument("--expected-checksum", default=None, help="semantic artifact checksum; derived from the stack check otherwise")
     r.add_argument("--max-consecutive-errors", type=int, default=10)
     r.set_defaults(fn=execute_run)
     args = parser.parse_args(argv)

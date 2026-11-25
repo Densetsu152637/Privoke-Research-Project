@@ -4,7 +4,7 @@ Builds ``paper/research/e2e-evasion-<date>.{md,json}`` from the per-row output o
 ``e2e_evasion.py run`` and the in-process detector scores, and re-derives every aggregate from the
 per-row data::
 
-    e2e_evasion_report.py --build --rows ROWS[,ROWS] --detector SCORES --plan PLAN --run-meta META
+    e2e_evasion_report.py --build --rows ROWS[,ROWS] --detector SCORES --detector-meta META --plan PLAN --run-meta META
                           --date YYYYMMDD --out-json J [--out-md M] [--out-summary S]
     e2e_evasion_report.py --check J [--md M] [--require-attended]
 
@@ -95,7 +95,7 @@ def git_build(repo: Path) -> dict:
 
 
 def build_record(rows: list[dict], detector: dict[str, dict], plan: dict, meta: dict, date: str,
-                 build: dict | None = None) -> dict:
+                 build: dict | None = None, detector_meta: dict | None = None) -> dict:
     """Assemble the record from rows, detector records, the run plan and the run meta."""
     rows = [dict(r) for r in rows]
     e2e.attach_detector(rows, detector)
@@ -119,6 +119,12 @@ def build_record(rows: list[dict], detector: dict[str, dict], plan: dict, meta: 
         "arms": {"end_to_end": {"scope_label": e2e.SCOPE_LABEL}, "detector_level": {"scope_label": e2e.DETECTOR_SCOPE_LABEL}},
         "not_established": list(NOT_ESTABLISHED), "user_actions": list(USER_ACTIONS),
         "layers": list(meta["layers"]),
+        "semantic_model": {
+            "model_id": (meta.get("stack") or {}).get("model_id", e2e.STACK_MODEL_ID),
+            "e2e_artifact_checksum": meta.get("expected_checksum"),
+            "detector_artifact_checksum": ((detector_meta or {}).get("identity") or {}).get("artifact_checksum"),
+            "stack": meta.get("stack")},
+        "settings": dict(meta.get("settings") or e2e.SETTINGS_IN_PROFILE),
         "inputs": {k: plan[k] for k in (
             "frozen_set_sha256", "f4_source_sha256", "stage3_transform_module_sha256", "template_sha256",
             "run_set_sha256", "sample_seed", "n_seed", "rows_by_source", "excluded_ids", "variants",
@@ -157,6 +163,10 @@ def render_markdown(record: dict) -> str:
              f"- Build: branch {record['build']['branch']}, sha {record['build']['sha']}, clean {record['build']['clean']}",
              f"- Run dates: {', '.join(record['run_dates'])}",
              f"- Layers requested and asserted: {', '.join(record['layers'])}",
+             f"- Semantic model: {record['semantic_model']['model_id']}, artifact checksum "
+             f"{record['semantic_model']['e2e_artifact_checksum']} (detector arm "
+             f"{record['semantic_model']['detector_artifact_checksum']}), served by the local Docker model-streaming stack",
+             f"- WARN masking in the disposable profile: {'on' if record['settings']['warn_masking'] else 'off'}",
              f"- Threat: {record['chain']['threat']}", f"- Defense: {record['chain']['defense']}",
              f"- Experiment: {record['chain']['experiment']}", f"- Metric: {record['chain']['metric']}",
              "", "## Inputs", ""]
@@ -245,7 +255,7 @@ def _forbidden_keys(node, path: str, found: list[str]) -> None:
                 found.append(f"{path}/{key}")
             _forbidden_keys(value, f"{path}/{key}", found)
     elif isinstance(node, list):
-        for index, value in enumerate(node[:50]):  # the keys repeat per row; the first rows are enough to show a leak
+        for index, value in enumerate(node):
             _forbidden_keys(value, f"{path}[{index}]", found)
 
 
@@ -302,6 +312,11 @@ def check_record(record: dict, md_text: str | None = None, require_attended: boo
     for arm, body in record.get("arms", {}).items():
         if body.get("scope_label") not in SCOPE_VOCABULARY:
             problems.append(f"arm {arm} has scope_label {body.get('scope_label')!r}")
+    model = record.get("semantic_model") or {}
+    if not model.get("e2e_artifact_checksum") or model.get("e2e_artifact_checksum") != model.get("detector_artifact_checksum"):
+        problems.append("semantic_model: the end-to-end and detector arms are not both checked against one artifact checksum")
+    if (record.get("settings") or {}).get("warn_masking") is not False:
+        problems.append("settings.warn_masking must be recorded as false")
     leaks: list[str] = []
     _forbidden_keys(record, "", leaks)
     problems += [f"forbidden prompt-bearing key {p}" for p in leaks]
@@ -374,8 +389,9 @@ def cmd_build(args) -> int:
     detector = {r["vid"]: r for r in e2e.read_jsonl(Path(args.detector))}
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     meta = json.loads(Path(args.run_meta).read_text(encoding="utf-8"))
+    detector_meta = json.loads(Path(args.detector_meta).read_text(encoding="utf-8")) if args.detector_meta else None
     record = build_record(rows, detector, plan, meta, args.date,
-                          git_build(HERE.parent) if args.git_build else None)
+                          git_build(HERE.parent) if args.git_build else None, detector_meta)
     Path(args.out_json).write_text(dumps_record(record), encoding="utf-8", newline="\n")
     if args.out_md:
         Path(args.out_md).write_text(render_markdown(record), encoding="utf-8", newline="\n")
@@ -394,6 +410,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rows")
     parser.add_argument("--detector")
     parser.add_argument("--plan")
+    parser.add_argument("--detector-meta", help="detector_run_meta.json of the in-process arm (artifact checksum)")
     parser.add_argument("--run-meta")
     parser.add_argument("--date")
     parser.add_argument("--out-json")
