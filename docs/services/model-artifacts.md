@@ -70,8 +70,9 @@ and copies their original bytes with provenance to ignored
 `models/standard-releases`. It neither initializes nor fits weights. See
 [streaming setup](model-streaming.md#standard-v3-binary-packages). V3 supports
 verified CPU inference and immutable package refresh, not legacy gradient updates.
-V1 remains available through explicit IDs; its training profile cannot promote a
-V1 revision over the configured V3 standard alias.
+V1 remains available through explicit IDs for detection only: the V1 training path
+was removed in stage V3-R8b, so nothing promotes a V1 revision over the configured V3
+standard alias.
 
 ## Sparse annotation-presence artifacts
 
@@ -113,7 +114,7 @@ claim; see the [prospective semantic presence-cascade protocol](../../paper/rese
 See the [prospective model-refactor protocol](../../paper/research/model-refactor-protocol.md)
 for fitting, independent fuzzer cycles, locked-data protection and reporting rules.
 
-## Contextual baseline and updates
+## Contextual baseline
 
 Regenerate the deterministic release baseline:
 
@@ -121,24 +122,14 @@ Regenerate the deterministic release baseline:
 python models/generate_baseline.py
 ```
 
-For local integration, keep Compose services running as servers and issue a host
-Python request with `python evaluation/run-fuzzer-tests.py train --model-id
-privoke-balanced --prompt-count 32`. A successful cycle atomically updates the
-balanced release-channel artifact from `v0.3.0` to `v0.3.0+train.1`, then onward.
+The Rust deployment no longer updates these V1 artifacts: `SubmitParameterUpdate`
+answers `UNIMPLEMENTED`. Routine training publishes new V3 versions through the
+checkpoint store and the signed publication tree instead (see
+[V3 publication](../runtime/v3-publication.md)).
 For controlled experiments, retain temporary ORIGINAL weights, per-cell catalogs,
 effective weights, and provenance pins under `models/experiments/<run>/`. Remove
 redundant weight copies only after verifying byte hashes and recorded references.
 
-Production Compose and Compute Engine persist trained artifacts in `model-data`; they do not rewrite repository files. Development Compose bind-mounts `./models`, so training updates those Git-reviewable files directly. Export a production artifact deliberately before reviewing it in Git.
-
-The updater validates the exact base version and applies bounded deltas only to trainable tensors. A latest-update receipt is included atomically with trained weights; historical replay outcomes live in the updater SQLite database. Runtime candidate evaluation uses the same float32/clipping rules as publication, while the cached serving model remains unchanged during evaluation.
-
-Review and commit development or exported trained weights like source:
-
-```bash
-git diff -- models/privoke-balanced.json
-git add models/privoke-balanced.json
-git commit -m "Update PriVoke semantic model weights"
-```
+The Compose stacks seed the shipped V1 artifacts into the `model-data` volume with the one-shot `model-seed`; they do not rewrite repository files, and nothing mutates the seeded artifacts afterwards.
 
 The checked-in model is intentionally small enough for ordinary Git. If a future artifact approaches the hosting provider's file-size limit, keep the same manifest/streaming contract and move the tensor payload to Git LFS rather than committing an oversized blob.

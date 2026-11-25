@@ -4,8 +4,9 @@
 
 `model-streaming-service` serves persistent PriVoke contextual transformer and
 sparse annotation-presence artifacts. It reloads the selected artifact for every
-request, so an atomically published fuzzer update becomes visible without
-restarting this service or the client runtime.
+request, so a replaced legacy artifact becomes visible without restarting this
+service or the client runtime. V1 artifacts are no longer updated by a fuzzer
+(stage V3-R8b); V3 versions come from the signed publication tree.
 
 The opt-in `privoke_tiny_transformer_v2` architecture streams the same schema-1
 tensor protocol with explicit `residual_task_query_v1` readout configuration and
@@ -169,8 +170,6 @@ transport; it does not establish training qualification or measured quality.
 
 Go admission recognizes the separate `full_projected_adam64_window_checkpoint_v1` optimizer, exact canonical frozen-window configuration, `candidate_window_exact_component_retention_v1` eligibility and both window/component manifest pins. It rejects orphan pins, policy mixtures and changed configuration, while preserving earlier Adam/retention contracts. Existing full tensor validation applies to both legacy and v2 task-query shapes. Stream cache identity includes all new policy/config/pin fields, preventing reuse of a snapshot under changed window semantics. No study result or default artifact is replaced by this opt-in capability.
 
-Normal startup seeds existing legacy JSON without training. Fuzzer and updater
-services require the explicit `legacy-training` Compose profile; their bootstrap
-and gradient/update paths remain legacy-only. Standard V3 is inference/refresh
-only: legacy gradient requests reject it explicitly. Selecting V3 reflects bounded
+Normal startup seeds existing legacy JSON without training. V1 training was removed in stage V3-R8b: V1 models are served for detection only. Routine training of the V3 tiers runs only under the explicit `v3-training` Compose profile, and
+its signed versions reach clients through `GetModelPackage` (see [V3 publication](../runtime/v3-publication.md)). Selecting V3 reflects bounded
 AU3 research results, not universal superiority or a retention guarantee.
