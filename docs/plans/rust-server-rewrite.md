@@ -8,7 +8,7 @@ Revision: 2026-11-16 r3 (planning only; base `7384ec7` on `feat/nick-branch`, br
 - "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported."
 - The user then decided: "Use PyO3". spaCy is called through PyO3 in a supervised worker pool (stage 11), and the separate-repository plan was dropped.
 
-**Status.** This is a plan. No code is changed by it. Every stage is `pending`.
+**Status (26 November 2026).** Each stage's own status line is authoritative. These stages are done: 0–4, 6–9, 12, 13, 16, 18, 20, 21, W1, W2 and W3. These stages have code done but checks still pending (the real-interpreter, container or parity runs, collected in stage 23): 5, 11, 11b, 14, 15, 17, 19, 22 and W4. Stage 10 is optional and not scheduled.
 - Stages 0 to 10 cover the server rewrite.
 - Stages 11 to 22 cover the [approved inference and training ports](#approved-inference-and-training-ports-stages-11-to-22), D1 to D10.
 - D11 (model fetch in Rust) is approved as networking work and is part of stage 17.
