@@ -1,6 +1,6 @@
 # Annotation guideline v2 (draft, 24 November 2026)
 
-Status: **draft, provisional, no worked examples. The definition of `sensitive` below is an agent draft that the user must approve or replace before the pilot (approval: PENDING, date: ____________).** Decision D12 is unanswered: the user, or a human they choose, writes the matched-contrast worked examples and their labels, or approves unlabelled drafts and writes the labels. Until then this guideline ships without examples. No agent wrote any example, label or labelled prompt here. Each dated revision after the pilot lists the clarification and the disagreement that caused it. When a revision lands, root updates the pin of this file in `evaluation/s13_allowlist.json` in the same commit.
+Status: **draft, provisional, no worked examples. The definition of `sensitive` below follows the Dual-Axis project's severity scale (S2 and S3 count as sensitive) and was approved by the user on 26 November 2026.** Decision D12 is unanswered: the user, or a human they choose, writes the matched-contrast worked examples and their labels, or approves unlabelled drafts and writes the labels. Until then this guideline ships without examples. No agent wrote any example, label or labelled prompt here. Each dated revision after the pilot lists the clarification and the disagreement that caused it. When a revision lands, root updates the pin of this file in `evaluation/s13_allowlist.json` in the same commit.
 
 It supersedes the label definitions of section 2 of the [24 October protocol](annotation-protocol-20261024.md) for Stage 13a. The sampling, blinding, pilot and adjudication rules of the protocol carry over, except where the [marker decision](annotation-marker-decision-20261124.md) and the Stage 13 plan state otherwise.
 
@@ -10,9 +10,8 @@ You label each prompt on your sheet from its text alone. You work alone, you do 
 
 ## The labels
 
-Each row has these columns: `item_id`, `text` (given), then the six you fill in.
-
-1. **`sensitive`: `yes` or `no`.** *Agent draft, awaiting the user's approval or replacement before the pilot (approval date: ____________).* Does the text disclose actual personal information about a person that could harm that person if it were disclosed? Answer `no` when nothing is disclosed, when the content is clearly fictional, invented as a placeholder or unfilled, when it only names a sensitive topic, or when what it discloses is ordinary or carries little risk of harm. Answer `yes` for personal information that could harm the person if disclosed (for example health, finances, identity documents, credentials or secrets, criminal history, or a private person's location) that the text presents as real. Do not decide from a topic keyword alone.
+Each row has these columns: `item_id`, `text` (given), then the six 1. **`sensitive`: `yes` or `no`.** *Approved by the user on 26 November 2026; it follows the Dual-Axis project's severity scale S0–S3.* Answer `yes` when the text reaches severity S2 or S3: it discloses information that, if misused, could cause reputational harm, targeting, fraud, unwanted contact or a safety risk. S2 (medium) covers misuse that could cause reputational harm, targeting, fraud, unwanted contact or moderate sensitivity. S3 (high) covers an explicit sensitive category together with direct identifiers, doxxing, threats, minors, or strong safety, financial or reputational risk. Answer `no` for S0 (nothing sensitive, or benign) and S1 (low sensitivity, such as a mild personal opinion or weak identifiers). Also answer `no` when the content is clearly fictional, invented as a placeholder or unfilled, or when it only names a sensitive topic. Do not decide from a topic keyword alone.
+eyword alone.
 2. **`subject`: whose information it is.**
    - `SELF`: the writer's own information.
    - `THIRD_PARTY`: a private person other than the writer.
@@ -56,3 +55,4 @@ Annotator (private list, not in Git): ____________________  Date: ____________
 | Date | Change | Disagreement that caused it |
 | --- | --- | --- |
 | 2026-11-24 | Draft v2.0, no examples; `sensitive` definition is an agent draft pending user approval | none |
+| 2026-11-26 | `sensitive` defined from the Dual-Axis severity scale (S2 and S3 are `yes`, S0 and S1 are `no`); approved by the user | none (before the pilot) |
