@@ -269,7 +269,7 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
 6. **`score_privoke.py --smoke`.** Runs under the host lock before 13a-5.
 
 **Blocked on the user:**
-- **13a-3, 13a-5, 13e:** need D1, D2, D4, D9 and D12, approval of the `sensitive` definition, and delivered prompts and labels (13a-2, 13a-4).
+- **13a-3, 13a-5, 13e:** need D1, D2, D4, D9 and D12 and delivered prompts and labels (13a-2, 13a-4).
 - **13e and 13f:** also need the D11 go decision.
 - **13-P:** comes last.
 
@@ -497,7 +497,7 @@ Work paused after 13d-1a, because the weekly usage limit was nearly reached. It 
     - `compute_iaa.py --check-adjudication` failing on a missing resolution.
   - **No labels are committed:** `git ls-files docs/research/s13a/labels` prints nothing on this stage branch.
 - **User dependency:** USER answers D1–D4 and D6, and writes or approves the worked examples (D12).
-- **Status:** done (agent part). Outcome: `11b4ac5`, `5cbf68b`, `cd157aa`, merged at `59510e0`; 124 annotation tests OK; G8 0 violations. Implementation gate: 3 rounds, 9 findings accepted (sampler output confinement, the `sensitive` definition flagged for user approval and rephrased around harm, contamination containment, short prompts and empty sources, adjudication coverage, scorer layer errors, freeze gate binding, conditional enforcement rates, a multi-commit label regression, and an environment test switch), 0 rejected. Open before 13a-3: the user approves the `sensitive` definition and supplies worked examples (D12); `score_privoke.py --smoke` runs under the host lock before 13a-5; `fuzzer_curricula` is not a separate default (fuzzer outputs are covered through `results/`).
+- **Status:** done (agent part). Outcome: `11b4ac5`, `5cbf68b`, `cd157aa`, merged at `59510e0`; 124 annotation tests OK; G8 0 violations. Implementation gate: 3 rounds, 9 findings accepted (sampler output confinement, the `sensitive` definition flagged for user approval and rephrased around harm, contamination containment, short prompts and empty sources, adjudication coverage, scorer layer errors, freeze gate binding, conditional enforcement rates, a multi-commit label regression, and an environment test switch), 0 rejected. The user approved the `sensitive` definition on 26 Nov 2026 (Dual-Axis severity S2 and S3 are `yes`; `2a32d6d`). Open before 13a-3: the user supplies worked examples (D12); `score_privoke.py --smoke` runs under the host lock before 13a-5; `fuzzer_curricula` is not a separate default (fuzzer outputs are covered through `results/`).
 - **Handoff notes:** record the `$PYPIPE` interpreter path and the generated-client directory in the record. V3 balanced is read from the main checkout.
 
 ## Stage 13a-2: Recruit, write and deliver the fresh prompts (USER)
